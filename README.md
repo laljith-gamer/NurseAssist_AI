@@ -1,6 +1,6 @@
 **🩺 NurseAssist AI**
 
-Optimized Offline-First Clinical Documentation \& Intelligence System
+Optimized Clinical Documentation \& Intelligence System
 
 Assist nurses. Preserve clinical judgment. Detect change early.
 
