@@ -1,0 +1,326 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 246 249 251;
+  --foreground: 16 24 40;
+  --primary: 15 118 110;
+  --primary-foreground: 255 255 255;
+  --secondary: 238 242 245;
+  --secondary-foreground: 31 41 55;
+  --muted: 243 246 249;
+  --muted-foreground: 100 116 139;
+  --accent: 227 244 243;
+  --accent-foreground: 15 118 110;
+  --destructive: 220 38 38;
+  --destructive-foreground: 255 255 255;
+  --border: 216 226 231;
+  --input: 216 226 231;
+  --ring: 20 136 125;
+  --radius: 0.75rem;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(15, 118, 110, 0.12), transparent 35%),
+    radial-gradient(circle at 90% 0%, rgba(14, 165, 233, 0.12), transparent 30%),
+    linear-gradient(180deg, #f7fbfb 0%, #eef3f6 100%);
+  color: rgb(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), var(--font-body), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.ambient {
+  pointer-events: none;
+  position: fixed;
+  z-index: 0;
+  filter: blur(50px);
+  opacity: 0.55;
+}
+
+.ambient-one {
+  top: -90px;
+  left: -60px;
+  width: 280px;
+  height: 280px;
+  background: rgba(15, 118, 110, 0.28);
+  border-radius: 999px;
+}
+
+.ambient-two {
+  right: -90px;
+  bottom: -80px;
+  width: 320px;
+  height: 320px;
+  background: rgba(14, 165, 233, 0.24);
+  border-radius: 999px;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border shadow-sm;
+    border-color: rgba(216, 226, 231, 0.9);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.93) 0%, rgba(250, 252, 253, 0.9) 100%);
+    backdrop-filter: blur(6px);
+  }
+
+  .card-header {
+    @apply px-4 py-3 border-b;
+    border-color: rgba(216, 226, 231, 0.8);
+  }
+
+  .card-body {
+    @apply p-4;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-all duration-150;
+  }
+
+  .btn:focus-visible {
+    @apply outline-none ring-2 ring-offset-2;
+  }
+
+  .btn:disabled {
+    @apply pointer-events-none opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn text-white px-4 py-2;
+    background: linear-gradient(120deg, #0f766e 0%, #0284c7 100%);
+    box-shadow: 0 8px 18px -10px rgba(2, 132, 199, 0.7);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px -12px rgba(15, 118, 110, 0.8);
+  }
+
+  .btn-primary:focus-visible {
+    @apply ring-teal-500;
+  }
+
+  .btn-secondary {
+    @apply btn px-4 py-2 text-slate-700;
+    background: linear-gradient(180deg, #f3f6f8 0%, #e8eef2 100%);
+  }
+
+  .btn-secondary:hover {
+    @apply bg-slate-200;
+  }
+
+  .btn-secondary:focus-visible {
+    @apply ring-slate-500;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-600 px-3 py-2 rounded-lg;
+  }
+
+  .btn-ghost:hover {
+    background-color: rgba(15, 118, 110, 0.08);
+    color: #0f766e;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white px-4 py-2;
+  }
+
+  .btn-danger:hover {
+    @apply bg-red-700;
+  }
+
+  .btn-danger:focus-visible {
+    @apply ring-red-500;
+  }
+
+  .input {
+    @apply flex h-10 w-full rounded-lg border bg-white px-3 py-2 text-sm text-slate-900;
+    border-color: rgba(186, 201, 210, 0.95);
+    box-shadow: inset 0 1px 2px rgba(148, 163, 184, 0.08);
+  }
+
+  .input::placeholder {
+    @apply text-slate-400;
+  }
+
+  .input:focus {
+    @apply outline-none ring-2 border-transparent;
+    ring-color: rgba(20, 136, 125, 0.45);
+  }
+
+  .input:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .badge-success {
+    @apply badge bg-emerald-100 text-emerald-800;
+  }
+
+  .badge-warning {
+    @apply badge bg-amber-100 text-amber-800;
+  }
+
+  .badge-danger {
+    @apply badge bg-rose-100 text-rose-800;
+  }
+
+  .badge-info {
+    @apply badge bg-cyan-100 text-cyan-800;
+  }
+
+  .vital-value {
+    @apply font-mono text-lg font-semibold;
+  }
+
+  .vital-label {
+    @apply text-xs text-slate-500 uppercase tracking-wide;
+  }
+
+  .vital-unit {
+    @apply text-sm text-slate-400 ml-1;
+  }
+
+  .delta-positive {
+    @apply text-rose-600;
+  }
+
+  .delta-negative {
+    @apply text-emerald-600;
+  }
+
+  .delta-neutral {
+    @apply text-slate-500;
+  }
+
+  .status-indicator {
+    @apply w-2 h-2 rounded-full;
+  }
+
+  .status-normal {
+    @apply status-indicator bg-emerald-500;
+  }
+
+  .status-elevated {
+    @apply status-indicator bg-amber-500;
+  }
+
+  .status-high {
+    @apply status-indicator bg-rose-500;
+  }
+
+  .status-critical {
+    @apply status-indicator bg-rose-700 animate-pulse;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #b8c6cf transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #b8c6cf;
+    border-radius: 999px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #91a5b2;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-in {
+    animation: fadeIn 0.22s ease-out;
+  }
+
+  .slide-in-bottom {
+    animation: slideUp 0.32s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.recharts-tooltip-wrapper {
+  background-color: white !important;
+  border: 1px solid #d9e5ec !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 22px -16px rgb(15 23 42 / 0.7) !important;
+}
+
+.recharts-default-tooltip {
+  background-color: white !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  padding: 12px !important;
+}
+
+.recharts-tooltip-label {
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  margin-bottom: 8px !important;
+}
+
+.recharts-tooltip-item {
+  font-size: 14px !important;
+  padding: 2px 0 !important;
+}
