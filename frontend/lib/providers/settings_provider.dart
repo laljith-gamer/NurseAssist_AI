@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SettingsProvider with ChangeNotifier {
-  String _backendUrl = 'http://192.168.1.36:8001';
+  String _backendUrl = 'https://nurseassist-ai-1.onrender.com';
   bool _isDarkMode = true; // Default to dark mode for premium look
 
   String get backendUrl => _backendUrl;
