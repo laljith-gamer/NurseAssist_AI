@@ -240,20 +240,6 @@ def get_engine():
         engine = create_engine(
             db_url,
             echo=settings.DEBUG,
-
-
-engine = None
-
-
-def get_engine():
-    global engine
-    if engine is None:
-        os.makedirs(settings.DATA_DIR, exist_ok=True)
-        db_url = f"sqlite:///{settings.DB_PATH}"
-        print(f"Creating database at: {settings.DB_PATH}")
-        engine = create_engine(
-            db_url,
-            echo=settings.DEBUG,
             connect_args={"check_same_thread": False}
         )
     return engine
