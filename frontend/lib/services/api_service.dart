@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'local_db_service.dart';
 
 class ApiService {
   String baseUrl = 'https://nurseassist-ai-1.onrender.com';
@@ -13,17 +14,8 @@ class ApiService {
   
   WebSocketChannel? _channel;
   
-  // REST API Methods
-  Future<List<dynamic>> getPatients() async {
-    final response = await http.get(Uri.parse('$baseUrl/api/patients'));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load patients');
-    }
-  }
-
-  Future<dynamic> createPatient(Map<String, dynamic> patientData) async {
+  // Create an online-only fallback for SyncService
+  Future<dynamic> createPatientOnline(Map<String, dynamic> patientData) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/patients'),
       headers: {'Content-Type': 'application/json'},
@@ -34,6 +26,59 @@ class ApiService {
     } else {
       throw Exception('Failed to create patient');
     }
+  }
+
+  Future<void> sendCommandOnline(String patientId, String message) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/chat/command'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'patient_id': patientId, 'message': message}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to send command online');
+    }
+  }
+  
+  // REST API Methods
+  Future<List<dynamic>> getPatients() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/patients')).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Save to cache
+        await LocalDbService().cachePatientsList(data);
+        return data;
+      }
+    } catch (e) {
+      // Offline or timeout, read from cache
+      return await LocalDbService().getCachedPatients();
+    }
+    throw Exception('Failed to load patients');
+  }
+
+  Future<dynamic> createPatient(Map<String, dynamic> patientData) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/patients'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(patientData),
+      ).timeout(const Duration(seconds: 3));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        await LocalDbService().cacheNewPatient(data);
+        return data;
+      }
+    } catch (e) {
+      // Offline, queue action and cache locally
+      await LocalDbService().queueAction('/api/patients', patientData);
+      
+      // Give it a temporary local ID
+      patientData['id'] = 'TEMP_${DateTime.now().millisecondsSinceEpoch}';
+      await LocalDbService().cacheNewPatient(patientData);
+      return patientData;
+    }
+    throw Exception('Failed to create patient');
   }
 
   Future<bool> submitIntentFeedback(String text, String correctIntent) async {
@@ -110,11 +155,18 @@ class ApiService {
     _channel = null;
   }
 
-  void sendCommand(String command) {
+  void sendCommand(String message) {
     if (_channel != null) {
       _channel!.sink.add(jsonEncode({
-        'text': command,
+        'type': 'command',
+        'message': message,
       }));
+    } else {
+      // If websocket is offline/null, queue it via REST fallback
+      LocalDbService().queueAction('/api/chat/sync', {
+        'patientId': 'unknown', // Need patient ID, handled in provider ideally
+        'message': message,
+      });
     }
   }
 }

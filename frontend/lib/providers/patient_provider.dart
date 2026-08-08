@@ -2,9 +2,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/types.dart';
 import '../services/api_service.dart';
+import '../services/sync_service.dart';
+import '../services/local_db_service.dart';
 
 class PatientProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
+  final SyncService _syncService = SyncService();
 
   final List<Patient> _patients = [];
   Patient? _selectedPatient;
@@ -19,9 +22,11 @@ class PatientProvider with ChangeNotifier {
   DeltaMetrics? get currentMetrics => _currentMetrics;
   List<ChatMessage> get messages => _messages;
   bool get isLoading => _isLoading;
+  bool get isOffline => !_syncService.isOnline;
   ApiService get apiService => _apiService;
 
   PatientProvider() {
+    _syncService.addListener(notifyListeners);
     loadPatients();
   }
 
@@ -115,6 +120,8 @@ class PatientProvider with ChangeNotifier {
   }
 
   void sendMessage(String message) {
+    if (_selectedPatient == null) return;
+    
     _messages.add(ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       role: 'user',
@@ -122,11 +129,29 @@ class PatientProvider with ChangeNotifier {
       timestamp: DateTime.now(),
     ));
     notifyListeners();
-    _apiService.sendCommand(message);
+    
+    if (_syncService.isOnline) {
+      _apiService.sendCommand(message);
+    } else {
+      // Offline fallback: Queue via API service REST fallback logic
+      LocalDbService().queueAction('/api/chat/sync', {
+        'patientId': _selectedPatient!.id,
+        'message': message,
+      });
+      
+      _messages.add(ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        role: 'assistant',
+        content: 'Offline Mode: Vitals recorded locally. AI analysis suspended until reconnected.',
+        timestamp: DateTime.now(),
+      ));
+      notifyListeners();
+    }
   }
 
   @override
   void dispose() {
+    _syncService.removeListener(notifyListeners);
     _streamSubscription?.cancel();
     _apiService.disconnectStream();
     super.dispose();
