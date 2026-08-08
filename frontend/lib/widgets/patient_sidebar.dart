@@ -18,9 +18,11 @@ class PatientSidebar extends StatelessWidget {
           return const Center(child: Text("No patients found"));
         }
 
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
         return Container(
           width: 250,
-          color: Colors.grey[100],
+          color: isDark ? const Color(0xFF1A1A1A) : Colors.grey[100],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

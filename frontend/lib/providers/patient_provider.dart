@@ -22,10 +22,10 @@ class PatientProvider with ChangeNotifier {
   ApiService get apiService => _apiService;
 
   PatientProvider() {
-    _loadPatients();
+    loadPatients();
   }
 
-  Future<void> _loadPatients() async {
+  Future<void> loadPatients() async {
     _isLoading = true;
     notifyListeners();
     try {

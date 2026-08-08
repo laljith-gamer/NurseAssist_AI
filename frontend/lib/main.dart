@@ -54,10 +54,6 @@ class NurseAssistApp extends StatelessWidget {
             useMaterial3: true,
             textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
             scaffoldBackgroundColor: const Color(0xFF121212), // True dark
-            cardTheme: CardTheme(
-              color: const Color(0xFF1E1E1E).withOpacity(0.8), // Glassmorphism base
-              elevation: 4,
-            ),
           ),
           home: const DashboardScreen(),
         );

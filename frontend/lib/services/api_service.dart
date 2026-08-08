@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class ApiService {
-  String baseUrl = 'http://192.168.1.36:8001';
-  String wsUrl = 'ws://192.168.1.36:8001';
+  String baseUrl = 'https://nurseassist-ai-1.onrender.com';
+  String wsUrl = 'wss://nurseassist-ai-1.onrender.com';
   
   void updateUrls(String httpUrl, String websocketUrl) {
     baseUrl = httpUrl;

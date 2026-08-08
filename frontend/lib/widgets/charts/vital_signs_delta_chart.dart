@@ -15,11 +15,12 @@ class VitalSignsDeltaChart extends StatelessWidget {
         }
 
         final deltas = metrics.deltas;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
