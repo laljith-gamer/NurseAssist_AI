@@ -127,7 +127,7 @@ async def create_patient(patient: PatientCreate):
         
         patient_data = patient.dict()
         patient_data["patient_id"] = str(uuid.uuid4())
-        patient_data["admission_date"] = datetime.utcnow().isoformat()
+        patient_data["admission_date"] = datetime.utcnow()
         patient_data["is_active"] = True
         
         new_patient = repo.create_patient(patient_data)

@@ -41,6 +41,14 @@ async def run_tests():
     print("Preloading LLM...")
     llm, _ = orch._get_llm_components()
     
+    # Create test patient
+    from database.models import Patient, get_engine
+    from sqlmodel import Session
+    with Session(get_engine()) as session:
+        if not session.get(Patient, "p1"):
+            session.add(Patient(id="p1", first_name="Test", last_name="Patient", is_active=True))
+            session.commit()
+    
     passed = 0
     failed = 0
     
