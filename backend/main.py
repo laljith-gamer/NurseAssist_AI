@@ -75,6 +75,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {
+        "status": "online", 
+        "message": "NurseAssist AI Backend is running.", 
+        "version": settings.VERSION
+    }
+
 @app.get("/health")
 async def health_check():
     return {
