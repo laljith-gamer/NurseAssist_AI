@@ -231,6 +231,42 @@ Clinical Interpretation:""",
         
         return full_prompt.strip()
     
+    def build_messages(
+        self,
+        template_name: str,
+        query: str,
+        context: str = "",
+        retrieved_docs: List = None
+    ) -> List[Dict[str, str]]:
+        template = self.templates.get(template_name)
+        
+        if template is None:
+            template = self.templates["clinical_assistant"]
+        
+        docs_text = ""
+        if retrieved_docs:
+            docs_text = "\n".join([
+                f"- {doc.content}" if hasattr(doc, 'content') else f"- {doc}"
+                for doc in retrieved_docs[:5]
+            ])
+        
+        if not docs_text:
+            docs_text = "No additional reference information available."
+        
+        if not context:
+            context = "No specific patient context provided."
+        
+        user_prompt = template.user_template.format(
+            query=query,
+            context=context,
+            retrieved_docs=docs_text
+        )
+        
+        return [
+            {"role": "system", "content": template.system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+    
     def list_templates(self) -> List[Dict]:
         return [
             {

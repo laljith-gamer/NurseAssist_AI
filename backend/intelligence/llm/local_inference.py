@@ -59,19 +59,15 @@ class LocalLLM:
         retrieved_docs: List = None,
         template_name: str = "clinical_assistant"
     ) -> str:
-        prompt = self.templates.build_prompt(
-            template_name=template_name,
-            query=query,
-            context=context,
-            retrieved_docs=retrieved_docs or []
-        )
-
         try:
             if self.provider == "embedded":
+                prompt = self.templates.build_prompt(template_name, query, context, retrieved_docs)
                 response = await self._call_embedded(prompt)
             elif self._is_openai_compatible_provider():
-                response = await self._call_openai_compatible(prompt)
+                messages = self.templates.build_messages(template_name, query, context, retrieved_docs)
+                response = await self._call_openai_compatible(messages)
             else:
+                prompt = self.templates.build_prompt(template_name, query, context, retrieved_docs)
                 response = await self._call_ollama(prompt)
             return response.content
         except Exception:
@@ -84,23 +80,17 @@ class LocalLLM:
         retrieved_docs: List = None,
         template_name: str = "clinical_assistant"
     ) -> AsyncGenerator[str, None]:
-        prompt = self.templates.build_prompt(
-            template_name=template_name,
-            query=query,
-            context=context,
-            retrieved_docs=retrieved_docs or []
-        )
-
         try:
             if self.provider == "embedded":
+                prompt = self.templates.build_prompt(template_name, query, context, retrieved_docs)
                 async for chunk in self._stream_embedded(prompt):
                     yield chunk
             elif self._is_openai_compatible_provider():
-                # Keep stream contract simple for OpenAI-compatible providers:
-                # return a single full chunk when requested via stream API.
-                response = await self._call_openai_compatible(prompt)
+                messages = self.templates.build_messages(template_name, query, context, retrieved_docs)
+                response = await self._call_openai_compatible(messages)
                 yield response.content
             else:
+                prompt = self.templates.build_prompt(template_name, query, context, retrieved_docs)
                 async for chunk in self._stream_ollama(prompt):
                     yield chunk
         except Exception:
@@ -179,7 +169,7 @@ class LocalLLM:
                 yield chunk
                 await asyncio.sleep(0.01)
 
-    async def _call_openai_compatible(self, prompt: str) -> LLMResponse:
+    async def _call_openai_compatible(self, messages: List[Dict[str, str]]) -> LLMResponse:
         client = self._get_openai_client()
         extra_body = self._build_openai_extra_body()
         max_tokens = min(self.openai_max_tokens, self.fast_max_tokens) if self.fast_response_mode else self.openai_max_tokens
@@ -188,7 +178,7 @@ class LocalLLM:
         def _request():
             request_kwargs = {
                 "model": self.openai_model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": messages,
                 "temperature": temperature,
                 "top_p": self.openai_top_p,
                 "max_tokens": max_tokens,

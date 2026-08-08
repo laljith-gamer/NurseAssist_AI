@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # OpenAI-compatible settings (NVIDIA Integrate works with these)
     OPENAI_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
     OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "nvidia/nvidia-nemotron-nano-9b-v2"
+    OPENAI_MODEL: str = "meta/llama-3.1-8b-instruct"
     OPENAI_TEMPERATURE: float = 0.2
     OPENAI_TOP_P: float = 0.95
     OPENAI_MAX_TOKENS: int = 384
