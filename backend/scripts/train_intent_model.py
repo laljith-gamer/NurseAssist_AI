@@ -15,7 +15,7 @@ except ImportError:
     print("scikit-learn is required. Run: pip install scikit-learn")
     sys.exit(1)
 
-def generate_training_data(total_samples=100000):
+def generate_training_data(total_samples=5000):
     print(f"Generating {total_samples} synthetic training datasets...")
     
     intents_and_templates = {
@@ -148,7 +148,7 @@ def train_model():
     print("Initializing Machine Learning Pipeline...")
     
     start_time = time.time()
-    X, y = generate_training_data(100000)
+    X, y = generate_training_data(5000)
     
     pipeline = Pipeline([
         ('tfidf', TfidfVectorizer(ngram_range=(1, 2))),

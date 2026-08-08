@@ -1,6 +1,6 @@
 **🩺 NurseAssist AI**
 
-Optimized Offline-First Clinical Documentation \& Intelligence System
+Optimized Cloud-Powered Clinical Documentation & Intelligence System
 
 Assist nurses. Preserve clinical judgment. Detect change early.
 
@@ -8,7 +8,7 @@ Assist nurses. Preserve clinical judgment. Detect change early.
 
 **📌 Overview**
 
-Digital Clinical Nurse Assistant is an offline-first, deterministic-first clinical documentation system designed to transform routine nursing inputs into structured, reliable, real-time health intelligence.
+Digital Clinical Nurse Assistant is a cloud-powered, deterministic-first clinical documentation system designed to transform routine nursing inputs into structured, reliable, real-time health intelligence.
 
 The system prioritizes accuracy, latency, and safety by strictly separating deterministic clinical recording paths from generative AI reasoning paths, ensuring that critical operations such as vitals and medication recording never depend on LLMs.
 
@@ -20,7 +20,7 @@ This architecture reflects best practices used in high-performing private health
 
 * Zero-downtime deterministic vitals \& medication recording
 * Sub-100ms intent detection, even on low-end hardware
-* Full offline-first operation with local LLM + RAG
+* Blazing fast cloud operation with NVIDIA Llama 3 API + RAG
 * Strict separation of deterministic vs generative paths
 * Real-time delta metrics \& clinical change detection
 * Single source of truth for patient context (no hallucinated state)
@@ -118,11 +118,11 @@ LLMs are used only for:
 
 
 
-**Offline by Design**
+**Cloud by Design**
 
-* Local database
-* Local vector store
-* Local LLM inference (Ollama / llama.cpp / LM Studio)
+* Cloud-hosted database
+* Cloud vector store
+* High-performance LLM inference via NVIDIA API (Llama 3 8B Instruct)
 
 
 
@@ -329,7 +329,7 @@ Displayed Metrics
 
 < 100ms response for 95% of interactions
 
-Zero cloud dependency
+Fully cloud-integrated and scalable
 
 Real-time clinical change detection
 
