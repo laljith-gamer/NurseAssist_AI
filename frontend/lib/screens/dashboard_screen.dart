@@ -185,16 +185,72 @@ class _DashboardContent extends StatelessWidget {
             ],
           );
         } else {
-          // Stacked view for mobile
-          return Column(
-            children: const [
-              ClinicalChangeBanner(),
-              VitalSignsDeltaChart(),
-              SizedBox(height: 16),
-              Expanded(child: ChatInterface()),
-            ],
+          // Tabbed view for mobile
+          return DefaultTabController(
+            length: 3,
+            child: Column(
+              children: [
+                TabBar(
+                  labelColor: Theme.of(context).primaryColor,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Theme.of(context).primaryColor,
+                  tabs: const [
+                    Tab(text: 'Chat', icon: Icon(Icons.chat_bubble_outline)),
+                    Tab(text: 'Vitals', icon: Icon(Icons.monitor_heart_outlined)),
+                    Tab(text: 'Score', icon: Icon(Icons.score)),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      const ChatInterface(),
+                      Column(
+                        children: const [
+                          ClinicalChangeBanner(),
+                          SizedBox(height: 8),
+                          Expanded(child: SingleChildScrollView(child: VitalSignsDeltaChart())),
+                        ],
+                      ),
+                      _ScoreTabContent(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           );
         }
+      },
+    );
+  }
+}
+
+class _ScoreTabContent extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PatientProvider>(
+      builder: (context, provider, child) {
+        final status = provider.currentMetrics?.clinicalStatus;
+        if (status == null || status.isEmpty) {
+          return const Center(child: Text("No scoring data available."));
+        }
+        
+        return ListView(
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            const Text(
+              "Clinical Status",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ...status.entries.map((e) => Card(
+              margin: const EdgeInsets.only(bottom: 8.0),
+              child: ListTile(
+                title: Text(e.key.toUpperCase()),
+                subtitle: Text(e.value),
+              ),
+            )).toList(),
+          ],
+        );
       },
     );
   }
