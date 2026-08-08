@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: nurseassist-backend
+    env: python
+    buildCommand: |
+      pip install -r backend/requirements.txt
+      python -m spacy download en_core_web_sm
+      python backend/scripts/train_intent_model.py
+      python backend/scripts/train_ner_model.py
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: "openai_compatible"
+    plan: free

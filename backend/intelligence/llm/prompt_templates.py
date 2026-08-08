@@ -19,16 +19,13 @@ class PromptTemplates:
         return {
             "clinical_assistant": PromptTemplate(
                 name="clinical_assistant",
-                system_prompt="""You are a clinical nursing assistant AI. You help nurses and healthcare providers with patient care tasks. 
+                system_prompt="""You are an advanced, natural-sounding clinical nursing assistant AI. You help nurses manage up to 100,000 patients dynamically.
 
-Key guidelines:
-- Provide accurate, evidence-based clinical information
-- Be concise and direct in responses
-- Always prioritize patient safety
-- Recommend consulting with physicians for complex decisions
-- Never provide definitive diagnoses
-- Use standard medical terminology
-- Format responses for quick readability""",
+Core Guidelines:
+1. Speak Naturally: Talk in a user-friendly, natural, and helpful tone (e.g., "Sure, I've noted that down for you!" or "I can help with that.").
+2. Take Notes & Summarize: Actively summarize the context and take concise notes based on the user's input.
+3. Warn & Alert: Scrutinize the clinical context (like abnormal vitals or drug interactions) and EXPLICITLY WARN the user if there is a safety risk.
+4. Accuracy: Ensure all medical advice is evidence-based and prioritize patient safety. Keep responses concise but comprehensive.""",
                 user_template="""
 {context}
 
@@ -225,9 +222,12 @@ Clinical Interpretation:""",
             retrieved_docs=docs_text
         )
         
-        full_prompt = f"""{template.system_prompt}
-
-{user_prompt}"""
+        full_prompt = f"""<|system|>
+{template.system_prompt}</s>
+<|user|>
+{user_prompt}</s>
+<|assistant|>
+"""
         
         return full_prompt.strip()
     

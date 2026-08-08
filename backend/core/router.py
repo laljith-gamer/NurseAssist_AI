@@ -74,10 +74,6 @@ class InputRouter:
                 r"(?:gave|given|administered|admin)\s+(.+?)(?:\s+to\s+patient)?$",
                 re.IGNORECASE
             ),
-            "due": re.compile(
-                r"(.+?)\s+(?:due|is\s+due|needs?)",
-                re.IGNORECASE
-            ),
             "held": re.compile(
                 r"(?:held?|hold|skip(?:ped)?)\s+(.+)",
                 re.IGNORECASE
@@ -230,13 +226,6 @@ class InputRouter:
         return None
     
     def _determine_fallback_route(self, text: str) -> RouteType:
-        text_lower = text.lower()
-        
-        for indicator in self.query_indicators:
-            if indicator in text_lower:
-                return RouteType.LLM_REQUIRED
-        
-        if text.endswith("?"):
-            return RouteType.LLM_REQUIRED
-        
+        # Route to NLP by default so the ML Intent Classifier can process it.
+        # It will fallback to the LLM if the intent is unknown.
         return RouteType.NLP_REQUIRED

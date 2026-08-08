@@ -61,7 +61,6 @@ async def lifespan(app: FastAPI):
     yield
     print("Shutting down...")
 
-
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.VERSION,
@@ -71,11 +70,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 @app.get("/health")
 async def health_check():
@@ -98,6 +96,61 @@ async def get_patients():
         print(f"Error fetching patients: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+from pydantic import BaseModel
+import uuid
+
+class PatientCreate(BaseModel):
+    first_name: str
+    last_name: str
+    age: int
+    gender: str
+    room: str
+    mrn: str
+    primary_diagnosis: str
+    allergies: str
+    status: str
+
+@app.post("/api/patients")
+async def create_patient(patient: PatientCreate):
+    try:
+        from database.repo.patient_repo import PatientRepository
+        repo = PatientRepository()
+        
+        patient_data = patient.dict()
+        patient_data["patient_id"] = str(uuid.uuid4())
+        patient_data["admission_date"] = datetime.utcnow().isoformat()
+        patient_data["is_active"] = True
+        
+        new_patient = repo.create_patient(patient_data)
+        return JSONResponse(content=new_patient)
+    except Exception as e:
+        print(f"Error creating patient: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class IntentFeedback(BaseModel):
+    text: str
+    correct_intent: str
+
+@app.post("/api/feedback/intent")
+async def feedback_intent(feedback: IntentFeedback):
+    from nlp.intent_classifier import IntentClassifier
+    classifier = IntentClassifier()
+    success = classifier.update_model(feedback.text, feedback.correct_intent)
+    return {"success": success}
+
+class NERFeedback(BaseModel):
+    text: str
+    entity_label: str
+    start_idx: int
+    end_idx: int
+
+@app.post("/api/feedback/ner")
+async def feedback_ner(feedback: NERFeedback):
+    from nlp.entity_extractor import EntityExtractor
+    extractor = EntityExtractor()
+    success = extractor.update_model(feedback.text, feedback.entity_label, feedback.start_idx, feedback.end_idx)
+    return {"success": success}
 
 @app.get("/api/patients/{patient_id}")
 async def get_patient(patient_id: str):

@@ -21,9 +21,14 @@ class Settings(BaseSettings):
     VECTOR_STORE_PATH: Path = DATA_DIR / "vector_store"
     MEDICAL_VOCAB_PATH: Path = DATA_DIR / "medical_vocab.db"
     # LLM provider options:
+    # - "embedded": local model via llama-cpp-python (auto downloads)
     # - "ollama": local model via Ollama generate API
-    # - "openai_compatible": OpenAI-compatible chat API (e.g. NVIDIA Integrate)
-    LLM_PROVIDER: str = "ollama"
+    # - "openai_compatible": OpenAI-compatible chat API
+    LLM_PROVIDER: str = "openai_compatible"
+
+    # Embedded settings
+    EMBEDDED_REPO_ID: str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
+    EMBEDDED_FILENAME: str = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 
     # Ollama settings
     LLM_MODEL: str = "tinyllama-1.1b-chat-v1.0.Q4_K_M"

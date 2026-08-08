@@ -344,50 +344,67 @@ class TextPreprocessor:
             for suffix in medication_suffixes:
                 if token_lower.endswith(suffix):
                     medical_terms.append(token_lower)
+        
+        return result, expansions
+    
+    def _convert_number_words(self, text: str) -> str:
+        result = text.lower()
+        
+        for word, value in sorted(
+            self.number_words.items(),
+            key=lambda x: len(x[0]),
+            reverse=True
+        ):
+            pattern = r"\b" + word + r"\b"
+            result = re.sub(pattern, str(value), result, flags=re.IGNORECASE)
+        
+        return result
+    
+    def _normalize_units(self, text: str) -> str:
+        result = text
+        
+        for full_unit, abbrev in self.unit_mappings.items():
+            pattern = r"\b" + re.escape(full_unit) + r"\b"
+            result = re.sub(pattern, abbrev, result, flags=re.IGNORECASE)
+        
+        return result
+    
+    def _tokenize(self, text: str) -> List[str]:
+        text = re.sub(r"([^\w\s./])", r" \1 ", text)
+        tokens = text.split()
+        return [t for t in tokens if t]
+    
+    def _extract_medical_terms(self, tokens: List[str]) -> List[str]:
+        medical_terms = []
+        
+        known_terms = set(self.medical_abbreviations.keys())
+        known_terms.update(self.medical_abbreviations.values())
+        
+        medication_suffixes = [
+            "pril", "sartan", "olol", "pine", "statin", "prazole",
+            "tidine", "azole", "cillin", "mycin", "cycline", "floxacin",
+            "mab", "nib", "zumab", "ximab"
+        ]
+        
+        for token in tokens:
+            token_lower = token.lower()
+            
+            if token_lower in known_terms:
+                medical_terms.append(token_lower)
+                continue
+            
+            for suffix in medication_suffixes:
+                if token_lower.endswith(suffix):
+                    medical_terms.append(token_lower)
                     break
         
         return medical_terms
     
     def extract_vital_values(self, text: str) -> Dict[str, Any]:
-        result = {}
-        text_lower = text.lower()
-        
-        bp_match = re.search(r"(\d{2,3})\s*[/\\]\s*(\d{2,3})", text)
-        if bp_match:
-            result["bp"] = {
-                "systolic": int(bp_match.group(1)),
-                "diastolic": int(bp_match.group(2))
-            }
-        
-        hr_patterns = [
-            r"(?:hr|heart\s*rate|pulse)\s*[:=]?\s*(\d{2,3})",
-            r"(\d{2,3})\s*bpm"
-        ]
-        for pattern in hr_patterns:
-            match = re.search(pattern, text_lower)
-            if match:
-                result["hr"] = int(match.group(1))
-                break
-        
-        temp_match = re.search(
-            r"(?:temp|temperature)\s*[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)",
-            text_lower
-        )
-        if temp_match:
-            result["temp"] = float(temp_match.group(1))
-        
-        spo2_match = re.search(
-            r"(?:spo2|sp02|o2\s*sat|oxygen)\s*[:=]?\s*(\d{2,3})",
-            text_lower
-        )
-        if spo2_match:
-            result["spo2"] = float(spo2_match.group(1))
-        
-        rr_match = re.search(
-            r"(?:rr|resp|respiratory)\s*[:=]?\s*(\d{1,2})",
-            text_lower
-        )
-        if rr_match:
-            result["rr"] = int(rr_match.group(1))
-        
-        return result
+        """
+        DEPRECATED: Hardcoded regex has been removed.
+        Vital extraction is now handled mathematically by the deep learning NER model
+        in entity_extractor.py. This method remains for interface compatibility
+        but delegates to the NLP pipeline or returns empty.
+        """
+        return {}
