@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # - "embedded": local model via llama-cpp-python (auto downloads)
     # - "ollama": local model via Ollama generate API
     # - "openai_compatible": OpenAI-compatible chat API
-    LLM_PROVIDER: str = "embedded"
+    LLM_PROVIDER: str = "openai_compatible"
 
     # Embedded settings
     EMBEDDED_REPO_ID: str = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
