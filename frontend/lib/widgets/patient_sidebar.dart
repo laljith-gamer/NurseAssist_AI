@@ -14,10 +14,6 @@ class PatientSidebar extends StatelessWidget {
         }
 
         final patients = provider.patients;
-        if (patients.isEmpty) {
-          return const Center(child: Text("No patients found"));
-        }
-
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Container(
@@ -46,8 +42,10 @@ class PatientSidebar extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  itemCount: patients.length,
+                child: patients.isEmpty 
+                  ? const Center(child: Text("No patients found"))
+                  : ListView.builder(
+                      itemCount: patients.length,
                   itemBuilder: (context, index) {
                     final patient = patients[index];
                     final isSelected = provider.selectedPatient?.id == patient.id;
