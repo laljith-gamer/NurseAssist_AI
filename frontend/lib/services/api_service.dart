@@ -30,9 +30,9 @@ class ApiService {
 
   Future<void> sendCommandOnline(String patientId, String message) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/chat/command'),
+      Uri.parse('$baseUrl/api/input'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'patient_id': patientId, 'message': message}),
+      body: jsonEncode({'patient_id': patientId, 'text': message}),
     );
     if (response.statusCode != 200) {
       throw Exception('Failed to send command online');
@@ -159,7 +159,7 @@ class ApiService {
     if (_channel != null) {
       _channel!.sink.add(jsonEncode({
         'type': 'command',
-        'message': message,
+        'text': message,
       }));
     } else {
       // If websocket is offline/null, queue it via REST fallback

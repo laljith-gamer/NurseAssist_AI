@@ -534,12 +534,26 @@ class AssistantOrchestrator:
             if patient_id:
                 from database.repo.patient_repo import PatientRepository
                 from database.repo.vitals_repo import VitalsRepository
+                from database.repo.chat_repo import ChatRepository
                 
                 patient_repo = PatientRepository()
                 vitals_repo = VitalsRepository()
+                chat_repo = ChatRepository()
                 
                 patient = patient_repo.get_patient(patient_id)
                 vitals = vitals_repo.get_latest_vitals(patient_id)
+                
+                # Fetch recent chat history
+                chat_history_text = ""
+                sessions = chat_repo.list_sessions(patient_id)
+                if sessions:
+                    session_data = chat_repo.get_session(patient_id, sessions[0]["id"], include_messages=True)
+                    if session_data and session_data.get("messages"):
+                        recent_messages = session_data["messages"][-10:]
+                        chat_history_text = "\nRecent Conversation History:\n"
+                        for msg in recent_messages:
+                            role = "User" if msg.get("role") == "user" else "Assistant"
+                            chat_history_text += f"{role}: {msg.get('content', '')}\n"
                 
                 if patient:
                     patient_context = f"""
@@ -557,6 +571,8 @@ Latest Vitals:
 - Temp: {vitals.get('temperature', 'N/A')} C
 - SpO2: {vitals.get('spo2', 'N/A')}%
 """
+                if chat_history_text:
+                    patient_context += f"\n{chat_history_text}"
             
             relevant_docs = retriever.retrieve(normalized_text)
             

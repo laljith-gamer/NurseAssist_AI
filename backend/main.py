@@ -131,6 +131,23 @@ async def create_patient(patient: PatientCreate):
         patient_data["is_active"] = True
         
         new_patient = repo.create_patient(patient_data)
+        
+        try:
+            from database.repo.vitals_repo import VitalsRepository
+            vitals_repo = VitalsRepository()
+            vitals_repo.record_vitals(
+                patient_id=patient_data["patient_id"],
+                vitals_data={
+                    "systolic": 120,
+                    "diastolic": 80,
+                    "heart_rate": 72,
+                    "temperature": 37.0,
+                    "spo2": 98
+                }
+            )
+        except Exception as v_err:
+            print(f"Failed to populate initial vitals: {v_err}")
+            
         return JSONResponse(content=new_patient)
     except Exception as e:
         print(f"Error creating patient: {e}")
@@ -331,6 +348,30 @@ async def websocket_endpoint(websocket: WebSocket, patient_id: str):
                     patient_id=patient_id,
                     context=message.get("context", {})
                 )
+                
+                # Add WebSocket chat persistence
+                if patient_id and message.get("text"):
+                    try:
+                        from database.repo.chat_repo import ChatRepository
+                        chat_repo = ChatRepository()
+                        
+                        sessions = chat_repo.list_sessions(patient_id)
+                        if sessions:
+                            session_id = sessions[0]["id"]
+                        else:
+                            new_session = chat_repo.create_session(patient_id=patient_id)
+                            session_id = new_session["id"]
+                            
+                        chat_repo.append_exchange(
+                            patient_id=patient_id,
+                            session_id=session_id,
+                            user_content=message.get("text", ""),
+                            assistant_content=response.get("message", ""),
+                            assistant_metadata=response.get("data")
+                        )
+                    except Exception as chat_error:
+                        print(f"WebSocket chat persistence error: {chat_error}")
+
             except Exception as e:
                 print(f"WebSocket processing error: {e}")
                 await websocket.send_json({
