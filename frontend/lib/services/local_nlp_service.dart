@@ -87,10 +87,6 @@ class LocalNlpService {
       }
     }
 
-    if (termCounts.isEmpty) {
-      return {'unknown': 0.0};
-    }
-
     Map<int, double> vector = {};
     double sumSquares = 0.0;
     for (var entry in termCounts.entries) {

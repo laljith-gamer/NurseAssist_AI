@@ -132,6 +132,16 @@ def generate_training_data(total_samples=1000000):
             "?",
             "Help"
         ],
+        "greeting": [
+            "Hi",
+            "Hello",
+            "Hey",
+            "Good morning",
+            "Good afternoon",
+            "Greetings",
+            "Hi NurseAssist",
+            "Hello AI"
+        ],
         "unknown": [
             "Tell me a joke",
             "What is the weather?",
