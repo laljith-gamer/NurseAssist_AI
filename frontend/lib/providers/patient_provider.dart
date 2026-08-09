@@ -157,7 +157,7 @@ class PatientProvider with ChangeNotifier {
         return "💊 Retrieving medication records for $patientName from local storage...\n\n"
             "All medication data is stored securely on this device.";
       
-      case 'command_summarize':
+      case 'summarize':
         return "📋 Generating clinical summary for $patientName...\n\n"
             "Summary is based on locally stored records including vitals, "
             "medications, and clinical notes saved on this device.";

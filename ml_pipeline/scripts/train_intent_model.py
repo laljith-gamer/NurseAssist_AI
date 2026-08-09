@@ -15,8 +15,21 @@ except ImportError:
     print("scikit-learn is required. Run: pip install scikit-learn")
     sys.exit(1)
 
-def generate_training_data(total_samples=5000):
-    print(f"Generating {total_samples} synthetic training datasets...")
+def add_noise(text):
+    if random.random() < 0.2:
+        return text.lower()
+    if random.random() < 0.1:
+        # Typo simulation
+        if "patient" in text.lower():
+            text = text.replace("patient", "pt").replace("Patient", "Pt")
+        if "temperature" in text.lower():
+            text = text.replace("temperature", "temp")
+        if "blood pressure" in text.lower():
+            text = text.replace("blood pressure", "bp")
+    return text
+
+def generate_training_data(total_samples=1000000):
+    print(f"Generating {total_samples:,} highly diverse synthetic training datasets...")
     
     intents_and_templates = {
         "record_vitals": [
@@ -27,7 +40,14 @@ def generate_training_data(total_samples=5000):
             "Recorded HR of {num}",
             "Weight is {num} lbs",
             "SpO2 {num}% on room air",
-            "respiratory rate {num}"
+            "respiratory rate {num}",
+            "can you record vitals {num}/{num} for {name}",
+            "i need to log bp of {num}/{num}",
+            "temp {num}",
+            "O2 sats {num}",
+            "pulse is {num}",
+            "blood pressure {num} over {num}",
+            "vitals for {name} are {num}/{num}"
         ],
         "record_medication": [
             "Gave patient {num}mg {med}",
@@ -37,7 +57,10 @@ def generate_training_data(total_samples=5000):
             "Patient refused {med}",
             "Given {med} {num} mcg",
             "med given",
-            "administered medication"
+            "administered medication",
+            "I gave {name} {med}",
+            "{name} took {num} units of {med}",
+            "discontinue {med} for {name}"
         ],
         "query_medications": [
             "What medications are due?",
@@ -46,7 +69,9 @@ def generate_training_data(total_samples=5000):
             "What is scheduled?",
             "Which meds are due?",
             "Meds list for patient",
-            "what's due?"
+            "what's due?",
+            "is {med} due for {name}?",
+            "check meds for room {num}"
         ],
         "query_vitals": [
             "What are the latest vitals?",
@@ -55,7 +80,8 @@ def generate_training_data(total_samples=5000):
             "What is the patient's BP?",
             "How is the heart rate?",
             "Latest temp",
-            "Current oxygen sat"
+            "Current oxygen sat",
+            "did we check vitals for {name}?"
         ],
         "query_trends": [
             "Did the patient's blood pressure go up?",
@@ -71,7 +97,9 @@ def generate_training_data(total_samples=5000):
             "Brief summary",
             "Quick overview",
             "Patient snapshot",
-            "Tell me about this patient"
+            "Tell me about this patient",
+            "can i get a handoff report for {name}",
+            "summarise the latest for {name}"
         ],
         "select_patient": [
             "Select room {num}",
@@ -119,12 +147,14 @@ def generate_training_data(total_samples=5000):
             "Tell me a story",
             "Does the patient have allergies?",
             "Give me a detailed explanation",
-            "I have a general question"
+            "I have a general question",
+            "order lunch for {name}",
+            "what time is my shift over?"
         ]
     }
     
-    meds = ["Tylenol", "Metformin", "Lisinopril", "Aspirin", "Ibuprofen", "Morphine", "Zofran", "Lasix"]
-    names = ["John", "Doe", "Jane", "Smith", "Bob", "Alice"]
+    meds = ["Tylenol", "Metformin", "Lisinopril", "Aspirin", "Ibuprofen", "Morphine", "Zofran", "Lasix", "Heparin", "Insulin", "Propofol"]
+    names = ["John", "Doe", "Jane", "Smith", "Bob", "Alice", "Charlie", "Dave", "Eve", "Frank"]
     
     X = []
     y = []
@@ -138,6 +168,8 @@ def generate_training_data(total_samples=5000):
         text = text.replace("{med}", random.choice(meds))
         text = text.replace("{name}", random.choice(names))
         
+        text = add_noise(text)
+        
         X.append(text)
         y.append(intent)
         
@@ -148,14 +180,17 @@ def train_model():
     print("Initializing Machine Learning Pipeline...")
     
     start_time = time.time()
-    X, y = generate_training_data(5000)
     
+    # Generate 1,000,000 samples
+    X, y = generate_training_data(1000000)
+    
+    # Use max_features to limit RAM usage during Vectorization and keep JSON size manageable
     pipeline = Pipeline([
-        ('tfidf', TfidfVectorizer(ngram_range=(1, 2))),
-        ('clf', SGDClassifier(loss='log_loss', alpha=1e-4, random_state=42, max_iter=50))
+        ('tfidf', TfidfVectorizer(ngram_range=(1, 2), max_features=10000, min_df=2)),
+        ('clf', SGDClassifier(loss='log_loss', alpha=1e-4, random_state=42, max_iter=20, n_jobs=-1, tol=1e-3))
     ])
     
-    print("Training SGDClassifier on 100,000 datasets...")
+    print(f"Training SGDClassifier on {len(X):,} datasets...")
     pipeline.fit(X, y)
     
     with open(model_path, 'wb') as f:
@@ -167,7 +202,7 @@ def train_model():
     
     # Test it on a few phrases
     print("\nSanity Check Predictions:")
-    tests = ["BP is 120/80", "What meds are due?", "Abort", "Give patient Zofran"]
+    tests = ["BP is 120/80", "What meds are due?", "Abort", "Give patient Zofran", "can you summarise this pt"]
     preds = pipeline.predict(tests)
     probs = pipeline.predict_proba(tests)
     

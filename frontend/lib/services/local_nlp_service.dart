@@ -24,9 +24,7 @@ class LocalNlpService {
 
   bool get isReady => _isReady;
 
-  /// Load models: first try downloaded (updated) models, then fall back to bundled assets.
   Future<void> loadModels() async {
-    // 1. Try loading from downloaded models on device storage
     if (!kIsWeb) {
       try {
         final appDir = await getApplicationDocumentsDirectory();
@@ -49,7 +47,6 @@ class LocalNlpService {
       }
     }
 
-    // 2. Fall back to bundled assets (shipped inside the app)
     try {
       final intentJson = await rootBundle.loadString('assets/models/intent.json');
       final nerJson = await rootBundle.loadString('assets/models/ner.json');
@@ -63,11 +60,10 @@ class LocalNlpService {
     }
   }
 
-  List<String> _tokenize(String text) {
+  List<String> _tokenizeIntent(String text) {
     text = text.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), ' ');
     final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
 
-    // Create n-grams (1 and 2, as configured in the Python model)
     List<String> tokens = [];
     tokens.addAll(words);
     for (int i = 0; i < words.length - 1; i++) {
@@ -76,83 +72,82 @@ class LocalNlpService {
     return tokens;
   }
 
+  Map<String, double> _sgdPredict(List<String> tokens, Map<String, dynamic> model, {bool useTfIdf = true}) {
+    final vocab = Map<String, int>.from(model['vocabulary'] as Map);
+    final idf = List<double>.from((model['idf'] as List).map((e) => (e as num).toDouble()));
+    final coef = model['coef'] as List;
+    final intercept = List<double>.from((model['intercept'] as List).map((e) => (e as num).toDouble()));
+    final classes = List<String>.from(model['classes']);
+
+    Map<int, int> termCounts = {};
+    for (var token in tokens) {
+      if (vocab.containsKey(token)) {
+        final idx = vocab[token]!;
+        termCounts[idx] = (termCounts[idx] ?? 0) + 1;
+      }
+    }
+
+    if (termCounts.isEmpty) {
+      return {'unknown': 0.0};
+    }
+
+    Map<int, double> vector = {};
+    double sumSquares = 0.0;
+    for (var entry in termCounts.entries) {
+      final tf = entry.value.toDouble();
+      final val = useTfIdf ? tf * idf[entry.key] : tf;
+      vector[entry.key] = val;
+      sumSquares += val * val;
+    }
+
+    if (useTfIdf) {
+      final norm = sqrt(sumSquares);
+      if (norm > 0) {
+        for (var key in vector.keys) {
+          vector[key] = vector[key]! / norm;
+        }
+      }
+    }
+
+    List<double> scores = List.filled(classes.length, 0.0);
+    for (int i = 0; i < classes.length; i++) {
+      double score = intercept[i];
+      final classCoefs = List<double>.from((coef[i] as List).map((e) => (e as num).toDouble()));
+      for (var entry in vector.entries) {
+        score += classCoefs[entry.key] * entry.value;
+      }
+      scores[i] = score;
+    }
+
+    int bestIdx = 0;
+    double maxScore = scores[0];
+    for (int i = 1; i < scores.length; i++) {
+      if (scores[i] > maxScore) {
+        maxScore = scores[i];
+        bestIdx = i;
+      }
+    }
+
+    double confidence = 1.0 / (1.0 + exp(-maxScore));
+    return {classes[bestIdx]: confidence};
+  }
+
   IntentResult classifyIntent(String text) {
     if (!_isReady || _intentModel == null) {
       return IntentResult('unknown', 0.0);
     }
 
     try {
-      final vocab = Map<String, int>.from(_intentModel!['vocabulary'] as Map);
-      final idf = List<double>.from(
-          (_intentModel!['idf'] as List).map((e) => (e as num).toDouble()));
-      final coef = _intentModel!['coef'] as List;
-      final intercept = List<double>.from(
-          (_intentModel!['intercept'] as List).map((e) => (e as num).toDouble()));
-      final classes = List<String>.from(_intentModel!['classes']);
-
-      final tokens = _tokenize(text);
-
-      // TF calculation
-      Map<int, int> termCounts = {};
-      for (var token in tokens) {
-        if (vocab.containsKey(token)) {
-          final idx = vocab[token]!;
-          termCounts[idx] = (termCounts[idx] ?? 0) + 1;
-        }
+      final tokens = _tokenizeIntent(text);
+      final result = _sgdPredict(tokens, _intentModel!, useTfIdf: true);
+      
+      final intent = result.keys.first;
+      final conf = result.values.first;
+      
+      if (conf < 0.4) {
+        return IntentResult('unknown', conf);
       }
-
-      if (termCounts.isEmpty) {
-        return IntentResult('unknown', 0.0);
-      }
-
-      // TF-IDF vector
-      Map<int, double> tfIdfVector = {};
-      double sumSquares = 0.0;
-      for (var entry in termCounts.entries) {
-        final tf = entry.value.toDouble();
-        final val = tf * idf[entry.key];
-        tfIdfVector[entry.key] = val;
-        sumSquares += val * val;
-      }
-
-      // L2 Normalization (TfidfVectorizer default)
-      final norm = sqrt(sumSquares);
-      if (norm > 0) {
-        for (var key in tfIdfVector.keys) {
-          tfIdfVector[key] = tfIdfVector[key]! / norm;
-        }
-      }
-
-      // SGD dot product
-      List<double> scores = List.filled(classes.length, 0.0);
-      for (int i = 0; i < classes.length; i++) {
-        double score = intercept[i];
-        final classCoefs = List<double>.from(
-            (coef[i] as List).map((e) => (e as num).toDouble()));
-        for (var entry in tfIdfVector.entries) {
-          score += classCoefs[entry.key] * entry.value;
-        }
-        scores[i] = score;
-      }
-
-      // Argmax
-      int bestIdx = 0;
-      double maxScore = scores[0];
-      for (int i = 1; i < scores.length; i++) {
-        if (scores[i] > maxScore) {
-          maxScore = scores[i];
-          bestIdx = i;
-        }
-      }
-
-      // Convert linear score to pseudo-probability (sigmoid for log_loss)
-      double confidence = 1.0 / (1.0 + exp(-maxScore));
-
-      if (confidence < 0.4) {
-        return IntentResult('unknown', confidence);
-      }
-
-      return IntentResult(classes[bestIdx], confidence);
+      return IntentResult(intent, conf);
     } catch (e) {
       debugPrint("Local intent classification error: $e");
       return IntentResult('unknown', 0.0);
@@ -166,20 +161,47 @@ class LocalNlpService {
 
     List<Entity> entities = [];
     try {
-      final rules = Map<String, String>.from(_nerModel!['rules'] as Map);
-
-      rules.forEach((type, pattern) {
-        final regExp = RegExp(pattern);
-        final matches = regExp.allMatches(text);
-        for (final match in matches) {
-          if (match.groupCount >= 1) {
-            final value = match.group(1);
-            if (value != null) {
-              entities.add(Entity(type, value));
-            }
+      final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+      
+      String currentEntityType = "O";
+      List<String> currentEntityTokens = [];
+      
+      for (int i = 0; i < words.length; i++) {
+        final w = words[i];
+        final w_lower = w.toLowerCase();
+        final prev_w = i > 0 ? words[i-1].toLowerCase() : 'BOS';
+        final next_w = i < words.length - 1 ? words[i+1].toLowerCase() : 'EOS';
+        final is_num = RegExp(r'\d').hasMatch(w) ? 'T' : 'F';
+        
+        final featureStr = "W:$w_lower P:$prev_w N:$next_w NUM:$is_num";
+        
+        // Predict tag for this token using CountVectorizer model (no IDF normalization)
+        final result = _sgdPredict([featureStr], _nerModel!, useTfIdf: false);
+        final tag = result.keys.first;
+        
+        if (tag != "O") {
+          // If we were building an entity of a different type, save it
+          if (currentEntityType != "O" && currentEntityType != tag) {
+             entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
+             currentEntityTokens.clear();
+          }
+          currentEntityType = tag;
+          currentEntityTokens.add(w);
+        } else {
+          // Finished an entity
+          if (currentEntityType != "O") {
+             entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
+             currentEntityType = "O";
+             currentEntityTokens.clear();
           }
         }
-      });
+      }
+      
+      // Add trailing entity if exists
+      if (currentEntityType != "O" && currentEntityTokens.isNotEmpty) {
+         entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
+      }
+      
     } catch (e) {
       debugPrint("Local NER extraction error: $e");
     }
