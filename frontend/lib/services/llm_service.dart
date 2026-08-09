@@ -117,12 +117,12 @@ class LlmService extends ChangeNotifier {
       final model = await FlutterGemma.getActiveModel(
         preferredBackend:
             preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
-        maxTokens: 512,
+        maxTokens: 1024,
       );
       
       _chat = await model.createChat(
-        temperature: 0.7,
-        topK: 40,
+        temperature: 0.5,
+        topK: 20,
       );
 
       _isReady = true;
