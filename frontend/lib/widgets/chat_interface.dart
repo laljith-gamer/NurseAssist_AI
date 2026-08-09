@@ -4,6 +4,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/patient_provider.dart';
 import '../services/model_manager.dart';
+import '../services/llm_service.dart';
 
 class ChatInterface extends StatefulWidget {
   const ChatInterface({super.key});
@@ -184,6 +185,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
         Expanded(
           child: Consumer2<PatientProvider, ModelManager>(
             builder: (context, provider, modelManager, child) {
+              final llmService = context.watch<LlmService>();
               return Column(
                 children: [
                   Container(
@@ -196,6 +198,17 @@ class _ChatInterfaceState extends State<ChatInterface> {
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
+                  if (llmService.isModelInstalled)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(4),
+                      color: llmService.errorMessage != null ? Colors.red : (llmService.isReady ? Colors.blue.shade800 : Colors.orange),
+                      child: Text(
+                        llmService.errorMessage ?? llmService.statusMessage,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                      ),
+                    ),
                   Expanded(
                     child: _buildMessagesList(provider),
                   ),
