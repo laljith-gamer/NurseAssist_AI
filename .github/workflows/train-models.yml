@@ -52,7 +52,6 @@ jobs:
             echo "Error: ner_model directory not found!"
             exit 1
           fi
-
       - name: Generate Mobile Artifacts
         id: generate
         run: |
