@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 
 enum ModelStatus { ready, downloading, error, offline, checking, updateAvailable, verifying, installing }
 
@@ -33,6 +34,13 @@ class ModelManager extends ChangeNotifier {
   }
 
   Future<void> _initStatus() async {
+    if (kIsWeb) {
+      _currentVersion = 'Web Mock v1';
+      _status = ModelStatus.ready;
+      notifyListeners();
+      return;
+    }
+
     final localMeta = await getLocalMetadata();
     if (localMeta != null) {
       _currentVersion = localMeta['model_version'] ?? 'Unknown';
@@ -90,6 +98,7 @@ class ModelManager extends ChangeNotifier {
   }
 
   Future<void> checkForUpdates() async {
+    if (kIsWeb) return;
     if (_isUpdating) return;
     
     _status = ModelStatus.downloading;

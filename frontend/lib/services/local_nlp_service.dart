@@ -24,6 +24,12 @@ class LocalNlpService {
   bool get isReady => _isReady;
 
   Future<void> loadModels() async {
+    if (kIsWeb) {
+      _isReady = true;
+      debugPrint("Web Mock NLP initialized.");
+      return;
+    }
+
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final modelsDir = Directory('${appDir.path}/local_models/current');
@@ -64,6 +70,13 @@ class LocalNlpService {
   }
 
   IntentResult classifyIntent(String text) {
+    if (kIsWeb) {
+      if (text.toLowerCase().contains('bp') || text.toLowerCase().contains('vitals')) {
+        return IntentResult('record_vitals', 0.99);
+      }
+      return IntentResult('unknown', 0.0);
+    }
+
     if (!_isReady || _intentModel == null) {
       return IntentResult('unknown', 0.0);
     }
@@ -144,6 +157,11 @@ class LocalNlpService {
   }
 
   List<Entity> extractEntities(String text) {
+    if (kIsWeb) {
+      if (text.contains('120/80')) return [Entity('VITAL_BP', '120/80')];
+      return [];
+    }
+
     if (!_isReady || _nerModel == null) {
       return [];
     }
