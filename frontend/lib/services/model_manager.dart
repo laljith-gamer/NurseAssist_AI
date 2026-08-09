@@ -179,7 +179,7 @@ class ModelManager extends ChangeNotifier {
       if (!await tempMetaFile.exists()) throw Exception('Invalid package');
       
       final newMeta = jsonDecode(await tempMetaFile.readAsString());
-      if (newMeta['schema_version'] != 1) throw Exception('Incompatible schema');
+      if (newMeta['schema_version'] != 2) throw Exception('Incompatible schema');
       
       final intentSha = newMeta['intent_model']['sha256'];
       final intentBytes = await File('${tempExtracted.path}/intent.json').readAsBytes();
