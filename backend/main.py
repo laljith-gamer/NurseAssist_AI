@@ -153,29 +153,7 @@ async def create_patient(patient: PatientCreate):
         print(f"Error creating patient: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-class IntentFeedback(BaseModel):
-    text: str
-    correct_intent: str
 
-@app.post("/api/feedback/intent")
-async def feedback_intent(feedback: IntentFeedback):
-    from nlp.intent_classifier import IntentClassifier
-    classifier = IntentClassifier()
-    success = classifier.update_model(feedback.text, feedback.correct_intent)
-    return {"success": success}
-
-class NERFeedback(BaseModel):
-    text: str
-    entity_label: str
-    start_idx: int
-    end_idx: int
-
-@app.post("/api/feedback/ner")
-async def feedback_ner(feedback: NERFeedback):
-    from nlp.entity_extractor import EntityExtractor
-    extractor = EntityExtractor()
-    success = extractor.update_model(feedback.text, feedback.entity_label, feedback.start_idx, feedback.end_idx)
-    return {"success": success}
 
 @app.get("/api/patients/{patient_id}")
 async def get_patient(patient_id: str):
@@ -276,52 +254,7 @@ async def get_chat_session(patient_id: str, session_id: str):
         raise HTTPException(status_code=500, detail="Failed to fetch chat session")
 
 
-@app.post("/api/input")
-async def process_input(payload: dict):
-    try:
-        text = payload.get("text", "")
-        patient_id = payload.get("patient_id")
-        context = payload.get("context", {})
-        session_id = payload.get("session_id")
-        user_timestamp = payload.get("timestamp")
-        
-        orch = get_orchestrator()
-        response = await orch.process_input(
-            text=text,
-            patient_id=patient_id,
-            context=context
-        )
 
-        if patient_id and text:
-            try:
-                from database.repo.chat_repo import ChatRepository
-
-                chat_repo = ChatRepository()
-                chat_session = chat_repo.ensure_session(patient_id=patient_id, session_id=session_id)
-                resolved_session_id = chat_session.get("id")
-
-                chat_repo.append_exchange(
-                    patient_id=patient_id,
-                    session_id=resolved_session_id,
-                    user_content=text,
-                    assistant_content=response.get("message", ""),
-                    user_timestamp=user_timestamp,
-                    assistant_timestamp=datetime.utcnow().isoformat(),
-                    assistant_metadata=response.get("data"),
-                )
-
-                response_data = response.get("data")
-                if not isinstance(response_data, dict):
-                    response_data = {}
-                response_data["session_id"] = resolved_session_id
-                response["data"] = response_data
-            except Exception as chat_error:
-                print(f"Chat persistence warning: {chat_error}")
-        
-        return JSONResponse(content=response)
-    except Exception as e:
-        print(f"Error processing input: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process input")
 
 
 @app.websocket("/ws/{patient_id}")
@@ -428,37 +361,7 @@ async def stream_updates(patient_id: str):
     )
 
 
-@app.post("/api/models/train")
-async def trigger_model_training():
-    from services.model_manager import ModelManager
-    manager = ModelManager()
-    result = await manager.trigger_training()
-    if not result["success"]:
-        raise HTTPException(status_code=500, detail=result["message"])
-    return JSONResponse(content=result)
 
-@app.get("/api/models/status")
-async def get_model_status():
-    from services.model_manager import ModelManager
-    manager = ModelManager()
-    result = await manager.get_status()
-    return JSONResponse(content=result)
-
-@app.get("/api/models/latest")
-async def get_latest_model():
-    from services.model_manager import ModelManager
-    manager = ModelManager()
-    result = await manager.get_latest_model_metadata()
-    return JSONResponse(content=result)
-
-@app.post("/api/models/update")
-async def update_models():
-    from services.model_manager import ModelManager
-    manager = ModelManager()
-    result = await manager.update_models()
-    if not result["success"]:
-        raise HTTPException(status_code=500, detail=result["message"])
-    return JSONResponse(content=result)
 
 
 if __name__ == "__main__":

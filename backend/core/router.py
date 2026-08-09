@@ -29,14 +29,14 @@ class InputRouter:
     def _compile_patterns(self):
         self.vitals_patterns = {
             "bp": re.compile(
-                r"(?:\bbp\b|\bblood\s*pressure\b|b\.p\.?)\s*[:=]?\s*(\d{2,3})\s*[/\\]\s*(\d{2,3})",
+                r"(?:\bbp\b|\bblood\s*pressure\b|b\.p\.?)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3})\s*[/\\]\s*(\d{2,3})",
                 re.IGNORECASE
             ),
             "bp_simple": re.compile(
                 r"^(\d{2,3})\s*[/\\]\s*(\d{2,3})$"
             ),
             "hr": re.compile(
-                r"(?:\bhr\b|\bheart\s*rate\b|\bpulse\b)\s*[:=]?\s*(\d{2,3})",
+                r"(?:\bhr\b|\bheart\s*rate\b|\bpulse\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3})",
                 re.IGNORECASE
             ),
             "hr_simple": re.compile(
@@ -44,27 +44,27 @@ class InputRouter:
                 re.IGNORECASE
             ),
             "temp": re.compile(
-                r"(?:\btemp\b|\btemperature\b)\s*[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:f|c|fahrenheit|celsius)?",
+                r"(?:\btemp\b|\btemperature\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:f|c|fahrenheit|celsius)?",
                 re.IGNORECASE
             ),
             "spo2": re.compile(
-                r"(?:\bspo2\b|\bsp02\b|\bo2\s*sat\b|\boxygen\b|\bsat\b)\s*[:=]?\s*(\d{2,3})(?:\s*%)?",
+                r"(?:\bspo2\b|\bsp02\b|\bo2\s*sat\b|\boxygen\b|\bsat\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3})(?:\s*%)?",
                 re.IGNORECASE
             ),
             "rr": re.compile(
-                r"(?:\brr\b|\bresp\b|\brespiratory\s*rate\b|\bbreaths?\b)\s*[:=]?\s*(\d{1,2})",
+                r"(?:\brr\b|\bresp\b|\brespiratory\s*rate\b|\bbreaths?\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{1,2})",
                 re.IGNORECASE
             ),
             "weight": re.compile(
-                r"(?:\bweight\b|\bwt\b)\s*[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:kg|lbs?|pounds?|kilos?)?",
+                r"(?:\bweight\b|\bwt\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:kg|lbs?|pounds?|kilos?)?",
                 re.IGNORECASE
             ),
             "height": re.compile(
-                r"(?:\bheight\b|\bht\b)\s*[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:cm|m|ft|feet|inches?|in)?",
+                r"(?:\bheight\b|\bht\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3}(?:\.\d{1,2})?)\s*(?:cm|m|ft|feet|inches?|in)?",
                 re.IGNORECASE
             ),
             "glucose": re.compile(
-                r"(?:\bglucose\b|\bsugar\b|\bbs\b|\bblood\s*sugar\b|\bbg\b)\s*[:=]?\s*(\d{2,3})",
+                r"(?:\bglucose\b|\bsugar\b|\bbs\b|\bblood\s*sugar\b|\bbg\b)\s*(?:is\s+|was\s+|of\s+|at\s+)?[:=]?\s*(\d{2,3})",
                 re.IGNORECASE
             ),
         }

@@ -4,20 +4,28 @@ import 'package:google_fonts/google_fonts.dart';
 import 'providers/patient_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/dashboard_screen.dart';
+import 'services/model_manager.dart';
+import 'services/local_nlp_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  final modelManager = ModelManager();
+  final localNlpService = LocalNlpService();
+  await localNlpService.loadModels();
+
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: modelManager),
+        Provider.value(value: localNlpService),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProxyProvider<SettingsProvider, PatientProvider>(
-          create: (context) => PatientProvider(),
-          update: (context, settings, patientProvider) {
-            patientProvider!.apiService.updateUrls(
-              settings.httpUrl, 
-              settings.wsUrl
-            );
-            return patientProvider;
+        ChangeNotifierProxyProvider2<SettingsProvider, ModelManager, PatientProvider>(
+          create: (context) => PatientProvider(localNlpService),
+          update: (context, settings, modelManager, patientProvider) {
+            // If model updates, we can reload localNlpService models here if needed.
+            // For now, simple injection is enough.
+            return patientProvider!;
           },
         ),
       ],

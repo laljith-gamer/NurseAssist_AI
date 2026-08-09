@@ -1,13 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/types.dart';
 import '../services/api_service.dart';
-import '../services/sync_service.dart';
 import '../services/local_db_service.dart';
+import '../services/local_nlp_service.dart';
 
 class PatientProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
-  final SyncService _syncService = SyncService();
+  final LocalNlpService _nlpService;
 
   final List<Patient> _patients = [];
   Patient? _selectedPatient;
@@ -15,18 +14,14 @@ class PatientProvider with ChangeNotifier {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
-  StreamSubscription? _streamSubscription;
-
   List<Patient> get patients => _patients;
   Patient? get selectedPatient => _selectedPatient;
   DeltaMetrics? get currentMetrics => _currentMetrics;
   List<ChatMessage> get messages => _messages;
   bool get isLoading => _isLoading;
-  bool get isOffline => !_syncService.isOnline;
   ApiService get apiService => _apiService;
 
-  PatientProvider() {
-    _syncService.addListener(notifyListeners);
+  PatientProvider(this._nlpService) {
     loadPatients();
   }
 
@@ -90,38 +85,12 @@ class PatientProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Error loading historical data: $e');
     }
-
-    _listenToPatientUpdates(patient.id);
-  }
-
-  void _listenToPatientUpdates(String patientId) {
-    _streamSubscription?.cancel();
-    
-    final stream = _apiService.connectToPatientStream(patientId);
-    if (stream != null) {
-      _streamSubscription = stream.listen((data) {
-        if (data['type'] == 'metrics_update') {
-          _currentMetrics = DeltaMetrics.fromJson(data['data']);
-          notifyListeners();
-        } else {
-          // Treat any other message type as a chat response from the backend
-          _messages.add(ChatMessage(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            role: data['role'] ?? 'assistant',
-            content: data['message'] ?? data['content'] ?? '',
-            timestamp: DateTime.now(),
-          ));
-          notifyListeners();
-        }
-      }, onError: (error) {
-        debugPrint('WebSocket Error: $error');
-      });
-    }
   }
 
   void sendMessage(String message) {
     if (_selectedPatient == null) return;
     
+    // Add user message
     _messages.add(ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       role: 'user',
@@ -130,30 +99,36 @@ class PatientProvider with ChangeNotifier {
     ));
     notifyListeners();
     
-    if (_syncService.isOnline) {
-      _apiService.sendCommand(message);
-    } else {
-      // Offline fallback: Queue via API service REST fallback logic
-      LocalDbService().queueAction('/api/chat/sync', {
-        'patientId': _selectedPatient!.id,
-        'message': message,
-      });
-      
-      _messages.add(ChatMessage(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        role: 'assistant',
-        content: 'Offline Mode: Vitals recorded locally. AI analysis suspended until reconnected.',
-        timestamp: DateTime.now(),
-      ));
-      notifyListeners();
+    // Local Offline Inference
+    final intentResult = _nlpService.classifyIntent(message);
+    final entities = _nlpService.extractEntities(message);
+    
+    String response = "Analyzed offline: Intent is '${intentResult.intent}' (Confidence: ${(intentResult.confidence * 100).toStringAsFixed(1)}%). ";
+    
+    if (entities.isNotEmpty) {
+       response += "Extracted entities: ";
+       response += entities.map((e) => "${e.type} -> ${e.value}").join(", ");
+       response += ". ";
     }
+    
+    response += "Data has been saved locally to device storage.";
+    
+    // Cache the data locally
+    LocalDbService().queueAction('/api/chat/sync', {
+      'patientId': _selectedPatient!.id,
+      'message': message,
+      'intent': intentResult.intent,
+      'entities': entities.map((e) => {'type': e.type, 'value': e.value}).toList()
+    });
+    
+    // Add assistant message
+    _messages.add(ChatMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      role: 'assistant',
+      content: response,
+      timestamp: DateTime.now(),
+    ));
+    notifyListeners();
   }
 
-  @override
-  void dispose() {
-    _syncService.removeListener(notifyListeners);
-    _streamSubscription?.cancel();
-    _apiService.disconnectStream();
-    super.dispose();
-  }
 }

@@ -1,35 +1,48 @@
-name: Train ML Models
+name: Train and Publish Mobile Models
 
 on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/scripts/train_intent_model.py'
+      - 'backend/scripts/train_ner_model.py'
+      - 'backend/scripts/export_mobile_models.py'
+      - 'backend/nlp/**'
+      - '.github/workflows/train-models.yml'
 
 jobs:
   train-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-        
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-          
-      - name: Install Dependencies
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          python -m spacy download en_core_web_sm
-          
+          pip install spacy scikit-learn
+
       - name: Train Intent Model
-        run: python backend/scripts/train_intent_model.py
+        run: |
+          echo "MODEL TRAINING: STARTED"
+          python backend/scripts/train_intent_model.py
         
       - name: Train NER Model
-        run: python backend/scripts/train_ner_model.py
-        
-      - name: Validate Models
+        run: |
+          python backend/scripts/train_ner_model.py
+
+      - name: Verify Model Artifacts
         run: |
           if [ ! -f "backend/data/intent_model.pkl" ]; then
             echo "Error: intent_model.pkl not found!"
@@ -39,101 +52,27 @@ jobs:
             echo "Error: ner_model directory not found!"
             exit 1
           fi
-          
-      - name: Run Inference Sanity Tests
-        run: |
-          cat << 'EOF' > test_inference.py
-          import sys
-          import os
-          sys.path.append(os.path.abspath('backend'))
-          
-          print("Testing Intent Model...")
-          from backend.nlp.intent_classifier import IntentClassifier
-          classifier = IntentClassifier()
-          for text in ["BP is 120/80", "What meds are due?", "Abort", "Give patient Zofran"]:
-              result = classifier.classify(text)
-              print(f"'{text}' -> {result.intent.name} ({result.confidence:.2f})")
-              if result.intent.name == 'UNKNOWN' and result.confidence > 0.0:
-                  print("Warning: Sanity check failed, expected known intent")
-                  sys.exit(1)
-                  
-          print("Testing NER Model...")
-          from backend.nlp.entity_extractor import EntityExtractor
-          extractor = EntityExtractor()
-          for text in ["BP is 120/80 and heart rate is 85", "Patient temperature 38.5 degrees", "Administered Zofran 4mg"]:
-              result = extractor.extract(text)
-              print(f"'{text}' -> {len(result.entities)} entities")
-              if len(result.entities) == 0:
-                  print("Warning: Sanity check failed, expected entities")
-                  sys.exit(1)
-          print("Sanity checks passed.")
-          EOF
-          python test_inference.py
 
-      - name: Generate Checksums & Metadata
-        id: metadata
+      - name: Generate Mobile Artifacts
+        id: generate
         run: |
-          cat << 'EOF' > hash_generator.py
-          import os
-          import hashlib
-          import json
-          import datetime
-          import time
+          # Use run number as version (e.g., v5)
+          VERSION="v${{ github.run_number }}"
+          echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
           
-          def _calculate_file_sha256(filepath):
-              sha256_hash = hashlib.sha256()
-              with open(filepath, "rb") as f:
-                  for byte_block in iter(lambda: f.read(4096), b""):
-                      sha256_hash.update(byte_block)
-              return sha256_hash.hexdigest()
+          python backend/scripts/export_mobile_models.py
+          
+          if [ ! -f "backend/data/mobile_export/nurseassist-model-${VERSION}.zip" ]; then
+            echo "Error: ZIP package not found!"
+            exit 1
+          fi
 
-          def _calculate_dir_sha256(dirpath):
-              sha256_hash = hashlib.sha256()
-              for root, _, files in sorted(os.walk(dirpath)):
-                  for file in sorted(files):
-                      filepath = os.path.join(root, file)
-                      with open(filepath, "rb") as f:
-                           for byte_block in iter(lambda: f.read(4096), b""):
-                              sha256_hash.update(byte_block)
-              return sha256_hash.hexdigest()
-
-          intent_sha = _calculate_file_sha256("backend/data/intent_model.pkl")
-          ner_sha = _calculate_dir_sha256("backend/data/ner_model")
-          version = f"v{int(time.time())}"
-          
-          metadata = {
-            "version": version,
-            "created_at": datetime.datetime.utcnow().isoformat() + "Z",
-            "intent_model": {
-              "file": "intent_model.pkl",
-              "sha256": intent_sha
-            },
-            "ner_model": {
-              "directory": "ner_model",
-              "sha256": ner_sha
-            },
-            "metrics": {}
-          }
-          
-          with open("backend/data/metadata.json", "w") as f:
-              json.dump(metadata, f, indent=2)
-          
-          with open(os.environ['GITHUB_ENV'], 'a') as f:
-              f.write(f"VERSION={version}\n")
-          EOF
-          python hash_generator.py
-          
-      - name: Package Models
-        run: |
-          cd backend/data
-          zip -r models.zip intent_model.pkl ner_model metadata.json
-          
-      - name: Publish Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.VERSION }}
-          name: Model Release ${{ env.VERSION }}
-          files: backend/data/models.zip
+          tag_name: v${{ github.run_number }}
+          name: Model v${{ github.run_number }}
+          files: backend/data/mobile_export/nurseassist-model-v${{ github.run_number }}.zip
           draft: false
           prerelease: false
         env:

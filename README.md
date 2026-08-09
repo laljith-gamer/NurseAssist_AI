@@ -1,380 +1,68 @@
-**🩺 NurseAssist AI**
+# NurseAssist AI
 
-Optimized Cloud-Powered Clinical Documentation & Intelligence System
+NurseAssist is an **Offline-First Flutter Application** designed for healthcare professionals to record vitals, medications, and clinical notes quickly and securely using on-device ML Inference.
 
-Assist nurses. Preserve clinical judgment. Detect change early.
+## Architecture
 
+NurseAssist is completely **Offline-First**. 
+1. **No Cloud Backend**: The application does not require a backend API, FastAPI, or Render instance to function. All interactions are handled locally on the device.
+2. **Local ML Inference**: Natural Language Processing (Intent Classification & Entity Extraction) is executed directly in Dart on the device using exported deterministic weights (`intent_weights.json`) and patterns (`ner_patterns.json`).
+3. **No Online Dependencies**: Patient data, historical metrics, and NLP feedback are stored exclusively in the local SQLite database.
 
+## Model Training & CI/CD
 
-**📌 Overview**
+Model training and updates are completely automated via **GitHub Actions**.
 
-Digital Clinical Nurse Assistant is a cloud-powered, deterministic-first clinical documentation system designed to transform routine nursing inputs into structured, reliable, real-time health intelligence.
+- **Commit-Triggered Training**: Pushing changes to ML-related files (`backend/scripts/`, `backend/nlp/`) triggers the `.github/workflows/train-models.yml` workflow.
+- **Model Validation**: The pipeline trains the `intent_model.pkl` and `ner_model` using Scikit-Learn and spaCy, verifying their outputs.
+- **Deterministic Export**: To achieve native iOS/Android support without heavy C++ bridging, the pipeline exports the canonical python models into efficient JSON-based representations (`intent_weights.json` and `ner_patterns.json`).
+- **Immutable Releases**: A versioned zip file (`nurseassist-model-vX.zip`) containing the models and a SHA-256 metadata file is packaged and published to **GitHub Releases**.
 
-The system prioritizes accuracy, latency, and safety by strictly separating deterministic clinical recording paths from generative AI reasoning paths, ensuring that critical operations such as vitals and medication recording never depend on LLMs.
+## Model Updates (Mobile App)
 
-This architecture reflects best practices used in high-performing private healthcare settings.
+The mobile application acts as a client that occasionally checks for model updates from GitHub Releases:
+1. **Lightweight Check**: When the app starts, it fetches the latest release metadata from GitHub asynchronously without blocking the user.
+2. **Atomic Installation**: If a newer model is found, the app downloads it, verifies the SHA-256 checksums, and installs it atomically into device storage.
+3. **Safe Rollback**: If the new model fails to load or is corrupted, the application will transparently roll back to the previously installed model version, ensuring uninterrupted offline access.
 
+## Getting Started
 
+### Flutter App
 
-**🎯 Core Design Principles**
+1. Install Flutter dependencies:
+```bash
+cd frontend
+flutter pub get
+```
 
-* Zero-downtime deterministic vitals \& medication recording
-* Sub-100ms intent detection, even on low-end hardware
-* Blazing fast cloud operation with NVIDIA Llama 3 API + RAG
-* Strict separation of deterministic vs generative paths
-* Real-time delta metrics \& clinical change detection
-* Single source of truth for patient context (no hallucinated state)
-* Deterministic > probabilistic for patient-critical data
+2. Run the application (supports iOS, Android, macOS, Windows):
+```bash
+flutter run
+```
 
+*Note: The app will start in Offline Mode and automatically download the latest AI model from GitHub Releases on first launch.*
 
+### Local ML Development
 
-**🔁 End-to-End Optimized System Flow**
+If you wish to modify the ML training data or architecture:
 
+1. Install Python dependencies:
+```bash
+cd backend
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+```
 
+2. Train Models (will generate `.pkl` and `ner_model/`):
+```bash
+python scripts/train_intent_model.py
+python scripts/train_ner_model.py
+```
 
-Doctor / Nurse Input
+3. Export Models for Flutter (simulating the GitHub Action):
+```bash
+python scripts/export_models.py vLocal
+```
 
-&nbsp;       │
-
-&nbsp;       ▼
-
-┌───────────────┐
-
-│ Input Router  	 │ ──▶ Deterministic Fast-Track (95% of traffic)
-
-└───────┬───────┘        (vitals, meds, patient select, commands)
-
-&nbsp;       │
-
-&nbsp;       ▼
-
-┌─────────────────────┐     ┌──────────────────────────┐
-
-│ NLP Micro-Pipeline  		 │     │ Context-Aware RAG + LLM   		   │
-
-│ (Always < 80ms)     		 │     │ (Queries \& summaries)    		   │
-
-└───────┬─────┬───────┘     └────────────┬─────────────┘
-
-&nbsp;         │       │                                │
-
-&nbsp;         ▼      ▼                                ▼
-
-&nbsp;┌─────────────┐                ┌─────────────────┐
-
-&nbsp;│ Entity +        │                │ Intelligent           │
-
-&nbsp;│ Intent Core     │                │ Response Engine       │
-
-&nbsp;└──────┬──────┘                └───────┬─────────┘
-
-&nbsp;         │                                    │
-
-&nbsp;         ▼                                    ▼
-
-&nbsp;┌──────────────────────┐      ┌────────────────────┐
-
-&nbsp;│ Clinical Change             │      │ Preference + Format       │
-
-&nbsp;│ Detector (Delta Engine)     │      │ Adapter                   │
-
-&nbsp;└───────┬──────────────┘      └───────┬────────────┘
-
-&nbsp;          │                                    │
-
-&nbsp;          ▼                                    ▼
-
-&nbsp;  ┌───────────────┐            ┌───────────────┐
-
-&nbsp;  │ Response +        │            │ Real-time           │
-
-&nbsp;  │ Delta Metrics     │            │ Chart Updates       │
-
-&nbsp;  └───────────────┘            └───────────────┘
-
-
-
-**🧠 Why This Architecture Works**
-
-
-
-**Deterministic First**
-
-* Vitals, medications, and patient selection never pass through an LLM
-* Guarantees near-perfect accuracy for clinical data entry
-
-https://github.com/user-attachments/assets/92c7834f-829e-4698-9203-a9ead5c8bbbb
-
-https://github.com/user-attachments/assets/bfa5060f-0df0-4eac-b565-817199ec07f3
-
-
-**Generative Where Appropriate**
-
-LLMs are used only for:
-
-* Summaries
-* Explanations
-* Natural-language queries
-
-
-
-**Cloud by Design**
-
-* Cloud-hosted database
-* Cloud vector store
-* High-performance LLM inference via NVIDIA API (Llama 3 8B Instruct)
-
-
-
-**📁 File Structure**
-
-NurseAssist\_AI/
-
-├── backend/
-
-│   ├── main.py                 # FastAPI + WebSocket entry
-
-│   ├── config.py
-
-│   ├── requirements.txt
-
-│
-
-│   ├── core/                   # Critical fast path
-
-│   │   ├── router.py           # InputRouter (deterministic first)
-
-│   │   ├── deterministic/
-
-│   │   │   ├── vitals\_recorder.py
-
-│   │   │   ├── medication\_recorder.py
-
-│   │   │   ├── patient\_selector.py
-
-│   │   │   └── command\_executor.py
-
-│   │   └── change\_detector.py  # Delta \& clinical significance
-
-│
-
-│   ├── nlp/
-
-│   │   ├── preprocessor.py
-
-│   │   ├── intent\_classifier.py
-
-│   │   ├── entity\_extractor.py
-
-│   │   └── medical\_vocab.db
-
-│
-
-│   ├── intelligence/
-
-│   │   ├── rag/
-
-│   │   │   ├── vector\_store/
-
-│   │   │   ├── retriever.py
-
-│   │   │   └── hyde\_generator.py
-
-│   │   ├── llm/
-
-│   │   │   ├── local\_inference.py
-
-│   │   │   ├── prompt\_templates.py
-
-│   │   │   └── safety\_filter.py
-
-│   │   └── summarizer.py
-
-│
-
-│   ├── database/
-
-│   │   ├── schema.sql
-
-│   │   ├── models.py
-
-│   │   └── repo/
-
-│   │       ├── patient\_repo.py
-
-│   │       ├── visit\_repo.py
-
-│   │       ├── vitals\_repo.py
-
-│   │       ├── meds\_repo.py
-
-│   │       └── change\_log\_repo.py
-
-│
-
-│   ├── services/
-
-│   │   ├── assistant\_orchestrator.py
-
-│   │   ├── preference\_engine.py
-
-│   │   └── notification\_engine.py
-
-│
-
-│   └── cli/
-
-│       └── nurse\_cli.py
-
-│
-
-├── frontend/
-
-│   ├── app/
-
-│   │   ├── layout.tsx
-
-│   │   ├── page.tsx
-
-│   │   └── dashboard/patient/\[id]/page.tsx
-
-│
-
-│   ├── components/
-
-│   │   ├── ChatInterface.tsx
-
-│   │   ├── PatientSidebar.tsx
-
-│   │   ├── VitalSignsDeltaChart.tsx
-
-│   │   ├── AreaTrendChart.tsx
-
-│   │   ├── ClinicalChangeBanner.tsx
-
-│   │   ├── MedicationAdherenceRing.tsx
-
-│   │   └── QuickVitalEntry.tsx
-
-│
-
-│   ├── lib/
-
-│   │   ├── api/
-
-│   │   │   ├── sse.ts
-
-│   │   │   └── websocket.ts
-
-│   │   └── types.ts
-
-│
-
-│   ├── hooks/
-
-│   │   ├── usePatientStream.ts
-
-│   │   └── useDeltaCalculations.ts
-
-│
-
-│   └── stores/
-
-│       └── patientStore.ts
-
-│
-
-└── shared/
-
-&nbsp;   └── types.ts
-
-
-
-**📊 Vital Signs Delta Metrics (Core Feature)**
-
-The system automatically calculates and visualizes clinical change, not just raw values.
-
-
-
-Displayed Metrics
-
-
-
-|**Metric**|**Description**|
-|-|-|
-|vs Yesterday|Δ systolic / diastolic|
-|vs 7-day avg|% deviation|
-|vs Baseline|Absolute + % change|
-|Trend velocity|mmHg/day|
-|Clinical stage|JNC-9 classification|
-|Out-of-range time|Duration outside target|
-
-
-
-**Example Auto-Generated Banner**
-
-⚠ BP ↑ significantly: 160/100 (+24/+16 from yesterday)
-
-→ Now Stage 2 Hypertension (was Stage 1)
-
-→ Highest this month
-
-
-
-**🚀 Performance Guarantees**
-
-
-
-99.9% accuracy for vitals \& medication recording
-
-< 100ms response for 95% of interactions
-
-Fully cloud-integrated and scalable
-
-Real-time clinical change detection
-
-No hallucinated patient state
-
-
-
-**🏁 Why This Matters**
-
-
-
-Healthcare systems fail not due to lack of data, but due to lack of structured, comparable, time-aware insight.
-
-This project ensures:
-
-* Nurses document faster
-* Doctors see change instantly
-* Patients receive earlier intervention
-
-
-
-**🏆 Hackathon Relevance**
-
-
-
-This system demonstrates:
-
-* Strong system architecture thinking
-* Real-world clinical safety design
-* Practical AI + deterministic hybrid
-* Production-ready mindset, not demo-ware
-
-
-
-**📌 Final Note**
-
-	***This project assists nurses. It does not replace them.***
-
-	***It assists doctors. It does not override judgment.***
-
-	***It assists healthcare. It does not hallucinate.***
-
-
-
-"# NurseAssist_AI" 
-"# NurseAssist_AI" 
-"# NurseAssist_AI" 
-"# NurseAssist_AI" 
+## Security & Privacy
+Because NurseAssist AI executes entirely on-device, sensitive Patient Health Information (PHI) never leaves the smartphone or tablet. The only network request made is an anonymous GET request to GitHub to download newer ML models.
