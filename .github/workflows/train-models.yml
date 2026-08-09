@@ -9,6 +9,7 @@ on:
       - 'ml_pipeline/scripts/train_ner_model.py'
       - 'ml_pipeline/scripts/export_mobile_models.py'
       - 'ml_pipeline/nlp/**'
+      - 'ml_pipeline/requirements.txt'
       - '.github/workflows/train-models.yml'
 
 jobs:
@@ -57,6 +58,7 @@ jobs:
         run: |
           # Use run number as version (e.g., v5)
           VERSION="v${{ github.run_number }}"
+          export MODEL_VERSION="$VERSION"
           echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
           
           python ml_pipeline/scripts/export_mobile_models.py
