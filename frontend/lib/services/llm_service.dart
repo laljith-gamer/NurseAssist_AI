@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Downloads Gemma 3 270M on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma-4-E2B-it.litertlm';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270m-it-q8.task';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 
@@ -35,20 +35,20 @@ class LlmService extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v5') ?? false;
+      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v6') ?? false;
       
       if (!hasUpgraded) {
-         // Wipe all previous models (270M and GPU-only 2GB) since we are upgrading to hybrid 2.5GB Gemma 4
+         // Wipe all previous models since we are returning to the stable MediaPipe backend (.task)
          try {
            await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
-           await FlutterGemma.uninstallModel('gemma3-270M-it-int4.litertlm');
            await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
+           await FlutterGemma.uninstallModel('gemma-4-E2B-it.litertlm');
          } catch(e) {}
-         await prefs.setBool('upgraded_litertlm_v5', true);
+         await prefs.setBool('upgraded_litertlm_v6', true);
       }
 
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        'gemma-4-E2B-it.litertlm',
+        'gemma3-270m-it-q8.task',
       );
     } catch (e) {
       // Fall back to shared prefs check
@@ -70,12 +70,12 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _statusMessage = 'Downloading AI model (~2.6GB)...';
+      _statusMessage = 'Downloading AI model (~300 MB)...';
       notifyListeners();
 
       await FlutterGemma.installModel(
-        modelType: ModelType.gemma4,
-        fileType: ModelFileType.litertlm,
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.task,
       ).fromNetwork(_modelUrl).withProgress((progress) {
         _downloadProgress = progress / 100.0;
         _statusMessage =

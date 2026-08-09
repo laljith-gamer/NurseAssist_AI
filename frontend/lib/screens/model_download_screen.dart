@@ -141,7 +141,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                       child: Column(
                         children: [
                           _infoRow(Icons.download_rounded,
-                              'Download size: ~2.6 GB'),
+                              'Download size: ~300 MB'),
                           const SizedBox(height: 12),
                           _infoRow(Icons.wifi_off_rounded,
                               'Works 100% offline after download'),
@@ -150,7 +150,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                               'All data stays on your device'),
                           const SizedBox(height: 12),
                           _infoRow(Icons.auto_awesome,
-                              'Powered by Google Gemma 4 E2B'),
+                              'Powered by Google Gemma 3'),
                         ],
                       ),
                     ),
