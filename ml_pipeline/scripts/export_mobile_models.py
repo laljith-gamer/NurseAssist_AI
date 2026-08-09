@@ -84,7 +84,7 @@ def main():
         
         metadata = {
             "model_version": version,
-            "schema_version": 2,
+            "schema_version": 1,
             "created_at": datetime.utcnow().isoformat(),
             "commit_sha": commit_sha,
             "intent_model": {
