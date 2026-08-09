@@ -150,7 +150,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                               'All data stays on your device'),
                           const SizedBox(height: 12),
                           _infoRow(Icons.auto_awesome,
-                              'Powered by Google Gemma 3'),
+                              'Powered by Google Gemma 4 E2B'),
                         ],
                       ),
                     ),
