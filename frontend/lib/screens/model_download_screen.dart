@@ -20,7 +20,6 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-  final TextEditingController _tokenController = TextEditingController();
 
   @override
   void initState() {
@@ -37,7 +36,6 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
   @override
   void dispose() {
     _pulseController.dispose();
-    _tokenController.dispose();
     super.dispose();
   }
 
@@ -48,27 +46,6 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
   }
 
   Future<void> _startDownload() async {
-    final token = _tokenController.text.trim();
-    if (token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your free Hugging Face token.')),
-      );
-      return;
-    }
-
-    try {
-      // Re-initialize with the token so the downloader can authenticate
-      await FlutterGemma.initialize(
-        inferenceEngines: [LiteRtLmEngine()],
-        huggingFaceToken: token,
-      );
-      
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('hf_token', token);
-    } catch (e) {
-      debugPrint('Error re-initializing Gemma with token: $e');
-    }
-
     final llmService = context.read<LlmService>();
     final success = await llmService.downloadModel();
     if (success && mounted) {
@@ -175,29 +152,6 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                           _infoRow(Icons.auto_awesome,
                               'Powered by Google Gemma 3'),
                         ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                    
-                    // HF Token input field
-                    TextField(
-                      controller: _tokenController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Hugging Face Token (Required)',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        hintText: 'hf_...',
-                        hintStyle: const TextStyle(color: Colors.white30),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
-                        ),
-                        helperText: 'Get it free at huggingface.co/settings/tokens',
-                        helperStyle: const TextStyle(color: Colors.white54),
                       ),
                     ),
 

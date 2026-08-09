@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Downloads Gemma 3 270M on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270M-it-int4.litertlm';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270M-it-int4.litertlm';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 

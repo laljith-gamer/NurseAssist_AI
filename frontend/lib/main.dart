@@ -15,13 +15,9 @@ import 'services/llm_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  final prefs = await SharedPreferences.getInstance();
-  final hfToken = prefs.getString('hf_token');
-
   // Initialize Flutter Gemma with LiteRT-LM engine (supports all platforms)
   await FlutterGemma.initialize(
     inferenceEngines: [LiteRtLmEngine()],
-    huggingFaceToken: hfToken?.isNotEmpty == true ? hfToken : null,
   );
 
   final localNlpService = LocalNlpService();
