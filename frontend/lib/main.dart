@@ -10,8 +10,8 @@ import 'services/local_nlp_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  final modelManager = ModelManager();
   final localNlpService = LocalNlpService();
+  final modelManager = ModelManager(onModelUpdated: () => localNlpService.loadModels());
   await localNlpService.loadModels();
 
   runApp(

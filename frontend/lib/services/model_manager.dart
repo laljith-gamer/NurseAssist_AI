@@ -22,16 +22,24 @@ class ModelManager extends ChangeNotifier {
   String get currentVersion => _currentVersion;
   String get downloadProgress => _downloadProgress;
 
-  ModelManager() {
-    _initStatus();
+  final VoidCallback? onModelUpdated;
+
+  ModelManager({this.onModelUpdated}) {
+    _initStatus().then((_) {
+      if (_currentVersion == 'None') {
+        checkForUpdates();
+      }
+    });
   }
 
   Future<void> _initStatus() async {
     final localMeta = await getLocalMetadata();
     if (localMeta != null) {
       _currentVersion = localMeta['model_version'] ?? 'Unknown';
+      _status = ModelStatus.ready;
     } else {
       _currentVersion = 'None';
+      _status = ModelStatus.offline;
     }
     notifyListeners();
   }
@@ -181,6 +189,8 @@ class ModelManager extends ChangeNotifier {
       _currentVersion = latestVersion;
       _status = ModelStatus.ready;
       _downloadProgress = '';
+      
+      onModelUpdated?.call();
     } catch (e) {
       _status = ModelStatus.error;
       _downloadProgress = '';

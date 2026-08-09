@@ -5,10 +5,10 @@ on:
     branches:
       - main
     paths:
-      - 'backend/scripts/train_intent_model.py'
-      - 'backend/scripts/train_ner_model.py'
-      - 'backend/scripts/export_mobile_models.py'
-      - 'backend/nlp/**'
+      - 'ml_pipeline/scripts/train_intent_model.py'
+      - 'ml_pipeline/scripts/train_ner_model.py'
+      - 'ml_pipeline/scripts/export_mobile_models.py'
+      - 'ml_pipeline/nlp/**'
       - '.github/workflows/train-models.yml'
 
 jobs:
@@ -30,25 +30,25 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
+          pip install -r ml_pipeline/requirements.txt
           pip install spacy scikit-learn
 
       - name: Train Intent Model
         run: |
           echo "MODEL TRAINING: STARTED"
-          python backend/scripts/train_intent_model.py
+          python ml_pipeline/scripts/train_intent_model.py
         
       - name: Train NER Model
         run: |
-          python backend/scripts/train_ner_model.py
+          python ml_pipeline/scripts/train_ner_model.py
 
       - name: Verify Model Artifacts
         run: |
-          if [ ! -f "backend/data/intent_model.pkl" ]; then
+          if [ ! -f "ml_pipeline/data/intent_model.pkl" ]; then
             echo "Error: intent_model.pkl not found!"
             exit 1
           fi
-          if [ ! -d "backend/data/ner_model" ]; then
+          if [ ! -d "ml_pipeline/data/ner_model" ]; then
             echo "Error: ner_model directory not found!"
             exit 1
           fi
@@ -60,9 +60,9 @@ jobs:
           VERSION="v${{ github.run_number }}"
           echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
           
-          python backend/scripts/export_mobile_models.py
+          python ml_pipeline/scripts/export_mobile_models.py
           
-          if [ ! -f "backend/data/mobile_export/nurseassist-model-${VERSION}.zip" ]; then
+          if [ ! -f "ml_pipeline/data/mobile_export/nurseassist-model-${VERSION}.zip" ]; then
             echo "Error: ZIP package not found!"
             exit 1
           fi
@@ -72,7 +72,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: Model v${{ github.run_number }}
-          files: backend/data/mobile_export/nurseassist-model-v${{ github.run_number }}.zip
+          files: ml_pipeline/data/mobile_export/nurseassist-model-v${{ github.run_number }}.zip
           draft: false
           prerelease: false
         env:
