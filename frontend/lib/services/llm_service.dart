@@ -34,6 +34,18 @@ class LlmService extends ChangeNotifier {
     }
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v3') ?? false;
+      
+      if (!hasUpgraded) {
+         // Wipe the incorrectly registered model (or corrupted 15-byte file)
+         try {
+           await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
+           await FlutterGemma.uninstallModel('gemma3-270M-it-int4.litertlm');
+         } catch(e) {}
+         await prefs.setBool('upgraded_litertlm_v3', true);
+      }
+
       _isModelInstalled = await FlutterGemma.isModelInstalled(
         'gemma3-270m-it-q8.litertlm',
       );
@@ -62,6 +74,7 @@ class LlmService extends ChangeNotifier {
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
       ).fromNetwork(_modelUrl).withProgress((progress) {
         _downloadProgress = progress / 100.0;
         _statusMessage =
