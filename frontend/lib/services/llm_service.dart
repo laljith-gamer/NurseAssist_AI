@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Downloads Gemma 3 270M on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma-4-E2B-it-gpu.litertlm';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma-4-E2B-it.litertlm';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 
@@ -35,19 +35,20 @@ class LlmService extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v4') ?? false;
+      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v5') ?? false;
       
       if (!hasUpgraded) {
-         // Wipe all previous small models since we are upgrading to 2GB Gemma 4
+         // Wipe all previous models (270M and GPU-only 2GB) since we are upgrading to hybrid 2.5GB Gemma 4
          try {
            await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
            await FlutterGemma.uninstallModel('gemma3-270M-it-int4.litertlm');
+           await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
          } catch(e) {}
-         await prefs.setBool('upgraded_litertlm_v4', true);
+         await prefs.setBool('upgraded_litertlm_v5', true);
       }
 
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        'gemma-4-E2B-it-gpu.litertlm',
+        'gemma-4-E2B-it.litertlm',
       );
     } catch (e) {
       // Fall back to shared prefs check
@@ -69,7 +70,7 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _statusMessage = 'Downloading AI model (~2GB)...';
+      _statusMessage = 'Downloading AI model (~2.6GB)...';
       notifyListeners();
 
       await FlutterGemma.installModel(

@@ -141,7 +141,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                       child: Column(
                         children: [
                           _infoRow(Icons.download_rounded,
-                              'Download size: ~2 GB'),
+                              'Download size: ~2.6 GB'),
                           const SizedBox(height: 12),
                           _infoRow(Icons.wifi_off_rounded,
                               'Works 100% offline after download'),

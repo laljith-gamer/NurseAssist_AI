@@ -43,3 +43,4 @@ Thumbs.db
 *.pth
 *.onnx
 models/
+flutter_gemma_tmp/
