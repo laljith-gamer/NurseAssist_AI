@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Downloads Gemma 3 270M on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270m-it-q8.litertlm';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma-4-E2B-it-gpu.litertlm';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 
@@ -35,19 +35,19 @@ class LlmService extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v3') ?? false;
+      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v4') ?? false;
       
       if (!hasUpgraded) {
-         // Wipe the incorrectly registered model (or corrupted 15-byte file)
+         // Wipe all previous small models since we are upgrading to 2GB Gemma 4
          try {
            await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
            await FlutterGemma.uninstallModel('gemma3-270M-it-int4.litertlm');
          } catch(e) {}
-         await prefs.setBool('upgraded_litertlm_v3', true);
+         await prefs.setBool('upgraded_litertlm_v4', true);
       }
 
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        'gemma3-270m-it-q8.litertlm',
+        'gemma-4-E2B-it-gpu.litertlm',
       );
     } catch (e) {
       // Fall back to shared prefs check
@@ -69,11 +69,11 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _statusMessage = 'Downloading AI model (~300MB)...';
+      _statusMessage = 'Downloading AI model (~2GB)...';
       notifyListeners();
 
       await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
+        modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
       ).fromNetwork(_modelUrl).withProgress((progress) {
         _downloadProgress = progress / 100.0;

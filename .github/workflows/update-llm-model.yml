@@ -11,11 +11,11 @@ on:
       model_url:
         description: 'HuggingFace model download URL'
         required: true
-        default: 'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270m-it-q8.litertlm'
+        default: 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-gpu.litertlm'
       model_filename:
         description: 'Filename to save as (must match the URL in the app)'
         required: true
-        default: 'gemma3-270m-it-q8.litertlm'
+        default: 'gemma-4-E2B-it-gpu.litertlm'
 
 jobs:
   download-and-release:
