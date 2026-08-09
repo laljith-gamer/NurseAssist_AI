@@ -49,8 +49,8 @@ jobs:
             echo "Error: intent_model.pkl not found!"
             exit 1
           fi
-          if [ ! -d "ml_pipeline/data/ner_model" ]; then
-            echo "Error: ner_model directory not found!"
+          if [ ! -f "ml_pipeline/data/ner_model.pkl" ]; then
+            echo "Error: ner_model.pkl not found!"
             exit 1
           fi
       - name: Generate Mobile Artifacts
