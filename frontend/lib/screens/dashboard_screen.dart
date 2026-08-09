@@ -7,11 +7,27 @@ import '../providers/settings_provider.dart';
 import '../widgets/clinical_change_banner.dart';
 import '../widgets/charts/vital_signs_delta_chart.dart';
 import '../services/model_manager.dart';
+import '../services/llm_service.dart';
 import 'dart:ui';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Inject LLM service into PatientProvider after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final llmService = context.read<LlmService>();
+      final patientProvider = context.read<PatientProvider>();
+      patientProvider.setLlmService(llmService);
+    });
+  }
   void _showSettingsModal(BuildContext context) {
     showDialog(
       context: context,

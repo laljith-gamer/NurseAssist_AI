@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
+  flutter_gemma
   permission_handler_windows
   speech_to_text_windows
 )

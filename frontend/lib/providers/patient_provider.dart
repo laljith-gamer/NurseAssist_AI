@@ -3,10 +3,12 @@ import '../models/types.dart';
 import '../services/api_service.dart';
 import '../services/local_db_service.dart';
 import '../services/local_nlp_service.dart';
+import '../services/llm_service.dart';
 
 class PatientProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   final LocalNlpService _nlpService;
+  LlmService? _llmService;
 
   final List<Patient> _patients = [];
   Patient? _selectedPatient;
@@ -23,6 +25,11 @@ class PatientProvider with ChangeNotifier {
 
   PatientProvider(this._nlpService) {
     loadPatients();
+  }
+
+  /// Inject the LLM service (called from widget tree after Provider is available)
+  void setLlmService(LlmService service) {
+    _llmService = service;
   }
 
   Future<void> loadPatients() async {
@@ -87,7 +94,7 @@ class PatientProvider with ChangeNotifier {
     }
   }
 
-  void sendMessage(String message) {
+  void sendMessage(String message) async {
     if (_selectedPatient == null) return;
     
     // Add user message
@@ -99,12 +106,9 @@ class PatientProvider with ChangeNotifier {
     ));
     notifyListeners();
     
-    // Local Offline Inference
+    // Local Offline ML Inference (fast — ~1ms)
     final intentResult = _nlpService.classifyIntent(message);
     final entities = _nlpService.extractEntities(message);
-    
-    // Build intelligent response based on intent
-    String response = _buildResponse(intentResult, entities, message);
     
     // Cache the data locally
     LocalDbService().queueAction('/api/chat/sync', {
@@ -113,6 +117,42 @@ class PatientProvider with ChangeNotifier {
       'intent': intentResult.intent,
       'entities': entities.map((e) => {'type': e.type, 'value': e.value}).toList()
     });
+    
+    String response;
+    
+    // Try LLM first (if available), fallback to ML template
+    if (_llmService != null && _llmService!.isReady) {
+      try {
+        final prompt = _llmService!.buildClinicalPrompt(
+          patientName: _selectedPatient?.name ?? 'the patient',
+          intent: intentResult.intent,
+          entities: entities.map((e) => {'type': e.type, 'value': e.value}).toList(),
+          userMessage: message,
+        );
+        
+        // Add a "thinking" placeholder
+        final thinkingMsg = ChatMessage(
+          id: '${DateTime.now().millisecondsSinceEpoch}_thinking',
+          role: 'assistant',
+          content: '🧠 Thinking...',
+          timestamp: DateTime.now(),
+        );
+        _messages.add(thinkingMsg);
+        notifyListeners();
+        
+        // Generate LLM response
+        response = await _llmService!.generateResponse(prompt);
+        
+        // Remove thinking placeholder and add real response
+        _messages.remove(thinkingMsg);
+      } catch (e) {
+        debugPrint('LLM generation failed, falling back to ML: $e');
+        response = _buildResponse(intentResult, entities, message);
+      }
+    } else {
+      // Fallback to ML-based template response
+      response = _buildResponse(intentResult, entities, message);
+    }
     
     // Add assistant message
     _messages.add(ChatMessage(

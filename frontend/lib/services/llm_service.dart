@@ -1,0 +1,187 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Wraps flutter_gemma for on-device LLM inference.
+/// Downloads Gemma 3 270M on first launch, then runs fully offline.
+class LlmService extends ChangeNotifier {
+  static const String _modelUrl =
+      'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270M-it-int4.litertlm';
+
+  static const String _prefKeyModelInstalled = 'llm_model_installed';
+
+  bool _isModelInstalled = false;
+  bool _isDownloading = false;
+  bool _isReady = false;
+  double _downloadProgress = 0.0;
+  String _statusMessage = 'Checking...';
+  String? _errorMessage;
+
+  bool get isModelInstalled => _isModelInstalled;
+  bool get isDownloading => _isDownloading;
+  bool get isReady => _isReady;
+  double get downloadProgress => _downloadProgress;
+  String get statusMessage => _statusMessage;
+  String? get errorMessage => _errorMessage;
+
+  /// Check if model is already downloaded
+  Future<bool> checkModelInstalled() async {
+    if (kIsWeb) {
+      _isModelInstalled = false;
+      return false;
+    }
+
+    try {
+      _isModelInstalled = await FlutterGemma.isModelInstalled(
+        modelType: ModelType.gemmaIt,
+      );
+    } catch (e) {
+      // Fall back to shared prefs check
+      final prefs = await SharedPreferences.getInstance();
+      _isModelInstalled = prefs.getBool(_prefKeyModelInstalled) ?? false;
+    }
+    notifyListeners();
+    return _isModelInstalled;
+  }
+
+  /// Download the Gemma 3 270M model from HuggingFace
+  Future<bool> downloadModel() async {
+    if (_isDownloading) return false;
+
+    _isDownloading = true;
+    _downloadProgress = 0.0;
+    _statusMessage = 'Preparing download...';
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _statusMessage = 'Downloading AI model (~300MB)...';
+      notifyListeners();
+
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+      ).fromNetwork(_modelUrl).withProgress((progress) {
+        _downloadProgress = progress / 100.0;
+        _statusMessage =
+            'Downloading AI model... ${progress.toStringAsFixed(0)}%';
+        notifyListeners();
+      }).install();
+
+      _statusMessage = 'Model installed successfully!';
+      _isModelInstalled = true;
+      _isDownloading = false;
+
+      // Persist flag
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_prefKeyModelInstalled, true);
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _errorMessage = 'Download failed: ${e.toString()}';
+      _statusMessage = 'Download failed';
+      _isDownloading = false;
+      _downloadProgress = 0.0;
+      notifyListeners();
+      debugPrint('LLM download error: $e');
+      return false;
+    }
+  }
+
+  /// Initialize the LLM engine for inference
+  Future<void> initializeEngine() async {
+    if (!_isModelInstalled || _isReady) return;
+
+    try {
+      _statusMessage = 'Loading AI engine...';
+      notifyListeners();
+
+      // Use CPU on Windows due to known GPU crash bug
+      final preferCpu = !kIsWeb && Platform.isWindows;
+
+      await FlutterGemma.createChat(
+        modelType: ModelType.gemmaIt,
+        preferredBackend:
+            preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
+        temperature: 0.7,
+        topK: 40,
+        maxTokens: 512,
+      );
+
+      _isReady = true;
+      _statusMessage = 'AI Ready';
+      notifyListeners();
+      debugPrint('LLM engine initialized successfully.');
+    } catch (e) {
+      _errorMessage = 'Engine init failed: ${e.toString()}';
+      _isReady = false;
+      debugPrint('LLM engine init error: $e');
+      notifyListeners();
+    }
+  }
+
+  /// Generate a response from the LLM using streaming
+  Stream<String> generateResponseStream(String prompt) async* {
+    if (!_isReady) {
+      yield 'AI model not loaded. Please download the model first.';
+      return;
+    }
+
+    try {
+      final chat = FlutterGemma.activeChat;
+      if (chat == null) {
+        yield 'Chat session not available.';
+        return;
+      }
+
+      await for (final token in chat.sendMessageStream(prompt)) {
+        yield token;
+      }
+    } catch (e) {
+      debugPrint('LLM generation error: $e');
+      yield 'Sorry, I encountered an error generating a response.';
+    }
+  }
+
+  /// Generate a complete response (non-streaming)
+  Future<String> generateResponse(String prompt) async {
+    if (!_isReady) {
+      return 'AI model not loaded.';
+    }
+
+    try {
+      final chat = FlutterGemma.activeChat;
+      if (chat == null) return 'Chat session not available.';
+
+      final response = await chat.sendMessage(prompt);
+      return response?.trim() ?? 'No response generated.';
+    } catch (e) {
+      debugPrint('LLM generation error: $e');
+      return 'Sorry, I encountered an error.';
+    }
+  }
+
+  /// Build a clinical prompt that contextualizes the user's message
+  String buildClinicalPrompt({
+    required String patientName,
+    required String intent,
+    required List<Map<String, String>> entities,
+    required String userMessage,
+  }) {
+    final entityStr = entities.isNotEmpty
+        ? entities.map((e) => '${e['type']}: ${e['value']}').join(', ')
+        : 'none detected';
+
+    return '''You are NurseAssist AI, a clinical nursing assistant running on-device.
+Patient: $patientName
+Detected intent: $intent
+Extracted data: $entityStr
+Nurse's input: "$userMessage"
+
+Respond concisely (2-4 sentences max) as a helpful clinical assistant. 
+If vitals were recorded, confirm them. If medications, acknowledge them.
+For greetings, be warm but brief. Always be professional and clinical.
+Do NOT use markdown formatting. Use plain text with emoji where appropriate.''';
+  }
+}
