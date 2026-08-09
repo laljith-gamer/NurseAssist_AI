@@ -17,6 +17,7 @@ class LlmService extends ChangeNotifier {
   double _downloadProgress = 0.0;
   String _statusMessage = 'Checking...';
   String? _errorMessage;
+  InferenceChat? _chat;
 
   bool get isModelInstalled => _isModelInstalled;
   bool get isDownloading => _isDownloading;
@@ -34,7 +35,7 @@ class LlmService extends ChangeNotifier {
 
     try {
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        modelType: ModelType.gemmaIt,
+        'gemma3-270M-it-int4.litertlm',
       );
     } catch (e) {
       // Fall back to shared prefs check
@@ -100,13 +101,15 @@ class LlmService extends ChangeNotifier {
       // Use CPU on Windows due to known GPU crash bug
       final preferCpu = !kIsWeb && Platform.isWindows;
 
-      await FlutterGemma.createChat(
-        modelType: ModelType.gemmaIt,
+      final model = await FlutterGemma.getActiveModel(
         preferredBackend:
             preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
+        maxTokens: 512,
+      );
+      
+      _chat = await model.createChat(
         temperature: 0.7,
         topK: 40,
-        maxTokens: 512,
       );
 
       _isReady = true;
@@ -129,13 +132,13 @@ class LlmService extends ChangeNotifier {
     }
 
     try {
-      final chat = FlutterGemma.activeChat;
-      if (chat == null) {
+      if (_chat == null) {
         yield 'Chat session not available.';
         return;
       }
 
-      await for (final token in chat.sendMessageStream(prompt)) {
+      await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
+      await for (final token in _chat!.session.getResponseAsync()) {
         yield token;
       }
     } catch (e) {
@@ -151,11 +154,11 @@ class LlmService extends ChangeNotifier {
     }
 
     try {
-      final chat = FlutterGemma.activeChat;
-      if (chat == null) return 'Chat session not available.';
+      if (_chat == null) return 'Chat session not available.';
 
-      final response = await chat.sendMessage(prompt);
-      return response?.trim() ?? 'No response generated.';
+      await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
+      final response = await _chat!.session.getResponse();
+      return response.trim();
     } catch (e) {
       debugPrint('LLM generation error: $e');
       return 'Sorry, I encountered an error.';
