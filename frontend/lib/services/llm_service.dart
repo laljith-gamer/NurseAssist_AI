@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Downloads Gemma 3 270M on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270M-it-int4.litertlm';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270m-it-q8.litertlm';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 
@@ -35,7 +35,7 @@ class LlmService extends ChangeNotifier {
 
     try {
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        'gemma3-270M-it-int4.litertlm',
+        'gemma3-270m-it-q8.litertlm',
       );
     } catch (e) {
       // Fall back to shared prefs check
