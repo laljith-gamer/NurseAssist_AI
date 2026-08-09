@@ -67,7 +67,6 @@ jobs:
             echo "Error: ZIP package not found!"
             exit 1
           fi
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
