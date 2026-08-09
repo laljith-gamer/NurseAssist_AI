@@ -138,6 +138,43 @@ class ApiService {
     }
   }
 
+  // Model Management Methods
+  Future<dynamic> trainModel() async {
+    final response = await http.post(Uri.parse('$baseUrl/api/models/train'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to trigger model training');
+    }
+  }
+
+  Future<dynamic> getModelStatus() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/models/status'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get model status');
+    }
+  }
+
+  Future<dynamic> getLatestModel() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/models/latest'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to get latest model metadata');
+    }
+  }
+
+  Future<dynamic> updateBackendModel() async {
+    final response = await http.post(Uri.parse('$baseUrl/api/models/update'));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update backend models');
+    }
+  }
+
   // WebSocket Methods
   Stream<dynamic>? connectToPatientStream(String patientId) {
     _channel?.sink.close();

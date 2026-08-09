@@ -428,6 +428,39 @@ async def stream_updates(patient_id: str):
     )
 
 
+@app.post("/api/models/train")
+async def trigger_model_training():
+    from services.model_manager import ModelManager
+    manager = ModelManager()
+    result = await manager.trigger_training()
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["message"])
+    return JSONResponse(content=result)
+
+@app.get("/api/models/status")
+async def get_model_status():
+    from services.model_manager import ModelManager
+    manager = ModelManager()
+    result = await manager.get_status()
+    return JSONResponse(content=result)
+
+@app.get("/api/models/latest")
+async def get_latest_model():
+    from services.model_manager import ModelManager
+    manager = ModelManager()
+    result = await manager.get_latest_model_metadata()
+    return JSONResponse(content=result)
+
+@app.post("/api/models/update")
+async def update_models():
+    from services.model_manager import ModelManager
+    manager = ModelManager()
+    result = await manager.update_models()
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["message"])
+    return JSONResponse(content=result)
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     WEBSOCKET_HEARTBEAT: int = 30
     SSE_RETRY_MS: int = 3000
     
+    # GitHub Actions Integration
+    GITHUB_TOKEN: Optional[str] = None
+    GITHUB_OWNER: str = "laljith-gamer"
+    GITHUB_REPOSITORY: str = "NurseAssist_AI"
+    GITHUB_WORKFLOW_ID: str = "train-models.yml"
+    
 settings = Settings()
 
 os.makedirs(settings.DATA_DIR, exist_ok=True)
