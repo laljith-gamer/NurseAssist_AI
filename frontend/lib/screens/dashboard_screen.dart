@@ -62,7 +62,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 builder: (context, llm, _) {
                   if (llm.isModelInstalled) {
                     return Text(
-                      llm.isReady ? 'Optional LLM: ready' : llm.statusMessage,
+                      llm.isReady
+                          ? 'Optional LLM: ready'
+                          : llm.isInitializing
+                          ? 'Optional LLM: starting in the background...'
+                          : llm.statusMessage,
                       style: const TextStyle(fontSize: 12),
                     );
                   }

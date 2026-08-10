@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -49,8 +51,13 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
     final llmService = context.read<LlmService>();
     final success = await llmService.downloadModel();
     if (success && mounted) {
-      await llmService.initializeEngine();
-      if (mounted) _navigateToDashboard();
+      // Return control to the nurse immediately. Creating the native Gemma
+      // engine can allocate several GB and must not keep this route on screen
+      // or make Android Back appear unresponsive.
+      _navigateToDashboard();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(llmService.initializeEngine());
+      });
     }
   }
 

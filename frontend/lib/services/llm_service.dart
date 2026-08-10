@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,6 +22,7 @@ class LlmService extends ChangeNotifier {
 
   bool _isModelInstalled = false;
   bool _isDownloading = false;
+  bool _isInitializing = false;
   bool _isReady = false;
   double _downloadProgress = 0.0;
   String _statusMessage = 'Checking...';
@@ -27,9 +30,11 @@ class LlmService extends ChangeNotifier {
   InferenceModel? _model;
   InferenceChat? _chat;
   bool _isGenerating = false;
+  Future<void>? _initializationFuture;
 
   bool get isModelInstalled => _isModelInstalled;
   bool get isDownloading => _isDownloading;
+  bool get isInitializing => _isInitializing;
   bool get isReady => _isReady;
   double get downloadProgress => _downloadProgress;
   String get statusMessage => _statusMessage;
@@ -119,10 +124,24 @@ class LlmService extends ChangeNotifier {
   Future<void> initializeEngine() async {
     if (!_isModelInstalled || _isReady) return;
 
-    try {
-      _statusMessage = 'Loading AI engine...';
-      notifyListeners();
+    // The native task-model allocation is expensive. Reuse the in-flight
+    // initialization rather than starting another allocation from a route
+    // change or an app-resume event.
+    final activeInitialization = _initializationFuture;
+    if (activeInitialization != null) return activeInitialization;
 
+    final initialization = _initializeEngine();
+    _initializationFuture = initialization;
+    return initialization;
+  }
+
+  Future<void> _initializeEngine() async {
+    _isInitializing = true;
+    _errorMessage = null;
+    _statusMessage = 'Loading AI engine...';
+    notifyListeners();
+
+    try {
       // The Gemma 2 task crashes on some OpenCL/GPU drivers while allocating
       // its key/value cache (including Android emulators). CPU is slower but
       // gives a reliable on-device initialization path.
@@ -147,12 +166,15 @@ class LlmService extends ChangeNotifier {
 
       _isReady = true;
       _statusMessage = 'AI Ready';
-      notifyListeners();
       debugPrint('LLM engine initialized successfully.');
     } catch (e) {
       _errorMessage = 'Engine init failed: ${e.toString()}';
       _isReady = false;
+      _statusMessage = 'AI engine could not start';
       debugPrint('LLM engine init error: $e');
+    } finally {
+      _isInitializing = false;
+      _initializationFuture = null;
       notifyListeners();
     }
   }
