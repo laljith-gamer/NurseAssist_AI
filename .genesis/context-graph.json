@@ -3,20 +3,15 @@
     {"id": "flutter_app", "label": "Flutter app"},
     {"id": "llm_service", "label": "LlmService"},
     {"id": "task_model", "label": "MediaPipe/LiteRT .task model"},
-    {"id": "github_release", "label": "GitHub Release asset"},
-    {"id": "release_workflow", "label": "Release workflow"},
-    {"id": "hf_source", "label": "Licensed Hugging Face source"}
+    {"id": "hf_bucket", "label": "Public Hugging Face bucket"}
   ],
   "edges": [
     {"from": "flutter_app", "to": "llm_service", "relation": "uses"},
-    {"from": "llm_service", "to": "github_release", "relation": "downloads"},
-    {"from": "github_release", "to": "task_model", "relation": "contains"},
-    {"from": "release_workflow", "to": "hf_source", "relation": "downloads_from"},
-    {"from": "release_workflow", "to": "github_release", "relation": "uploads_to"}
+    {"from": "llm_service", "to": "hf_bucket", "relation": "downloads_from"},
+    {"from": "hf_bucket", "to": "task_model", "relation": "contains"}
   ],
   "invariants": [
-    "The model filename must match in LlmService, the workflow, and the uploaded release asset.",
-    "The workflow source URL must not point to the same release asset it is creating.",
+    "The model filename and bucket URL must match the uploaded task file.",
     "Only compatible .task files may be installed by the MediaPipe backend.",
     "Deterministic clinical commands remain available without the optional LLM."
   ]

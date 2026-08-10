@@ -10,5 +10,5 @@ To resume work:
 3. Read `.genesis/PLAN.md` for the active milestones.
 4. Read `.genesis/implementation-notes.html` for verified implementation facts.
 
-Do not change the model filename, release tag, or app download URL independently:
-they are one release contract.
+Do not change the model filename or its Hugging Face bucket URL independently:
+they are one model-delivery contract.

@@ -10,12 +10,13 @@
 
 | Location | Required value |
 |---|---|
-| App model filename | `gemma-2-2b-it-int4.task` |
-| App release URL | GitHub Release `v1.0.0` asset with that filename |
-| Workflow input filename | Same filename |
-| Workflow source | A direct model-host download URL, not the destination GitHub Release URL |
+| App model filename | `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` |
+| App model URL | Public Hugging Face bucket direct-file URL |
+| Model type | MediaPipe/LiteRT `.task`, Gemma 2 INT8, 2.71 GB |
 
-The workflow downloads the source URL with the `HF_TOKEN` secret, validates it is larger than 1 MB, then uploads it to the GitHub Release. A `Not Found` file of nine bytes means the source URL is wrong, gated without permission, or the destination release URL was mistakenly used as the source.
+The app downloads directly from the bucket because the model exceeds GitHub's
+2 GiB per-release-asset limit. A `Not Found` response means the bucket file
+name or direct-file URL is wrong.
 
 ## Known quality guardrails
 

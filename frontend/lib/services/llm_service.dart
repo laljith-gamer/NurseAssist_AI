@@ -6,12 +6,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Wraps flutter_gemma for on-device LLM inference.
   /// Downloads an optional on-device LLM once, then runs fully offline.
 class LlmService extends ChangeNotifier {
-  // This filename is intentionally kept in sync with update-llm-model.yml.
-  static const String _modelFileName = 'gemma-2-2b-it-int4.task';
+  // The model is hosted directly in the project's public Hugging Face bucket.
+  // GitHub Release assets are limited to under 2 GiB, while this task model is
+  // 2.71 GB.
+  static const String _modelFileName =
+      'Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task';
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/$_modelFileName';
+      'https://huggingface.co/buckets/lalvictory/Gemma2-2B-IT-bucket/resolve/$_modelFileName';
 
-  static const String _prefKeyModelInstalled = 'llm_model_installed';
+  static const String _previousModelFileName = 'gemma-2-2b-it-int4.task';
+  static const String _prefKeyModelInstalled = 'llm_model_installed_v2';
 
   bool _isModelInstalled = false;
   bool _isDownloading = false;
@@ -39,18 +43,20 @@ class LlmService extends ChangeNotifier {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v6') ?? false;
+      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v7') ?? false;
 
       if (!hasUpgraded) {
-        // Wipe all previous models since we are returning to the stable MediaPipe backend (.task)
+        // Remove previous model variants. The current Gemma 2 task is fetched
+        // directly from the public bucket and has a different filename.
         try {
+          await FlutterGemma.uninstallModel(_previousModelFileName);
           await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
           await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
           await FlutterGemma.uninstallModel('gemma-4-E2B-it.litertlm');
         } catch (error) {
           debugPrint('Previous model cleanup skipped: $error');
         }
-        await prefs.setBool('upgraded_litertlm_v6', true);
+        await prefs.setBool('upgraded_litertlm_v7', true);
       }
 
       _isModelInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
@@ -63,7 +69,7 @@ class LlmService extends ChangeNotifier {
     return _isModelInstalled;
   }
 
-  /// Download the optional task model from the app release.
+  /// Download the optional task model directly from the public model bucket.
   Future<bool> downloadModel() async {
     if (_isDownloading) return false;
 
