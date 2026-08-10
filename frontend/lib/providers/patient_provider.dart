@@ -6,8 +6,42 @@ import '../services/clinical_command_parser.dart';
 import '../services/llm_service.dart';
 import '../services/local_nlp_service.dart';
 
-/// Coordinates the clinical command path.  Structured actions are handled
-/// locally and persist before any optional LLM is consulted.
+/// A validated charting proposal that requires a nurse's explicit approval.
+class ClinicalRecordProposal {
+  const ClinicalRecordProposal({
+    required this.patientId,
+    required this.patientName,
+    required this.command,
+    required this.sourceText,
+    required this.interpreter,
+    required this.createdAt,
+  });
+
+  final String patientId;
+  final String patientName;
+  final ClinicalCommand command;
+  final String sourceText;
+  final String interpreter;
+  final DateTime createdAt;
+
+  String get summary {
+    if (command.action == ClinicalAction.recordVitals) {
+      return command.vitals.map((vital) => vital.displayValue).join(', ');
+    }
+    final medication = command.medication;
+    if (medication == null) return '';
+    return [
+      medication.name,
+      if (medication.dose != null) medication.dose!,
+      if (medication.route != null) medication.route!,
+      '(${medication.status})',
+    ].join(' ');
+  }
+}
+
+/// Coordinates the clinical command path. An on-device LLM interprets normal
+/// nurse language; deterministic code only validates output and accesses the
+/// local record store.
 class PatientProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   final LocalNlpService _nlpService;
@@ -17,6 +51,7 @@ class PatientProvider with ChangeNotifier {
   Patient? _selectedPatient;
   DeltaMetrics? _currentMetrics;
   final List<ChatMessage> _messages = [];
+  ClinicalRecordProposal? _pendingProposal;
   bool _isLoading = false;
   bool _isResponding = false;
 
@@ -26,6 +61,7 @@ class PatientProvider with ChangeNotifier {
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   bool get isLoading => _isLoading;
   bool get isResponding => _isResponding;
+  ClinicalRecordProposal? get pendingProposal => _pendingProposal;
   ApiService get apiService => _apiService;
 
   PatientProvider(this._nlpService) {
@@ -79,6 +115,7 @@ class PatientProvider with ChangeNotifier {
     final patientId = patient.id;
     _selectedPatient = patient;
     _currentMetrics = null;
+    _pendingProposal = null;
     _messages.clear();
     notifyListeners();
 
@@ -120,6 +157,9 @@ class PatientProvider with ChangeNotifier {
     final patient = _selectedPatient;
     if (patient == null || _isResponding) return;
 
+    // A proposal is intentionally short-lived. Sending a new message discards
+    // an unsigned proposal instead of leaving a stale chart action available.
+    _pendingProposal = null;
     _isResponding = true;
     final userMessage = ChatMessage(
       id: 'user_${DateTime.now().microsecondsSinceEpoch}',
@@ -139,23 +179,20 @@ class PatientProvider with ChangeNotifier {
         createdAt: userMessage.timestamp,
       );
 
-      // The installed Gemma model is the primary language interpreter. It
-      // turns natural phrasing into structured actions; values are validated
-      // before saving. The lightweight ML model and offline parser remain
-      // useful fallbacks when the optional LLM is unavailable.
-      final aiCommand = await _llmService?.interpretClinicalCommand(message);
-      final mlIntent = _nlpService.classifyIntent(message);
-      final mlEntities = _nlpService.extractEntities(message);
-      final command = aiCommand ?? ClinicalCommandParser.parse(
+      // Gemma is the primary interpreter. The smaller model contributes only
+      // data-driven nursing context; it cannot create a command or a value.
+      final observationHints = _nlpService.predictClinicalObservations(message);
+      final aiCommand = await _llmService?.interpretClinicalCommand(
         message,
-        fallbackIntent: mlIntent.intent,
+        observationHints: observationHints,
       );
+      final command = aiCommand ?? ClinicalCommandParser.parse(message);
       final response = await _respondToCommand(
         patient: patient,
         message: message,
         command: command,
-        mlIntent: mlIntent,
-        mlEntities: mlEntities,
+        observationHints: observationHints,
+        interpreter: aiCommand == null ? 'offline fallback' : 'on-device AI',
       );
 
       // Do not write a response against a patient that was switched during a
@@ -196,29 +233,18 @@ class PatientProvider with ChangeNotifier {
     required Patient patient,
     required String message,
     required ClinicalCommand command,
-    required IntentResult mlIntent,
-    required List<Entity> mlEntities,
+    required List<ClinicalObservation> observationHints,
+    required String interpreter,
   }) async {
     switch (command.action) {
       case ClinicalAction.recordVitals:
-        await _apiService.recordVitals(
-          patient.id,
-          command.vitals
-              .map(
-                (vital) => {
-                  'type': vital.type,
-                  'value': vital.value,
-                  'unit': vital.unit,
-                },
-              )
-              .toList(),
+        _stageProposal(
+          patient: patient,
+          command: command,
           sourceText: message,
+          interpreter: interpreter,
         );
-        await _refreshMetrics(patient.id);
-        final details = command.vitals
-            .map((vital) => vital.displayValue)
-            .join(', ');
-        return 'Recorded for ${patient.name}: $details.';
+        return 'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryVitals:
         return _vitalsResponse(patient);
@@ -227,21 +253,13 @@ class PatientProvider with ChangeNotifier {
         return _trendsResponse(patient);
 
       case ClinicalAction.recordMedication:
-        final medication = command.medication!;
-        await _apiService.recordMedication(
-          patient.id,
-          name: medication.name,
-          dose: medication.dose,
-          route: medication.route,
-          status: medication.status,
+        _stageProposal(
+          patient: patient,
+          command: command,
           sourceText: message,
+          interpreter: interpreter,
         );
-        final details = [
-          medication.name,
-          if (medication.dose != null) medication.dose!,
-          if (medication.route != null) medication.route!,
-        ].join(' ');
-        return 'Recorded $details for ${patient.name} as ${medication.status}.';
+        return 'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryMedications:
         return _medicationsResponse(patient);
@@ -259,13 +277,7 @@ class PatientProvider with ChangeNotifier {
         return 'No new record was created.';
 
       case ClinicalAction.unknown:
-        if (mlIntent.intent == 'record_vitals') {
-          return 'I understood a vital-sign entry, but could not find a complete value. Try "BP 120/80", "HR 78 bpm", or "Temp 38.1 C".';
-        }
-        if (mlIntent.intent == 'record_medication') {
-          return 'I understood a medication entry, but could not find a medication name. Try "Administered Zofran 4 mg PO".';
-        }
-        return _optionalLlmResponse(patient, message, mlIntent, mlEntities);
+        return _optionalLlmResponse(patient, message, observationHints);
     }
   }
 
@@ -274,6 +286,114 @@ class PatientProvider with ChangeNotifier {
     if (_selectedPatient?.id == patientId) {
       _currentMetrics = DeltaMetrics.fromJson(metrics);
     }
+  }
+
+  void _stageProposal({
+    required Patient patient,
+    required ClinicalCommand command,
+    required String sourceText,
+    required String interpreter,
+  }) {
+    _pendingProposal = ClinicalRecordProposal(
+      patientId: patient.id,
+      patientName: patient.name,
+      command: command,
+      sourceText: sourceText,
+      interpreter: interpreter,
+      createdAt: DateTime.now(),
+    );
+  }
+
+  Future<void> confirmPendingProposal() async {
+    final proposal = _pendingProposal;
+    if (proposal == null || _isResponding) return;
+    if (_selectedPatient?.id != proposal.patientId) {
+      _pendingProposal = null;
+      notifyListeners();
+      return;
+    }
+
+    _isResponding = true;
+    notifyListeners();
+    try {
+      switch (proposal.command.action) {
+        case ClinicalAction.recordVitals:
+          await _apiService.recordVitals(
+            proposal.patientId,
+            proposal.command.vitals
+                .map(
+                  (vital) => {
+                    'type': vital.type,
+                    'value': vital.value,
+                    'unit': vital.unit,
+                  },
+                )
+                .toList(),
+            sourceText: proposal.sourceText,
+          );
+          await _refreshMetrics(proposal.patientId);
+          await _appendAssistantMessage(
+            proposal.patientId,
+            'Saved for ${proposal.patientName}: ${proposal.summary}.',
+          );
+          break;
+        case ClinicalAction.recordMedication:
+          final medication = proposal.command.medication!;
+          await _apiService.recordMedication(
+            proposal.patientId,
+            name: medication.name,
+            dose: medication.dose,
+            route: medication.route,
+            status: medication.status,
+            sourceText: proposal.sourceText,
+          );
+          await _appendAssistantMessage(
+            proposal.patientId,
+            'Saved medication documentation for ${proposal.patientName}: ${proposal.summary}.',
+          );
+          break;
+        default:
+          throw StateError('Only charting proposals can be confirmed.');
+      }
+      _pendingProposal = null;
+    } catch (error) {
+      debugPrint('Error confirming clinical proposal: $error');
+      await _appendAssistantMessage(
+        proposal.patientId,
+        'I could not save that record. Please review it and try again.',
+      );
+    } finally {
+      _isResponding = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> discardPendingProposal() async {
+    final proposal = _pendingProposal;
+    if (proposal == null || _isResponding) return;
+    _pendingProposal = null;
+    await _appendAssistantMessage(
+      proposal.patientId,
+      'Proposal discarded. No clinical record was saved.',
+    );
+    notifyListeners();
+  }
+
+  Future<void> _appendAssistantMessage(String patientId, String content) async {
+    final message = ChatMessage(
+      id: 'assistant_${DateTime.now().microsecondsSinceEpoch}',
+      role: 'assistant',
+      content: content,
+      timestamp: DateTime.now(),
+    );
+    if (_selectedPatient?.id == patientId) _messages.add(message);
+    await _apiService.saveChatMessage(
+      id: message.id,
+      patientId: patientId,
+      role: message.role,
+      content: message.content,
+      createdAt: message.timestamp,
+    );
   }
 
   Future<String> _vitalsResponse(Patient patient) async {
@@ -373,8 +493,7 @@ class PatientProvider with ChangeNotifier {
   Future<String> _optionalLlmResponse(
     Patient patient,
     String message,
-    IntentResult intent,
-    List<Entity> entities,
+    List<ClinicalObservation> observationHints,
   ) async {
     final llm = _llmService;
     if (llm?.isReady != true) {
@@ -382,11 +501,8 @@ class PatientProvider with ChangeNotifier {
     }
     final prompt = llm!.buildClinicalPrompt(
       patientName: patient.name,
-      intent: intent.intent,
-      entities: entities
-          .map((entity) => {'type': entity.type, 'value': entity.value})
-          .toList(),
       userMessage: message,
+      observationHints: observationHints,
     );
     final response = await llm.generateResponse(prompt);
     return response.isEmpty

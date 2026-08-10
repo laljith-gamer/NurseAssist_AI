@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'ml_pipeline/scripts/train_intent_model.py'
-      - 'ml_pipeline/scripts/train_ner_model.py'
+      - 'ml_pipeline/scripts/synur_dataset.py'
+      - 'ml_pipeline/scripts/train_observation_model.py'
       - 'ml_pipeline/scripts/export_mobile_models.py'
       - 'ml_pipeline/scripts/verify_mobile_export.py'
-      - 'ml_pipeline/nlp/**'
+      - 'ml_pipeline/config.py'
       - 'ml_pipeline/requirements.txt'
       - '.github/workflows/train-models.yml'
 
@@ -33,48 +33,38 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r ml_pipeline/requirements.txt
-          pip install spacy scikit-learn
 
-      - name: Train Intent Model
+      - name: Train real-data nursing observation model
         run: |
-          echo "MODEL TRAINING: STARTED"
-          python ml_pipeline/scripts/train_intent_model.py
-        
-      - name: Train NER Model
-        run: |
-          python ml_pipeline/scripts/train_ner_model.py
+          echo "SYNUR MODEL TRAINING: STARTED"
+          python ml_pipeline/scripts/train_observation_model.py
 
       - name: Verify Model Artifacts
         run: |
-          if [ ! -f "ml_pipeline/data/intent_model.pkl" ]; then
-            echo "Error: intent_model.pkl not found!"
-            exit 1
-          fi
-          if [ ! -f "ml_pipeline/data/ner_model.pkl" ]; then
-            echo "Error: ner_model.pkl not found!"
+          if [ ! -f "ml_pipeline/data/clinical_observation_model.pkl" ]; then
+            echo "Error: clinical_observation_model.pkl not found!"
             exit 1
           fi
       - name: Generate Mobile Artifacts
         id: generate
         run: |
-          # Use run number as version (e.g., v5)
-          VERSION="v${{ github.run_number }}"
+          VERSION="nurse-nlp-v${{ github.run_number }}"
           export MODEL_VERSION="$VERSION"
           echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
           
           python ml_pipeline/scripts/export_mobile_models.py
           python ml_pipeline/scripts/verify_mobile_export.py
           
-          if [ ! -f "ml_pipeline/data/mobile_export/nurseassist-model-${VERSION}.zip" ]; then
+          if [ ! -f "ml_pipeline/data/mobile_export/nurseassist-observation-model-${VERSION}.zip" ]; then
             echo "Error: ZIP package not found!"
             exit 1
           fi
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.run_number }}
-          name: Model v${{ github.run_number }}
-          files: ml_pipeline/data/mobile_export/nurseassist-model-v${{ github.run_number }}.zip
+          tag_name: nurse-nlp-v${{ github.run_number }}
+          name: Nursing language model v${{ github.run_number }}
+          files: ml_pipeline/data/mobile_export/nurseassist-observation-model-nurse-nlp-v${{ github.run_number }}.zip
           draft: false
           prerelease: false
         env:

@@ -19,13 +19,15 @@ enum ModelStatus {
   installing,
 }
 
-/// Installs only the small exported NLP package. The LLM task file is managed
-/// separately by [LlmService]; mixing both artifacts in `releases/latest` was
-/// the source of failed or misleading model updates.
+/// Installs only the small, data-backed nursing-observation package. The LLM
+/// task file is managed separately by [LlmService], so model updates cannot
+/// accidentally download the multi-gigabyte task model.
 class ModelManager extends ChangeNotifier {
   static const String _repoOwner = 'laljith-gamer';
   static const String _repoName = 'NurseAssist_AI';
-  static final RegExp _nlpZipName = RegExp(r'^nurseassist-model-.+\.zip$');
+  static final RegExp _nlpZipName = RegExp(
+    r'^nurseassist-observation-model-.+\.zip$',
+  );
 
   bool _isUpdating = false;
   ModelStatus _status = ModelStatus.checking;
@@ -75,7 +77,12 @@ class ModelManager extends ChangeNotifier {
     if (!await file.exists()) return null;
     try {
       final metadata = jsonDecode(await file.readAsString());
-      return metadata is Map<String, dynamic> ? metadata : null;
+      if (metadata is! Map<String, dynamic> ||
+          metadata['schema_version'] != 2 ||
+          metadata['observation_model'] is! Map) {
+        return null;
+      }
+      return metadata;
     } catch (_) {
       return null;
     }
@@ -114,7 +121,7 @@ class ModelManager extends ChangeNotifier {
   Future<void> checkForUpdates() async {
     if (kIsWeb || _isUpdating) return;
     _status = ModelStatus.checking;
-    _downloadProgress = 'Checking for NLP updates...';
+    _downloadProgress = 'Checking nursing-language updates...';
     notifyListeners();
 
     try {
@@ -141,7 +148,7 @@ class ModelManager extends ChangeNotifier {
       }
 
       _status = ModelStatus.updateAvailable;
-      _downloadProgress = 'NLP update available';
+      _downloadProgress = 'Nursing-language update available';
       notifyListeners();
       await _downloadAndInstallLatest(release);
     } catch (error) {
@@ -177,7 +184,7 @@ class ModelManager extends ChangeNotifier {
       }
 
       _status = ModelStatus.downloading;
-      _downloadProgress = 'Downloading NLP model...';
+      _downloadProgress = 'Downloading nursing-language model...';
       notifyListeners();
       final response = await http
           .get(Uri.parse(downloadUrl))
@@ -202,7 +209,7 @@ class ModelManager extends ChangeNotifier {
       }
       await extracted.create();
 
-      const expectedFiles = {'intent.json', 'ner.json', 'metadata.json'};
+      const expectedFiles = {'observations.json', 'metadata.json'};
       final extractedFiles = <String>{};
       for (final archiveFile in archive) {
         final name = archiveFile.name.replaceAll('\\', '/');
@@ -229,19 +236,22 @@ class ModelManager extends ChangeNotifier {
         await File(path.join(extracted.path, 'metadata.json')).readAsString(),
       );
       if (metadata is! Map<String, dynamic> ||
-          metadata['schema_version'] != 1 ||
+          metadata['schema_version'] != 2 ||
           metadata['model_version']?.toString() != latestVersion) {
         throw const FormatException('NLP package metadata is incompatible');
       }
-      await _verifyArtifact(extracted, metadata, 'intent_model', 'intent.json');
-      await _verifyArtifact(extracted, metadata, 'ner_model', 'ner.json');
-      await _validateExportedModel(
-        File(path.join(extracted.path, 'intent.json')),
+      await _verifyArtifact(
+        extracted,
+        metadata,
+        'observation_model',
+        'observations.json',
       );
-      await _validateExportedModel(File(path.join(extracted.path, 'ner.json')));
+      await _validateExportedModel(
+        File(path.join(extracted.path, 'observations.json')),
+      );
 
       _status = ModelStatus.installing;
-      _downloadProgress = 'Installing NLP model...';
+      _downloadProgress = 'Installing nursing-language model...';
       notifyListeners();
       final current = Directory(path.join(baseDir.path, 'current'));
       final previous = Directory(path.join(baseDir.path, 'previous'));
@@ -307,20 +317,31 @@ class ModelManager extends ChangeNotifier {
   Future<void> _validateExportedModel(File file) async {
     final model = jsonDecode(await file.readAsString());
     if (model is! Map ||
-        model['type'] != 'sgd_classifier' ||
+        model['type'] != 'multi_label_sgd_classifier' ||
+        model['role'] != 'advisory_clinical_observation_context' ||
         model['vocabulary'] is! Map ||
         model['idf'] is! List ||
         model['coef'] is! List ||
         model['intercept'] is! List ||
         model['classes'] is! List ||
+        model['threshold'] is! num ||
         (model['classes'] as List).isEmpty) {
       throw const FormatException('Invalid exported classifier');
     }
     final classes = model['classes'] as List;
     final coefficients = model['coef'] as List;
     if (coefficients.length != classes.length ||
-        (model['intercept'] as List).length != classes.length) {
+        (model['intercept'] as List).length != classes.length ||
+        !(model['threshold'] as num).isFinite ||
+        (model['threshold'] as num) <= 0 ||
+        (model['threshold'] as num) >= 1) {
       throw const FormatException('Classifier dimensions do not match');
+    }
+    final idf = model['idf'] as List;
+    if (coefficients.any((row) => row is! List || row.length != idf.length)) {
+      throw const FormatException(
+        'Classifier coefficient dimensions do not match',
+      );
     }
   }
 

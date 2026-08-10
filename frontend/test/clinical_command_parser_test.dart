@@ -3,6 +3,26 @@ import 'package:frontend/services/clinical_command_parser.dart';
 
 void main() {
   group('ClinicalCommandParser', () {
+    test('accepts a versioned AI proposal for natural BP wording', () {
+      final command = ClinicalCommandParser.fromAiJson(
+        '{"v":1,"action":"record_vitals","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}]}',
+      );
+
+      expect(command?.action, ClinicalAction.recordVitals);
+      expect(
+        command?.vitals.map((vital) => vital.value),
+        containsAll([120, 80]),
+      );
+    });
+
+    test('rejects an unversioned AI response', () {
+      final command = ClinicalCommandParser.fromAiJson(
+        '{"action":"record_vitals","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}]}',
+      );
+
+      expect(command, isNull);
+    });
+
     test('records a complete set of common vital signs', () {
       final command = ClinicalCommandParser.parse(
         'Record BP 120/80, HR 78, Temp 98.6 F, SpO2 96%, RR 18',

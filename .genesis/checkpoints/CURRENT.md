@@ -1,10 +1,11 @@
 # CURRENT
-- active_loop: device-model-verification
-- target: verify the bucket-hosted task model downloads and runs in the Flutter app
-- iteration: 1
-- last_gate: model source verified (HTTP 200, 2,713,274,466 bytes)
-- last_action: switched the app from GitHub Releases to the public Hugging Face bucket and removed the upload workflow
-- next_action: build/install the APK on a device with at least 6 GB free storage, download the model, then test independent prompts for repetition
+- active_loop: real-data-nursing-language-pipeline
+- target: combine a safe on-device AI interpreter with a measurable nursing-language sidecar model
+- iteration: 2
+- last_gate: SYNUR training, mobile export parity, and quality gate passed (validation micro-F1 0.7689; held-out test micro-F1 0.7068)
+- last_action: replaced synthetic CI training with pinned public SYNUR training and added an in-chat nurse review/confirm flow for all AI chart proposals
+- next_action: push the small-model workflow, install the new debug APK on an Android device, then verify a vital and medication proposal can each be confirmed and discarded
 - model: `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` from the public Hugging Face bucket
+- sidecar_data: Microsoft SYNUR, pinned revision `fc5a8c4882cfc6cd09c87c602dcdb6f3bba905b2` (synthetic nursing research data; advisory only)
 - tokens_used: not tracked
 - skills_loaded: []

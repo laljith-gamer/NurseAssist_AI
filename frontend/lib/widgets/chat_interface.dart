@@ -88,21 +88,21 @@ class _ChatInterfaceState extends State<ChatInterface> {
     String version = manager.currentVersion;
     switch (manager.status) {
       case ModelStatus.offline:
-        return "AI Model $version - Offline";
+        return "Nursing language model $version - Not installed";
       case ModelStatus.ready:
-        return "AI Model $version - Ready";
+        return "Nursing language model $version - Ready";
       case ModelStatus.checking:
-        return "AI Model $version - Checking for updates...";
+        return "Nursing language model $version - Checking for updates...";
       case ModelStatus.updateAvailable:
-        return "AI Model $version - Update Available";
+        return "Nursing language model $version - Update Available";
       case ModelStatus.downloading:
-        return "AI Model $version - Downloading ${manager.downloadProgress}";
+        return "Nursing language model $version - ${manager.downloadProgress}";
       case ModelStatus.verifying:
-        return "AI Model $version - Verifying...";
+        return "Nursing language model $version - Verifying...";
       case ModelStatus.installing:
-        return "AI Model $version - Installing...";
+        return "Nursing language model $version - Installing...";
       case ModelStatus.error:
-        return "AI Model $version - Update Error (Rolled back)";
+        return "Nursing language model $version - Update Error (Rolled back)";
     }
   }
 
@@ -198,6 +198,85 @@ class _ChatInterfaceState extends State<ChatInterface> {
     );
   }
 
+  Widget _buildProposalCard(PatientProvider provider) {
+    final proposal = provider.pendingProposal!;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.fact_check_outlined, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Review before charting',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Patient: ${proposal.patientName}',
+            style: TextStyle(color: colorScheme.onPrimaryContainer),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            proposal.summary,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Interpreted by ${proposal.interpreter}. Verify against the patient and source before saving.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: provider.isResponding
+                    ? null
+                    : () async {
+                        await provider.discardPendingProposal();
+                        if (mounted) _scrollToBottom();
+                      },
+                child: const Text('Discard'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: provider.isResponding
+                    ? null
+                    : () async {
+                        await provider.confirmPendingProposal();
+                        if (mounted) _scrollToBottom();
+                      },
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Confirm & Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -241,6 +320,8 @@ class _ChatInterfaceState extends State<ChatInterface> {
                       ),
                     ),
                   Expanded(child: _buildMessagesList(provider)),
+                  if (provider.pendingProposal != null)
+                    _buildProposalCard(provider),
                 ],
               );
             },

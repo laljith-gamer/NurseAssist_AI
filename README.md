@@ -1,70 +1,72 @@
 # NurseAssist AI
 
-NurseAssist is an **offline-first Flutter application** for recording and reviewing patient vitals, medication documentation, and clinical notes. Core clinical commands are parsed deterministically and stored on the device; the on-device ML models and optional LLM enhance, but never gate, that path.
+NurseAssist is an offline-first Flutter assistant for nurses. It records and
+reviews local patient vitals and medication documentation without sending
+patient data to a cloud backend.
 
-## Architecture
+## How the AI path works
 
-NurseAssist is completely **Offline-First**. 
-1. **No Cloud Backend**: The application does not require a backend API, FastAPI, or Render instance to function. All interactions are handled locally on the device.
-2. **Local command path**: Commands such as `BP 120/80`, `Temp 38.1 C`, and `Administered Zofran 4 mg PO` are parsed locally, persisted in SQLite, and answered from those records.
-3. **Local ML inference**: Intent classification and entity extraction run directly in Dart from verified exported JSON models (`intent.json`, `ner.json`) after they are downloaded.
-4. **No clinical cloud dependency**: Patient data, historical metrics, chat history, and NLP feedback are stored exclusively in the local SQLite database.
+1. The optional on-device Gemma 2 model interprets normal nurse language into
+   a compact structured proposal.
+2. A small data-backed nursing-observation model provides optional context;
+   it is advisory only and cannot create a value or record.
+3. The app validates the proposed fields and safe numeric ranges locally.
+4. The nurse reviews a visible proposal card and taps **Confirm & Save**.
 
-## Model Training & CI/CD
+No model can select a patient, prescribe, diagnose, or write a record without
+the nurse's confirmation. When Gemma is unavailable, the app retains a limited
+offline command fallback, but it also uses the same confirmation step.
 
-Model training and updates are completely automated via **GitHub Actions**.
+## Models
 
-- **Commit-Triggered Training**: Pushing changes to `ml_pipeline/` triggers `.github/workflows/train-models.yml`.
-- **Model Validation**: The pipeline trains `intent_model.pkl` and `ner_model.pkl`, exports their weights, and verifies that the JSON predictions match the Scikit-Learn classifiers before release.
-- **Deterministic Export**: To achieve native iOS/Android support without heavy C++ bridging, the pipeline exports the canonical classifiers into efficient JSON representations (`intent.json` and `ner.json`).
-- **Immutable Releases**: A versioned zip file (`nurseassist-model-vX.zip`) containing the models and a SHA-256 metadata file is packaged and published to **GitHub Releases**.
+- **Gemma 2 2B IT Q8**: optional 2.71 GB on-device `.task` model, downloaded
+  directly from the public Hugging Face bucket. It is not delivered through
+  GitHub Releases because GitHub assets are limited to 2 GiB.
+- **Nursing observation model**: a small TF-IDF/SGD sidecar model trained from
+  [Microsoft SYNUR](https://huggingface.co/datasets/microsoft/SYNUR), a public
+  CDLA-Permissive-2.0 dataset of synthetic expert-nurse dictations and
+  structured observations.
 
-## Model Updates (Mobile App)
+SYNUR is valuable for reproducible nursing-language evaluation, but it is
+synthetic research data—not EHR data. The release pipeline measures held-out
+performance and blocks a model release beneath its quality gate. Those metrics
+are evidence for this limited advisory task, not a claim of clinical accuracy
+or approval for autonomous documentation.
 
-The mobile application acts as a client that occasionally checks for model updates from GitHub Releases:
-1. **Lightweight Check**: When the app starts, it checks GitHub Releases for the newest `nurseassist-model-*.zip` asynchronously without blocking clinical commands.
-2. **Atomic Installation**: If a newer model is found, the app downloads it, verifies the SHA-256 checksums, and installs it atomically into device storage.
-3. **Safe Rollback**: If the new model fails to load or is corrupted, the application will transparently roll back to the previously installed model version, ensuring uninterrupted offline access.
+## Training and release
 
-## Getting Started
+The GitHub Actions workflow trains only the small nursing-observation sidecar;
+it does **not** download, fine-tune, or upload the large Gemma task model.
 
-### Flutter App
-
-1. Install Flutter dependencies:
-```bash
-cd frontend
-flutter pub get
-```
-
-2. Run the application (supports iOS, Android, macOS, Windows):
-```bash
-flutter run
-```
-
-*Note: The app is usable immediately without a model download. When online, it automatically installs the latest verified NLP package from GitHub Releases. The larger conversational LLM is optional.*
-
-### Local ML Development
-
-If you wish to modify the ML training data or architecture:
-
-1. Install Python dependencies:
-```bash
+```powershell
 cd ml_pipeline
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-```
-
-2. Train Models (will generate `.pkl` and `ner_model/`):
-```bash
-python scripts/train_intent_model.py
-python scripts/train_ner_model.py
-```
-
-3. Export Models for Flutter (simulating the GitHub Action):
-```bash
+python scripts/train_observation_model.py
 python scripts/export_mobile_models.py
 python scripts/verify_mobile_export.py
 ```
 
-## Security & Privacy
-Because NurseAssist AI executes entirely on-device, sensitive Patient Health Information (PHI) never leaves the smartphone or tablet. The only network request made is an anonymous GET request to GitHub to download newer ML models.
+The trainer downloads the exact pinned SYNUR revision, uses its MEDIQA train
+and development splits for fitting/selection, holds the test split out, writes
+metrics, exports `observations.json`, and packages a verified
+`nurseassist-observation-model-*.zip`. Flutter verifies the manifest hashes and
+installs the package atomically with rollback.
+
+## Run the app
+
+```powershell
+cd frontend
+flutter pub get
+flutter run
+```
+
+The core local record store works without an internet connection. The app may
+check GitHub Releases for a newer small nursing-language package; the Gemma
+download is explicitly initiated by the user.
+
+## Safety and privacy
+
+- Patient records, chat history, and feedback are stored in local SQLite.
+- Never use the app as a source of diagnosis, treatment, medication orders, or
+  emergency guidance.
+- Verify all AI-proposed values against the patient and source documentation
+  before saving.

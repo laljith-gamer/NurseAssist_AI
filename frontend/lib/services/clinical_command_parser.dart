@@ -75,8 +75,8 @@ class ClinicalCommand {
 
 class ClinicalCommandParser {
   /// Converts the LLM's strict JSON response into a safe local command.
-  /// Invalid, incomplete, or unsupported output returns null and never writes
-  /// a patient record.
+  /// Invalid, incomplete, or unsupported output returns null. The result is
+  /// later presented to the nurse for explicit confirmation before any write.
   static ClinicalCommand? fromAiJson(String raw) {
     Map<String, dynamic>? data;
     final trimmed = raw.trim();
@@ -95,7 +95,7 @@ class ClinicalCommandParser {
         // Try the next JSON envelope.
       }
     }
-    if (data == null) return null;
+    if (data == null || data['v'] != 1) return null;
 
     switch (data['action']?.toString()) {
       case 'record_vitals':
@@ -103,27 +103,81 @@ class ClinicalCommandParser {
         if (rawVitals is! List) return null;
         final vitals = <ParsedVital>[];
         for (final item in rawVitals) {
-          if (item is! Map) continue;
+          if (item is! Map) return null;
           final vital = Map<String, dynamic>.from(item);
           final type = vital['type']?.toString();
           if (type == 'blood_pressure') {
-            _addIfInRange(vitals, 'systolic', _number(vital['systolic']), 'mmHg', 40, 260);
-            _addIfInRange(vitals, 'diastolic', _number(vital['diastolic']), 'mmHg', 20, 180);
+            _addIfInRange(
+              vitals,
+              'systolic',
+              _number(vital['systolic']),
+              'mmHg',
+              40,
+              260,
+            );
+            _addIfInRange(
+              vitals,
+              'diastolic',
+              _number(vital['diastolic']),
+              'mmHg',
+              20,
+              180,
+            );
           } else if (type == 'heart_rate') {
-            _addIfInRange(vitals, 'heart_rate', _number(vital['value']), 'bpm', 20, 260);
+            _addIfInRange(
+              vitals,
+              'heart_rate',
+              _number(vital['value']),
+              'bpm',
+              20,
+              260,
+            );
           } else if (type == 'temperature') {
-            _addIfInRange(vitals, 'temperature', _number(vital['value']), '°C', 25, 45);
+            _addIfInRange(
+              vitals,
+              'temperature',
+              _number(vital['value']),
+              '°C',
+              25,
+              45,
+            );
           } else if (type == 'spo2') {
-            _addIfInRange(vitals, 'spo2', _number(vital['value']), '%', 40, 100);
+            _addIfInRange(
+              vitals,
+              'spo2',
+              _number(vital['value']),
+              '%',
+              40,
+              100,
+            );
           } else if (type == 'respiratory_rate') {
-            _addIfInRange(vitals, 'respiratory_rate', _number(vital['value']), '/min', 4, 80);
+            _addIfInRange(
+              vitals,
+              'respiratory_rate',
+              _number(vital['value']),
+              '/min',
+              4,
+              80,
+            );
           } else if (type == 'weight') {
-            _addIfInRange(vitals, 'weight', _number(vital['value']), 'kg', 2, 500);
+            _addIfInRange(
+              vitals,
+              'weight',
+              _number(vital['value']),
+              'kg',
+              2,
+              500,
+            );
+          } else {
+            return null;
           }
         }
         return vitals.isEmpty
             ? null
-            : ClinicalCommand(action: ClinicalAction.recordVitals, vitals: vitals);
+            : ClinicalCommand(
+                action: ClinicalAction.recordVitals,
+                vitals: vitals,
+              );
       case 'record_medication':
         final rawMedication = data['medication'];
         if (rawMedication is! Map) return null;
