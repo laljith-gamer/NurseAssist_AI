@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/patient_provider.dart';
@@ -17,7 +18,10 @@ void main() async {
   
   // Initialize Flutter Gemma with LiteRT-LM engine (supports all platforms)
   await FlutterGemma.initialize(
-    inferenceEngines: [LiteRtLmEngine()],
+    inferenceEngines: [
+      MediaPipeEngine(),  // Handles .task / .bin model files
+      LiteRtLmEngine(),   // Handles .litertlm model files
+    ],
   );
 
   final localNlpService = LocalNlpService();

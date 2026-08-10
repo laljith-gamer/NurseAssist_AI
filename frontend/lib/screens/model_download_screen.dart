@@ -4,9 +4,6 @@ import 'package:provider/provider.dart';
 import '../services/llm_service.dart';
 import 'dashboard_screen.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 /// First-launch screen that asks the user to download the on-device AI model.
 class ModelDownloadScreen extends StatefulWidget {
