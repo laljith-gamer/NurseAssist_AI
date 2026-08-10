@@ -143,6 +143,11 @@ class PatientProvider with ChangeNotifier {
         // Generate LLM response
         response = await _llmService!.generateResponse(prompt);
         
+        // If LLM returned garbage/empty, fall back to template
+        if (response.isEmpty) {
+          response = _buildResponse(intentResult, entities, message);
+        }
+        
         // Remove thinking placeholder and add real response
         _messages.remove(thinkingMsg);
       } catch (e) {

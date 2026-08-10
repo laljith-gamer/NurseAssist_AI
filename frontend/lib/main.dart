@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/patient_provider.dart';
 import 'providers/settings_provider.dart';
@@ -16,11 +16,10 @@ import 'services/llm_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Flutter Gemma with LiteRT-LM engine (supports all platforms)
+  // Initialize Flutter Gemma with MediaPipe engine (.task files)
   await FlutterGemma.initialize(
     inferenceEngines: [
-      MediaPipeEngine(),  // Handles .task / .bin model files
-      LiteRtLmEngine(),   // Handles .litertlm model files
+      MediaPipeEngine(),
     ],
   );
 

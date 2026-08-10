@@ -49,7 +49,6 @@ dependencies:
   sqflite_common_ffi_web: ^1.0.2
   flutter_gemma: ^1.5.2
   flutter_gemma_mediapipe: ^1.0.0
-  flutter_gemma_litertlm: ^1.2.0
   shared_preferences: ^2.5.2
 
 dev_dependencies:

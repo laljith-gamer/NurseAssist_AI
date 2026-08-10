@@ -4,10 +4,13 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
-/// Downloads Gemma 3 270M on first launch, then runs fully offline.
+/// Downloads a high-quality LLM (up to 2GB) on first launch, then runs fully offline.
 class LlmService extends ChangeNotifier {
+  // Pointing to a high-quality model < 2GB hosted on your GitHub releases.
+  // For example, Gemma-2-2B-IT-INT4 (~1.3 GB) or Phi-3-Mini-INT4 (~1.8 GB).
+  static const String _modelFileName = 'gemma-2-2b-it-int4.task';
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/gemma3-270m-it-q8.task';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/$_modelFileName';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed';
 
@@ -48,7 +51,7 @@ class LlmService extends ChangeNotifier {
       }
 
       _isModelInstalled = await FlutterGemma.isModelInstalled(
-        'gemma3-270m-it-q8.task',
+        _modelFileName,
       );
     } catch (e) {
       // Fall back to shared prefs check
@@ -70,7 +73,7 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _statusMessage = 'Downloading AI model (~300 MB)...';
+      _statusMessage = 'Downloading AI model (~1.3 GB)...';
       notifyListeners();
 
       await FlutterGemma.installModel(
@@ -138,6 +141,26 @@ class LlmService extends ChangeNotifier {
     }
   }
 
+  /// Regex to strip special/control tokens the model may emit
+  static final RegExp _specialTokenPattern = RegExp(
+    r'<pad>|<unk>|<s>|</s>|<bos>|<eos>|'
+    r'<unused\d+>|'
+    r'\[multimodal\]|\[unused\d+\]|'
+    r'<\|.*?\|>',
+    caseSensitive: false,
+  );
+
+  /// Strip special tokens and check if the response is usable
+  String _sanitizeResponse(String raw) {
+    // Remove special tokens
+    var cleaned = raw.replaceAll(_specialTokenPattern, '');
+    // Collapse excessive whitespace left behind
+    cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+    // If what remains is too short or empty, treat as garbage
+    if (cleaned.length < 3) return '';
+    return cleaned;
+  }
+
   /// Generate a response from the LLM using streaming
   Stream<String> generateResponseStream(String prompt) async* {
     if (!_isReady) {
@@ -153,7 +176,10 @@ class LlmService extends ChangeNotifier {
 
       await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
       await for (final token in _chat!.session.getResponseAsync()) {
-        yield token;
+        final cleaned = _sanitizeResponse(token);
+        if (cleaned.isNotEmpty) {
+          yield cleaned;
+        }
       }
     } catch (e) {
       debugPrint('LLM generation error: $e');
@@ -172,7 +198,13 @@ class LlmService extends ChangeNotifier {
 
       await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
       final response = await _chat!.session.getResponse();
-      return response.trim();
+      final cleaned = _sanitizeResponse(response);
+      // Return empty string so caller can fall back to template response
+      if (cleaned.isEmpty) {
+        debugPrint('LLM returned garbage output, falling back to template.');
+        return '';
+      }
+      return cleaned;
     } catch (e) {
       debugPrint('LLM generation error: $e');
       return 'Sorry, I encountered an error.';
