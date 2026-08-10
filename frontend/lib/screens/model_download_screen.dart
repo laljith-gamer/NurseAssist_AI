@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -38,11 +36,15 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
   }
 
   void _navigateToDashboard() {
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      // This screen is opened from Settings, which is a dialog route. Return
+      // to the actual dashboard rather than leaving that dialog on top and
+      // making the app look blocked after the nurse chooses to continue.
+      navigator.popUntil((route) => route.isFirst);
       return;
     }
-    Navigator.of(context).pushReplacement(
+    navigator.pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
     );
   }
@@ -51,13 +53,9 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
     final llmService = context.read<LlmService>();
     final success = await llmService.downloadModel();
     if (success && mounted) {
-      // Return control to the nurse immediately. Creating the native Gemma
-      // engine can allocate several GB and must not keep this route on screen
-      // or make Android Back appear unresponsive.
+      // The service schedules engine startup itself, so this route can always
+      // return control to the nurse as soon as the file is installed.
       _navigateToDashboard();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(llmService.initializeEngine());
-      });
     }
   }
 
@@ -195,6 +193,21 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                           color: Colors.white70,
                         ),
                       ),
+                      const SizedBox(height: 20),
+                      OutlinedButton.icon(
+                        onPressed: _navigateToDashboard,
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Use app while download continues'),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'The download continues while NurseAssist stays open.',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: Colors.white54,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ] else if (llm.errorMessage != null) ...[
                       // Error state
                       Container(
@@ -221,7 +234,8 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
 
                     const SizedBox(height: 16),
 
-                    // Skip button
+                    // This is also available during download so the model
+                    // screen can never trap the nurse in a loading state.
                     if (!llm.isDownloading)
                       TextButton(
                         onPressed: _navigateToDashboard,

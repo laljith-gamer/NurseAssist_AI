@@ -108,6 +108,10 @@ class LlmService extends ChangeNotifier {
       await prefs.setBool(_prefKeyModelInstalled, true);
 
       notifyListeners();
+      // The download route may already have been dismissed. The service owns
+      // startup so a completed download always becomes usable in this app
+      // session, regardless of which screen the nurse is viewing.
+      unawaited(Future<void>.delayed(Duration.zero, initializeEngine));
       return true;
     } catch (e) {
       _errorMessage = 'Download failed: ${e.toString()}';
