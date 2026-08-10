@@ -73,7 +73,7 @@ class ClinicalCommand {
 
 class ClinicalCommandParser {
   static final RegExp _bpPattern = RegExp(
-    r'\b(?:bp|blood\s+pressure)\s*(?:is|of|:|=)?\s*(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b',
+    r'\b(?:bp|blood\s+pressure)\s*(?:is|of|as|at|:|=)?\s*(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b',
     caseSensitive: false,
   );
   static final RegExp _heartRatePattern = RegExp(
@@ -302,7 +302,7 @@ class ClinicalCommandParser {
 
   static bool _hasRecordLanguage(String text) {
     return RegExp(
-      r'\b(?:record|log|document|enter|save|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?)\b',
+      r'\b(?:record|log|document|enter|save|put|set|add|update|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?)\b',
       caseSensitive: false,
     ).hasMatch(text);
   }
