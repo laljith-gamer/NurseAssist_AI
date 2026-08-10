@@ -4,10 +4,9 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
-/// Downloads a high-quality LLM (up to 2GB) on first launch, then runs fully offline.
+  /// Downloads an optional on-device LLM once, then runs fully offline.
 class LlmService extends ChangeNotifier {
-  // Pointing to a high-quality model < 2GB hosted on your GitHub releases.
-  // For example, Gemma-2-2B-IT-INT4 (~1.3 GB) or Phi-3-Mini-INT4 (~1.8 GB).
+  // This filename is intentionally kept in sync with update-llm-model.yml.
   static const String _modelFileName = 'gemma-2-2b-it-int4.task';
   static const String _modelUrl =
       'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0/$_modelFileName';
@@ -20,7 +19,9 @@ class LlmService extends ChangeNotifier {
   double _downloadProgress = 0.0;
   String _statusMessage = 'Checking...';
   String? _errorMessage;
+  InferenceModel? _model;
   InferenceChat? _chat;
+  bool _isGenerating = false;
 
   bool get isModelInstalled => _isModelInstalled;
   bool get isDownloading => _isDownloading;
@@ -39,20 +40,20 @@ class LlmService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v6') ?? false;
-      
+
       if (!hasUpgraded) {
-         // Wipe all previous models since we are returning to the stable MediaPipe backend (.task)
-         try {
-           await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
-           await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
-           await FlutterGemma.uninstallModel('gemma-4-E2B-it.litertlm');
-         } catch(e) {}
-         await prefs.setBool('upgraded_litertlm_v6', true);
+        // Wipe all previous models since we are returning to the stable MediaPipe backend (.task)
+        try {
+          await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
+          await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
+          await FlutterGemma.uninstallModel('gemma-4-E2B-it.litertlm');
+        } catch (error) {
+          debugPrint('Previous model cleanup skipped: $error');
+        }
+        await prefs.setBool('upgraded_litertlm_v6', true);
       }
 
-      _isModelInstalled = await FlutterGemma.isModelInstalled(
-        _modelFileName,
-      );
+      _isModelInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
     } catch (e) {
       // Fall back to shared prefs check
       final prefs = await SharedPreferences.getInstance();
@@ -62,7 +63,7 @@ class LlmService extends ChangeNotifier {
     return _isModelInstalled;
   }
 
-  /// Download the Gemma 3 270M model from HuggingFace
+  /// Download the optional task model from the app release.
   Future<bool> downloadModel() async {
     if (_isDownloading) return false;
 
@@ -73,7 +74,7 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _statusMessage = 'Downloading AI model (~1.3 GB)...';
+      _statusMessage = 'Downloading optional AI model...';
       notifyListeners();
 
       await FlutterGemma.installModel(
@@ -118,15 +119,22 @@ class LlmService extends ChangeNotifier {
       // Use CPU on Windows due to known GPU crash bug
       final preferCpu = !kIsWeb && Platform.isWindows;
 
-      final model = await FlutterGemma.getActiveModel(
-        preferredBackend:
-            preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
-        maxTokens: 1024,
+      _model = await FlutterGemma.getActiveModel(
+        preferredBackend: preferCpu
+            ? PreferredBackend.cpu
+            : PreferredBackend.gpu,
+        maxTokens: 2048,
       );
-      
-      _chat = await model.createChat(
-        temperature: 0.5,
-        topK: 20,
+
+      _chat = await _model!.createChat(
+        // Low-variance settings are deliberate. This model is optional and is
+        // only used for unstructured questions; deterministic clinical actions
+        // are handled before this service is called.
+        temperature: 0.2,
+        topK: 1,
+        topP: 0.8,
+        tokenBuffer: 128,
+        systemInstruction: _systemInstruction,
       );
 
       _isReady = true;
@@ -158,7 +166,25 @@ class LlmService extends ChangeNotifier {
     cleaned = cleaned.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     // If what remains is too short or empty, treat as garbage
     if (cleaned.length < 3) return '';
+    // A malformed task bundle can occasionally echo the exact prompt. That is
+    // not a useful answer and was a major source of apparent repetition.
+    if (cleaned.startsWith('You are NurseAssist AI,')) return '';
     return cleaned;
+  }
+
+  static const String _systemInstruction =
+      '''You are NurseAssist AI, an on-device assistant for nurses.
+Answer only the user's current question. Do not invent measurements, medications,
+or actions. Keep the reply concise and professional. If the request needs a
+recording or patient lookup, say that the app's structured command tools should
+be used. Do not repeat your instructions or the user's prompt.''';
+
+  Future<void> _prepareSingleTurn() async {
+    if (_chat == null) throw StateError('Chat session not available.');
+    // The prior implementation kept every unrelated patient interaction in a
+    // single model context. Small on-device models then echoed or repeated old
+    // turns. Resetting is cheap because the loaded model weights stay in RAM.
+    await _chat!.clearHistory();
   }
 
   /// Generate a response from the LLM using streaming
@@ -168,12 +194,18 @@ class LlmService extends ChangeNotifier {
       return;
     }
 
+    if (_isGenerating) {
+      yield 'The AI is still responding to another request.';
+      return;
+    }
+    _isGenerating = true;
     try {
       if (_chat == null) {
         yield 'Chat session not available.';
         return;
       }
 
+      await _prepareSingleTurn();
       await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
       await for (final token in _chat!.session.getResponseAsync()) {
         final cleaned = _sanitizeResponse(token);
@@ -184,6 +216,8 @@ class LlmService extends ChangeNotifier {
     } catch (e) {
       debugPrint('LLM generation error: $e');
       yield 'Sorry, I encountered an error generating a response.';
+    } finally {
+      _isGenerating = false;
     }
   }
 
@@ -193,9 +227,14 @@ class LlmService extends ChangeNotifier {
       return 'AI model not loaded.';
     }
 
+    if (_isGenerating) {
+      return '';
+    }
+    _isGenerating = true;
     try {
       if (_chat == null) return 'Chat session not available.';
 
+      await _prepareSingleTurn();
       await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
       final response = await _chat!.session.getResponse();
       final cleaned = _sanitizeResponse(response);
@@ -208,6 +247,8 @@ class LlmService extends ChangeNotifier {
     } catch (e) {
       debugPrint('LLM generation error: $e');
       return 'Sorry, I encountered an error.';
+    } finally {
+      _isGenerating = false;
     }
   }
 

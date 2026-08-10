@@ -1,0 +1,7 @@
+{
+  "nodes": [],
+  "edges": [],
+  "invariants": [
+    "(G2 — add 2–3 health invariants by hand, e.g. domain never imports framework)"
+  ]
+}

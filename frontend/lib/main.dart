@@ -4,28 +4,22 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/patient_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/model_download_screen.dart';
 import 'services/model_manager.dart';
 import 'services/local_nlp_service.dart';
 import 'services/llm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Flutter Gemma with MediaPipe engine (.task files)
-  await FlutterGemma.initialize(
-    inferenceEngines: [
-      MediaPipeEngine(),
-    ],
-  );
+  await FlutterGemma.initialize(inferenceEngines: [MediaPipeEngine()]);
 
   final localNlpService = LocalNlpService();
   final llmService = LlmService();
-  final modelManager = ModelManager(onModelUpdated: () => localNlpService.loadModels());
+  final modelManager = ModelManager(onModelUpdated: localNlpService.loadModels);
   await localNlpService.loadModels();
 
   // Check if LLM model is already installed
@@ -42,22 +36,24 @@ void main() async {
         ChangeNotifierProvider.value(value: llmService),
         Provider.value(value: localNlpService),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProxyProvider2<SettingsProvider, ModelManager, PatientProvider>(
+        ChangeNotifierProxyProvider2<
+          SettingsProvider,
+          ModelManager,
+          PatientProvider
+        >(
           create: (context) => PatientProvider(localNlpService),
           update: (context, settings, modelManager, patientProvider) {
             return patientProvider!;
           },
         ),
       ],
-      child: NurseAssistApp(showDownloadScreen: !llmInstalled),
+      child: const NurseAssistApp(),
     ),
   );
 }
 
 class NurseAssistApp extends StatelessWidget {
-  final bool showDownloadScreen;
-
-  const NurseAssistApp({super.key, required this.showDownloadScreen});
+  const NurseAssistApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +70,9 @@ class NurseAssistApp extends StatelessWidget {
             ),
             useMaterial3: true,
             textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
-            scaffoldBackgroundColor: const Color(0xFFF5F7FA), // Light sleek background
+            scaffoldBackgroundColor: const Color(
+              0xFFF5F7FA,
+            ), // Light sleek background
           ),
           darkTheme: ThemeData(
             colorScheme: ColorScheme.fromSeed(
@@ -85,9 +83,10 @@ class NurseAssistApp extends StatelessWidget {
             textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
             scaffoldBackgroundColor: const Color(0xFF121212), // True dark
           ),
-          home: showDownloadScreen
-              ? const ModelDownloadScreen()
-              : const DashboardScreen(),
+          // The LLM is an optional enhancement. Core recording, lookup, and
+          // local NLP must be available immediately rather than hidden behind
+          // a multi-gigabyte first-launch download.
+          home: const DashboardScreen(),
         );
       },
     );

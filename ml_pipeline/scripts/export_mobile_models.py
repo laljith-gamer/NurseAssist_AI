@@ -39,11 +39,21 @@ def export_model_to_json(pkl_path: str, output_path: str):
     
     model_data = {
         "type": "sgd_classifier",
+        "format_version": 2,
         "vocabulary": vocab,
         "idf": idf,
         "coef": coef,
         "intercept": intercept,
         "classes": classes,
+        # This lets every runtime reproduce the vectorizer deliberately rather
+        # than guessing from a JSON blob. In particular, the NER model was
+        # trained on four whitespace-separated feature tokens per word.
+        "preprocessing": {
+            "vectorizer": "tfidf" if hasattr(vect, "idf_") else "count",
+            "lowercase": bool(getattr(vect, "lowercase", True)),
+            "token_pattern": getattr(vect, "token_pattern", None),
+            "ngram_range": list(getattr(vect, "ngram_range", (1, 1))),
+        },
     }
     
     with open(output_path, 'w') as f:

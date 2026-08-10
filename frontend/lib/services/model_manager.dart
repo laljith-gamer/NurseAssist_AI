@@ -1,21 +1,35 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+
 import 'package:archive/archive_io.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
-enum ModelStatus { ready, downloading, error, offline, checking, updateAvailable, verifying, installing }
+enum ModelStatus {
+  ready,
+  downloading,
+  error,
+  offline,
+  checking,
+  updateAvailable,
+  verifying,
+  installing,
+}
 
+/// Installs only the small exported NLP package. The LLM task file is managed
+/// separately by [LlmService]; mixing both artifacts in `releases/latest` was
+/// the source of failed or misleading model updates.
 class ModelManager extends ChangeNotifier {
   static const String _repoOwner = 'laljith-gamer';
   static const String _repoName = 'NurseAssist_AI';
-  
+  static final RegExp _nlpZipName = RegExp(r'^nurseassist-model-.+\.zip$');
+
   bool _isUpdating = false;
-  ModelStatus _status = ModelStatus.ready;
-  String _currentVersion = 'Unknown';
+  ModelStatus _status = ModelStatus.checking;
+  String _currentVersion = 'Checking';
   String _downloadProgress = '';
 
   bool get isUpdating => _isUpdating;
@@ -23,30 +37,25 @@ class ModelManager extends ChangeNotifier {
   String get currentVersion => _currentVersion;
   String get downloadProgress => _downloadProgress;
 
-  final VoidCallback? onModelUpdated;
+  final Future<void> Function()? onModelUpdated;
 
   ModelManager({this.onModelUpdated}) {
-    _initStatus().then((_) {
-      if (_currentVersion == 'None') {
-        checkForUpdates();
-      }
-    });
+    _initStatus().then((_) => checkForUpdates());
   }
 
   Future<void> _initStatus() async {
     if (kIsWeb) {
-      _currentVersion = 'Web Mock v1';
-      _status = ModelStatus.ready;
+      _currentVersion = 'Web';
+      _status = ModelStatus.offline;
       notifyListeners();
       return;
     }
-
     final localMeta = await getLocalMetadata();
     if (localMeta != null) {
-      _currentVersion = localMeta['model_version'] ?? 'Unknown';
+      _currentVersion = localMeta['model_version']?.toString() ?? 'Unknown';
       _status = ModelStatus.ready;
     } else {
-      _currentVersion = 'None';
+      _currentVersion = 'Not installed';
       _status = ModelStatus.offline;
     }
     notifyListeners();
@@ -54,175 +63,286 @@ class ModelManager extends ChangeNotifier {
 
   Future<Directory> _getModelsDir() async {
     final appDir = await getApplicationDocumentsDirectory();
-    final modelsDir = Directory('${appDir.path}/local_models');
-    if (!await modelsDir.exists()) {
-      await modelsDir.create(recursive: true);
-    }
+    final modelsDir = Directory(path.join(appDir.path, 'local_models'));
+    if (!await modelsDir.exists()) await modelsDir.create(recursive: true);
     return modelsDir;
   }
 
-  Future<void> _initDirs() async {
-    final baseDir = await _getModelsDir();
-    final currentDir = Directory('${baseDir.path}/current');
-    final previousDir = Directory('${baseDir.path}/previous');
-    if (!await currentDir.exists()) await currentDir.create();
-    if (!await previousDir.exists()) await previousDir.create();
-  }
-
   Future<Map<String, dynamic>?> getLocalMetadata() async {
+    if (kIsWeb) return null;
     final baseDir = await _getModelsDir();
-    final file = File('${baseDir.path}/current/metadata.json');
-    if (await file.exists()) {
-      try {
-        final contents = await file.readAsString();
-        return jsonDecode(contents);
-      } catch (e) {
-        return null;
+    final file = File(path.join(baseDir.path, 'current', 'metadata.json'));
+    if (!await file.exists()) return null;
+    try {
+      final metadata = jsonDecode(await file.readAsString());
+      return metadata is Map<String, dynamic> ? metadata : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchLatestNlpRelease() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.github.com/repos/$_repoOwner/$_repoName/releases?per_page=30',
+            ),
+            headers: const {'Accept': 'application/vnd.github+json'},
+          )
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return null;
+      final releases = jsonDecode(response.body);
+      if (releases is! List) return null;
+      for (final rawRelease in releases) {
+        if (rawRelease is! Map) continue;
+        final release = Map<String, dynamic>.from(rawRelease);
+        final assets = release['assets'];
+        if (assets is List && assets.any(_isNlpZipAsset)) return release;
       }
+    } catch (_) {
+      // Offline is an expected state for the app.
     }
     return null;
   }
 
-  Future<Map<String, dynamic>?> _fetchLatestRelease() async {
-    try {
-      final response = await http.get(
-        Uri.parse('https://api.github.com/repos/$_repoOwner/$_repoName/releases/latest'),
-      ).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (e) {
-      // Offline or network error
-    }
-    return null;
+  bool _isNlpZipAsset(dynamic asset) {
+    if (asset is! Map) return false;
+    return _nlpZipName.hasMatch(asset['name']?.toString() ?? '');
   }
 
   Future<void> checkForUpdates() async {
-    if (kIsWeb) return;
-    if (_isUpdating) return;
-    
-    _status = ModelStatus.downloading;
-    _downloadProgress = 'Checking...';
+    if (kIsWeb || _isUpdating) return;
+    _status = ModelStatus.checking;
+    _downloadProgress = 'Checking for NLP updates...';
     notifyListeners();
 
     try {
-      final release = await _fetchLatestRelease();
+      final release = await _fetchLatestNlpRelease();
       if (release == null) {
-        _status = ModelStatus.offline;
+        // Continue to use a verified installed model when offline.
+        _status = (await getLocalMetadata()) == null
+            ? ModelStatus.offline
+            : ModelStatus.ready;
         _downloadProgress = '';
         notifyListeners();
         return;
       }
 
-      final latestVersion = release['tag_name'];
+      final latestVersion = release['tag_name']?.toString() ?? 'Unknown';
       final localMeta = await getLocalMetadata();
-      
-      if (localMeta == null || localMeta['model_version'] != latestVersion) {
-        await _downloadAndInstallLatest(release);
-      } else {
+      if (localMeta != null &&
+          localMeta['model_version']?.toString() == latestVersion) {
+        _currentVersion = latestVersion;
         _status = ModelStatus.ready;
         _downloadProgress = '';
         notifyListeners();
+        return;
       }
-    } catch (e) {
-      _status = ModelStatus.error;
+
+      _status = ModelStatus.updateAvailable;
+      _downloadProgress = 'NLP update available';
+      notifyListeners();
+      await _downloadAndInstallLatest(release);
+    } catch (error) {
+      debugPrint('Model update check failed: $error');
+      _status = (await getLocalMetadata()) == null
+          ? ModelStatus.error
+          : ModelStatus.ready;
       _downloadProgress = '';
       notifyListeners();
     }
   }
 
   Future<void> _downloadAndInstallLatest(Map<String, dynamic> release) async {
+    _isUpdating = true;
+    Directory? baseDir;
     try {
-      _isUpdating = true;
-      
-      final latestVersion = release['tag_name'];
-      final assets = release['assets'] as List;
-      
-      if (assets.isEmpty) throw Exception('No assets');
-
-      final asset = assets.firstWhere((a) => a['name'].toString().endsWith('.zip'), orElse: () => null);
-      if (asset == null) throw Exception('No zip asset');
-
-      final downloadUrl = asset['browser_download_url'];
-      
-      _downloadProgress = 'Downloading...';
-      notifyListeners();
-      
-      final response = await http.get(Uri.parse(downloadUrl));
-      if (response.statusCode != 200) throw Exception('Download failed');
-      
-      final baseDir = await _getModelsDir();
-      final tempZip = File('${baseDir.path}/temp_model.zip');
-      await tempZip.writeAsBytes(response.bodyBytes);
-      
-      _downloadProgress = 'Installing...';
-      notifyListeners();
-      
-      final bytes = await tempZip.readAsBytes();
-      final archive = ZipDecoder().decodeBytes(bytes);
-      
-      final tempExtracted = Directory('${baseDir.path}/temp_extracted');
-      if (await tempExtracted.exists()) await tempExtracted.delete(recursive: true);
-      await tempExtracted.create();
-      
-      for (final file in archive) {
-        final filename = file.name;
-        if (file.isFile) {
-          final data = file.content as List<int>;
-          File('${tempExtracted.path}/$filename')
-            ..createSync(recursive: true)
-            ..writeAsBytesSync(data);
-        }
+      final latestVersion = release['tag_name']?.toString();
+      final rawAssets = release['assets'];
+      if (latestVersion == null || rawAssets is! List) {
+        throw const FormatException('Invalid release metadata');
       }
-      
-      final tempMetaFile = File('${tempExtracted.path}/metadata.json');
-      if (!await tempMetaFile.exists()) throw Exception('Invalid package');
-      
-      final newMeta = jsonDecode(await tempMetaFile.readAsString());
-      if (newMeta['schema_version'] != 1) throw Exception('Incompatible schema');
-      
-      final intentSha = newMeta['intent_model']['sha256'];
-      final intentBytes = await File('${tempExtracted.path}/intent.json').readAsBytes();
-      if (intentSha != sha256.convert(intentBytes).toString()) throw Exception('Checksum error');
-      
-      await _initDirs();
-      final currentDir = Directory('${baseDir.path}/current');
-      final previousDir = Directory('${baseDir.path}/previous');
-      
-      if (await previousDir.exists()) await previousDir.delete(recursive: true);
-      if (await currentDir.exists()) await currentDir.rename(previousDir.path);
-      
-      await tempExtracted.rename(currentDir.path);
-      await tempZip.delete();
-      
+      final rawAsset = rawAssets.cast<dynamic>().firstWhere(
+        _isNlpZipAsset,
+        orElse: () => null,
+      );
+      if (rawAsset is! Map) {
+        throw const FormatException('No NLP package asset found');
+      }
+      final asset = Map<String, dynamic>.from(rawAsset);
+      final downloadUrl = asset['browser_download_url']?.toString();
+      if (downloadUrl == null) {
+        throw const FormatException('Missing package download URL');
+      }
+
+      _status = ModelStatus.downloading;
+      _downloadProgress = 'Downloading NLP model...';
+      notifyListeners();
+      final response = await http
+          .get(Uri.parse(downloadUrl))
+          .timeout(const Duration(minutes: 2));
+      if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
+        throw HttpException(
+          'NLP package download failed (${response.statusCode})',
+        );
+      }
+
+      baseDir = await _getModelsDir();
+      final tempZip = File(path.join(baseDir.path, 'model_download.zip'));
+      await tempZip.writeAsBytes(response.bodyBytes, flush: true);
+
+      _status = ModelStatus.verifying;
+      _downloadProgress = 'Verifying NLP model...';
+      notifyListeners();
+      final archive = ZipDecoder().decodeBytes(await tempZip.readAsBytes());
+      final extracted = Directory(path.join(baseDir.path, 'model_staging'));
+      if (await extracted.exists()) {
+        await extracted.delete(recursive: true);
+      }
+      await extracted.create();
+
+      const expectedFiles = {'intent.json', 'ner.json', 'metadata.json'};
+      final extractedFiles = <String>{};
+      for (final archiveFile in archive) {
+        final name = archiveFile.name.replaceAll('\\', '/');
+        if (!archiveFile.isFile ||
+            name.contains('..') ||
+            name.startsWith('/') ||
+            !expectedFiles.contains(name) ||
+            extractedFiles.contains(name)) {
+          throw const FormatException('NLP package contains an invalid file');
+        }
+        final target = File(path.join(extracted.path, name));
+        await target.writeAsBytes(
+          archiveFile.content as List<int>,
+          flush: true,
+        );
+        extractedFiles.add(name);
+      }
+      if (extractedFiles.length != expectedFiles.length ||
+          !extractedFiles.containsAll(expectedFiles)) {
+        throw const FormatException('NLP package is incomplete');
+      }
+
+      final metadata = jsonDecode(
+        await File(path.join(extracted.path, 'metadata.json')).readAsString(),
+      );
+      if (metadata is! Map<String, dynamic> ||
+          metadata['schema_version'] != 1 ||
+          metadata['model_version']?.toString() != latestVersion) {
+        throw const FormatException('NLP package metadata is incompatible');
+      }
+      await _verifyArtifact(extracted, metadata, 'intent_model', 'intent.json');
+      await _verifyArtifact(extracted, metadata, 'ner_model', 'ner.json');
+      await _validateExportedModel(
+        File(path.join(extracted.path, 'intent.json')),
+      );
+      await _validateExportedModel(File(path.join(extracted.path, 'ner.json')));
+
+      _status = ModelStatus.installing;
+      _downloadProgress = 'Installing NLP model...';
+      notifyListeners();
+      final current = Directory(path.join(baseDir.path, 'current'));
+      final previous = Directory(path.join(baseDir.path, 'previous'));
+      if (await previous.exists()) {
+        await previous.delete(recursive: true);
+      }
+      if (await current.exists()) {
+        await current.rename(previous.path);
+      }
+      await extracted.rename(current.path);
+      if (await tempZip.exists()) {
+        await tempZip.delete();
+      }
+
       _currentVersion = latestVersion;
       _status = ModelStatus.ready;
       _downloadProgress = '';
-      
-      onModelUpdated?.call();
-    } catch (e) {
-      _status = ModelStatus.error;
+      await onModelUpdated?.call();
+    } catch (error) {
+      debugPrint('Model update error: $error');
+      // If a failure occurs after the old `current` directory was moved aside,
+      // restore it before reporting state. A partially installed model is never
+      // allowed to replace a usable local one.
+      if (baseDir != null) {
+        final current = Directory(path.join(baseDir.path, 'current'));
+        final previous = Directory(path.join(baseDir.path, 'previous'));
+        if (!await current.exists() && await previous.exists()) {
+          try {
+            await previous.rename(current.path);
+          } catch (rollbackError) {
+            debugPrint('Automatic NLP rollback failed: $rollbackError');
+          }
+        }
+      }
+      _status = (await getLocalMetadata()) == null
+          ? ModelStatus.error
+          : ModelStatus.ready;
       _downloadProgress = '';
-      debugPrint('Model update error: $e');
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<bool> rollback() async {
-    final baseDir = await _getModelsDir();
-    final currentDir = Directory('${baseDir.path}/current');
-    final previousDir = Directory('${baseDir.path}/previous');
-    
-    if (await previousDir.exists()) {
-      final tempDir = Directory('${baseDir.path}/temp_failed');
-      if (await currentDir.exists()) await currentDir.rename(tempDir.path);
-      await previousDir.rename(currentDir.path);
-      if (await tempDir.exists()) await tempDir.delete(recursive: true);
-      await _initStatus();
-      return true;
+  Future<void> _verifyArtifact(
+    Directory extracted,
+    Map<String, dynamic> metadata,
+    String metadataKey,
+    String filename,
+  ) async {
+    final descriptor = metadata[metadataKey];
+    if (descriptor is! Map || descriptor['artifact'] != filename) {
+      throw FormatException('Invalid $metadataKey metadata');
     }
-    return false;
+    final expectedHash = descriptor['sha256']?.toString();
+    final bytes = await File(path.join(extracted.path, filename)).readAsBytes();
+    if (expectedHash == null ||
+        sha256.convert(bytes).toString() != expectedHash) {
+      throw FormatException('$filename checksum does not match');
+    }
+  }
+
+  Future<void> _validateExportedModel(File file) async {
+    final model = jsonDecode(await file.readAsString());
+    if (model is! Map ||
+        model['type'] != 'sgd_classifier' ||
+        model['vocabulary'] is! Map ||
+        model['idf'] is! List ||
+        model['coef'] is! List ||
+        model['intercept'] is! List ||
+        model['classes'] is! List ||
+        (model['classes'] as List).isEmpty) {
+      throw const FormatException('Invalid exported classifier');
+    }
+    final classes = model['classes'] as List;
+    final coefficients = model['coef'] as List;
+    if (coefficients.length != classes.length ||
+        (model['intercept'] as List).length != classes.length) {
+      throw const FormatException('Classifier dimensions do not match');
+    }
+  }
+
+  Future<bool> rollback() async {
+    if (kIsWeb) return false;
+    final baseDir = await _getModelsDir();
+    final current = Directory(path.join(baseDir.path, 'current'));
+    final previous = Directory(path.join(baseDir.path, 'previous'));
+    if (!await previous.exists()) return false;
+
+    final failed = Directory(path.join(baseDir.path, 'failed_rollback'));
+    if (await failed.exists()) {
+      await failed.delete(recursive: true);
+    }
+    if (await current.exists()) {
+      await current.rename(failed.path);
+    }
+    await previous.rename(current.path);
+    if (await failed.exists()) {
+      await failed.delete(recursive: true);
+    }
+    await _initStatus();
+    return true;
   }
 }

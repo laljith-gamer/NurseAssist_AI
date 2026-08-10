@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
+        # Do not let unrelated process variables such as DEBUG=release break a
+        # model build. Project overrides use NURSEASSIST_DEBUG, etc.
+        env_prefix="NURSEASSIST_",
     )
 
     APP_NAME: str = "Digital Clinical Nurse Assistant"

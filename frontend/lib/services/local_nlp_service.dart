@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 class IntentResult {
@@ -23,6 +22,11 @@ class LocalNlpService {
   bool _isReady = false;
 
   bool get isReady => _isReady;
+
+  /// True when both exported models have the structure expected by this
+  /// runtime. A failed model update must not make the clinical command parser
+  /// unusable, so callers should treat this as an enhancement, not a gate.
+  bool get hasUsableModels => _intentModel != null && _nerModel != null;
 
   Future<void> loadModels() async {
     if (!kIsWeb) {
@@ -47,22 +51,24 @@ class LocalNlpService {
       }
     }
 
-    try {
-      final intentJson = await rootBundle.loadString('assets/models/intent.json');
-      final nerJson = await rootBundle.loadString('assets/models/ner.json');
-      _intentModel = jsonDecode(intentJson);
-      _nerModel = jsonDecode(nerJson);
-      _isReady = true;
-      debugPrint("Loaded NLP models from bundled assets.");
-    } catch (e) {
-      debugPrint("Failed to load bundled models: $e");
-      _isReady = false;
-    }
+    // The release manager installs verified artifacts into application storage.
+    // There are intentionally no phantom asset paths here: a clean offline
+    // launch still has deterministic command parsing rather than a build-time
+    // dependency on ignored model files.
+    _intentModel = null;
+    _nerModel = null;
+    _isReady = false;
+    debugPrint(
+      'No installed statistical NLP model; using clinical command parser.',
+    );
   }
 
   List<String> _tokenizeIntent(String text) {
     text = text.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), ' ');
-    final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = text
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
 
     List<String> tokens = [];
     tokens.addAll(words);
@@ -72,12 +78,35 @@ class LocalNlpService {
     return tokens;
   }
 
-  Map<String, double> _sgdPredict(List<String> tokens, Map<String, dynamic> model, {bool useTfIdf = true}) {
-    final vocab = Map<String, int>.from(model['vocabulary'] as Map);
-    final idf = List<double>.from((model['idf'] as List).map((e) => (e as num).toDouble()));
-    final coef = model['coef'] as List;
-    final intercept = List<double>.from((model['intercept'] as List).map((e) => (e as num).toDouble()));
-    final classes = List<String>.from(model['classes']);
+  Map<String, double> _sgdPredict(
+    List<String> tokens,
+    Map<String, dynamic> model, {
+    bool useTfIdf = true,
+  }) {
+    final rawVocab = model['vocabulary'];
+    final rawIdf = model['idf'];
+    final rawCoef = model['coef'];
+    final rawIntercept = model['intercept'];
+    final rawClasses = model['classes'];
+    if (rawVocab is! Map ||
+        rawIdf is! List ||
+        rawCoef is! List ||
+        rawIntercept is! List ||
+        rawClasses is! List ||
+        rawClasses.isEmpty) {
+      throw const FormatException('Invalid exported model format');
+    }
+
+    final vocab = rawVocab.map(
+      (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+    );
+    final idf = rawIdf.map((e) => (e as num).toDouble()).toList();
+    final coef = rawCoef;
+    final intercept = rawIntercept.map((e) => (e as num).toDouble()).toList();
+    final classes = rawClasses.map((e) => e.toString()).toList();
+    if (coef.length != classes.length || intercept.length != classes.length) {
+      throw const FormatException('Model class dimensions do not match');
+    }
 
     Map<int, int> termCounts = {};
     for (var token in tokens) {
@@ -108,7 +137,9 @@ class LocalNlpService {
     List<double> scores = List.filled(classes.length, 0.0);
     for (int i = 0; i < classes.length; i++) {
       double score = intercept[i];
-      final classCoefs = List<double>.from((coef[i] as List).map((e) => (e as num).toDouble()));
+      final classCoefs = List<double>.from(
+        (coef[i] as List).map((e) => (e as num).toDouble()),
+      );
       for (var entry in vector.entries) {
         score += classCoefs[entry.key] * entry.value;
       }
@@ -124,7 +155,20 @@ class LocalNlpService {
       }
     }
 
-    double confidence = 1.0 / (1.0 + exp(-maxScore));
+    // SGDClassifier(loss='log_loss') uses one-vs-rest sigmoid scores for the
+    // multiclass model. sklearn normalizes those scores in predict_proba().
+    // Returning the normalized value gives the Dart threshold the same meaning
+    // as the Python training-time confidence.
+    final positiveScores = scores
+        .map((score) => 1.0 / (1.0 + exp(-score)))
+        .toList();
+    final probabilityTotal = positiveScores.fold<double>(
+      0.0,
+      (sum, score) => sum + score,
+    );
+    final confidence = probabilityTotal == 0
+        ? 0.0
+        : positiveScores[bestIdx] / probabilityTotal;
     return {classes[bestIdx]: confidence};
   }
 
@@ -136,10 +180,10 @@ class LocalNlpService {
     try {
       final tokens = _tokenizeIntent(text);
       final result = _sgdPredict(tokens, _intentModel!, useTfIdf: true);
-      
+
       final intent = result.keys.first;
       final conf = result.values.first;
-      
+
       if (conf < 0.4) {
         return IntentResult('unknown', conf);
       }
@@ -157,47 +201,64 @@ class LocalNlpService {
 
     List<Entity> entities = [];
     try {
-      final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-      
+      final words = text
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .toList();
+
       String currentEntityType = "O";
       List<String> currentEntityTokens = [];
-      
+
       for (int i = 0; i < words.length; i++) {
-        final w = words[i];
-        final w_lower = w.toLowerCase();
-        final prev_w = i > 0 ? words[i-1].toLowerCase() : 'BOS';
-        final next_w = i < words.length - 1 ? words[i+1].toLowerCase() : 'EOS';
-        final is_num = RegExp(r'\d').hasMatch(w) ? 'T' : 'F';
-        
-        final featureStr = "W:$w_lower P:$prev_w N:$next_w NUM:$is_num";
-        
-        // Predict tag for this token using CountVectorizer model (no IDF normalization)
-        final result = _sgdPredict([featureStr], _nerModel!, useTfIdf: false);
+        final word = words[i];
+        final wordLower = word.toLowerCase();
+        final previousWord = i > 0 ? words[i - 1].toLowerCase() : 'bos';
+        final nextWord = i < words.length - 1
+            ? words[i + 1].toLowerCase()
+            : 'eos';
+        final isNumber = RegExp(r'\d').hasMatch(word) ? 't' : 'f';
+
+        final featureTokens = <String>[
+          'w:$wordLower',
+          'p:$previousWord',
+          'n:$nextWord',
+          'num:$isNumber',
+        ];
+
+        // The NER model's CountVectorizer was trained on the four whitespace
+        // separated feature tokens above. Passing one concatenated string here
+        // used to create an all-zero vector in Dart, so every word received the
+        // same intercept-only prediction.
+        final result = _sgdPredict(featureTokens, _nerModel!, useTfIdf: false);
         final tag = result.keys.first;
-        
-        if (tag != "O") {
+        final confidence = result.values.first;
+
+        if (tag != 'O' && confidence >= 0.45) {
           // If we were building an entity of a different type, save it
           if (currentEntityType != "O" && currentEntityType != tag) {
-             entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
-             currentEntityTokens.clear();
+            entities.add(
+              Entity(currentEntityType, currentEntityTokens.join(' ')),
+            );
+            currentEntityTokens.clear();
           }
           currentEntityType = tag;
-          currentEntityTokens.add(w);
+          currentEntityTokens.add(word);
         } else {
           // Finished an entity
           if (currentEntityType != "O") {
-             entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
-             currentEntityType = "O";
-             currentEntityTokens.clear();
+            entities.add(
+              Entity(currentEntityType, currentEntityTokens.join(' ')),
+            );
+            currentEntityType = "O";
+            currentEntityTokens.clear();
           }
         }
       }
-      
+
       // Add trailing entity if exists
       if (currentEntityType != "O" && currentEntityTokens.isNotEmpty) {
-         entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
+        entities.add(Entity(currentEntityType, currentEntityTokens.join(' ')));
       }
-      
     } catch (e) {
       debugPrint("Local NER extraction error: $e");
     }

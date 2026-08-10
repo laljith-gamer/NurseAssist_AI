@@ -19,12 +19,15 @@ class _ChatInterfaceState extends State<ChatInterface> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
-      context.read<PatientProvider>().sendMessage(text);
+      final provider = context.read<PatientProvider>();
+      if (provider.isResponding) return;
       _controller.clear();
       _scrollToBottom();
+      await provider.sendMessage(text);
+      if (mounted) _scrollToBottom();
     }
   }
 
@@ -46,7 +49,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
       if (status != PermissionStatus.granted) {
         return;
       }
-      
+
       bool available = await _speech.initialize(
         onStatus: (val) => debugPrint('onStatus: $val'),
         onError: (val) => debugPrint('onError: $val'),
@@ -106,7 +109,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
   Widget _buildMessagesList(PatientProvider provider) {
     final messages = provider.messages;
     if (messages.isEmpty) {
-      return const Center(child: Text("Type a command or question to begin. (Offline Mode)"));
+      return const Center(
+        child: Text("Type a command or question to begin. (Offline Mode)"),
+      );
     }
     return ListView.builder(
       controller: _scrollController,
@@ -120,23 +125,33 @@ class _ChatInterfaceState extends State<ChatInterface> {
           child: Container(
             margin: const EdgeInsets.only(bottom: 8),
             child: Column(
-              crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              crossAxisAlignment: isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    gradient: isUser 
-                      ? const LinearGradient(
-                          colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        )
-                      : null,
+                    gradient: isUser
+                        ? const LinearGradient(
+                            colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
                     color: isUser ? null : Theme.of(context).cardColor,
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
                       topRight: const Radius.circular(20),
-                      bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
-                      bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
+                      bottomLeft: isUser
+                          ? const Radius.circular(20)
+                          : const Radius.circular(4),
+                      bottomRight: isUser
+                          ? const Radius.circular(4)
+                          : const Radius.circular(20),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -149,7 +164,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   child: Text(
                     msg.content,
                     style: TextStyle(
-                      color: isUser ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color,
+                      color: isUser
+                          ? Colors.white
+                          : Theme.of(context).textTheme.bodyLarge?.color,
                       height: 1.4,
                       fontSize: 15,
                     ),
@@ -168,7 +185,10 @@ class _ChatInterfaceState extends State<ChatInterface> {
                       _showFeedbackDialog(context, lastUserMsg);
                     },
                     icon: const Icon(Icons.thumb_down, size: 14),
-                    label: const Text("Correct AI", style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      "Correct AI",
+                      style: TextStyle(fontSize: 12),
+                    ),
                   ),
               ],
             ),
@@ -195,23 +215,32 @@ class _ChatInterfaceState extends State<ChatInterface> {
                     child: Text(
                       _getModelStatusText(modelManager),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   if (llmService.isModelInstalled)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(4),
-                      color: llmService.errorMessage != null ? Colors.red : (llmService.isReady ? Colors.blue.shade800 : Colors.orange),
+                      color: llmService.errorMessage != null
+                          ? Colors.red
+                          : (llmService.isReady
+                                ? Colors.blue.shade800
+                                : Colors.orange),
                       child: Text(
                         llmService.errorMessage ?? llmService.statusMessage,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 11, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  Expanded(
-                    child: _buildMessagesList(provider),
-                  ),
+                  Expanded(child: _buildMessagesList(provider)),
                 ],
               );
             },
@@ -220,7 +249,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.9),
+            color: Theme.of(
+              context,
+            ).scaffoldBackgroundColor.withValues(alpha: 0.9),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -234,7 +265,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: _isListening ? Colors.red.withValues(alpha: 0.1) : Colors.blue.withValues(alpha: 0.1),
+                    color: _isListening
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.blue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -257,7 +290,10 @@ class _ChatInterfaceState extends State<ChatInterface> {
                         borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -279,7 +315,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   ),
                   child: IconButton(
                     icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendMessage,
+                    onPressed: context.watch<PatientProvider>().isResponding
+                        ? null
+                        : _sendMessage,
                   ),
                 ),
               ],
@@ -293,7 +331,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
   void _showFeedbackDialog(BuildContext context, String lastUserMsg) {
     final typeController = TextEditingController(text: 'Intent');
     final labelController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) {
@@ -304,13 +342,22 @@ class _ChatInterfaceState extends State<ChatInterface> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Correcting AI for: \"$lastUserMsg\"", style: const TextStyle(fontStyle: FontStyle.italic)),
+                Text(
+                  "Correcting AI for: \"$lastUserMsg\"",
+                  style: const TextStyle(fontStyle: FontStyle.italic),
+                ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: 'Intent',
                   items: const [
-                    DropdownMenuItem(value: 'Intent', child: Text('Correct Intent')),
-                    DropdownMenuItem(value: 'NER', child: Text('Correct Entity (NER)')),
+                    DropdownMenuItem(
+                      value: 'Intent',
+                      child: Text('Correct Intent'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'NER',
+                      child: Text('Correct Entity (NER)'),
+                    ),
                   ],
                   onChanged: (val) {
                     typeController.text = val ?? 'Intent';
@@ -337,15 +384,29 @@ class _ChatInterfaceState extends State<ChatInterface> {
                 final api = context.read<PatientProvider>().apiService;
                 bool success = false;
                 if (typeController.text == 'Intent') {
-                  success = await api.submitIntentFeedback(lastUserMsg, labelController.text);
+                  success = await api.submitIntentFeedback(
+                    lastUserMsg,
+                    labelController.text,
+                  );
                 } else {
-                  success = await api.submitNerFeedback(lastUserMsg, labelController.text, 0, lastUserMsg.length);
+                  success = await api.submitNerFeedback(
+                    lastUserMsg,
+                    labelController.text,
+                    0,
+                    lastUserMsg.length,
+                  );
                 }
-                
+
                 if (context.mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(success ? 'Feedback Queued Locally!' : 'Failed to save feedback')),
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Feedback Queued Locally!'
+                            : 'Failed to save feedback',
+                      ),
+                    ),
                   );
                 }
               },

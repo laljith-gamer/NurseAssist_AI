@@ -8,6 +8,7 @@ import '../widgets/clinical_change_banner.dart';
 import '../widgets/charts/vital_signs_delta_chart.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
+import 'model_download_screen.dart';
 import 'dart:ui';
 
 class DashboardScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       patientProvider.setLlmService(llmService);
     });
   }
+
   void _showSettingsModal(BuildContext context) {
     showDialog(
       context: context,
@@ -49,9 +51,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
-              const Text('AI Model Management (Offline)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                'AI Model Management (Offline)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 8),
               const ModelManagementWidget(),
+              const SizedBox(height: 16),
+              Consumer<LlmService>(
+                builder: (context, llm, _) {
+                  if (llm.isModelInstalled) {
+                    return Text(
+                      llm.isReady ? 'Optional LLM: ready' : llm.statusMessage,
+                      style: const TextStyle(fontSize: 12),
+                    );
+                  }
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ModelDownloadScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.download),
+                      label: const Text('Download optional LLM'),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           actions: [
@@ -75,14 +105,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: isDesktop
           ? null
           : AppBar(
-              title: const Text('NurseAssist AI', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: const Text(
+                'NurseAssist AI',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               backgroundColor: isDark ? Colors.black : Colors.blue[800],
               foregroundColor: Colors.white,
               actions: [
                 IconButton(
                   icon: const Icon(Icons.settings),
                   onPressed: () => _showSettingsModal(context),
-                )
+                ),
               ],
             ),
       drawer: isDesktop ? null : const Drawer(child: PatientSidebar()),
@@ -95,9 +128,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: isDark 
-                    ? [const Color(0xFF1A1A24), const Color(0xFF121212)]
-                    : [const Color(0xFFF5F7FA), const Color(0xFFE4E9F2)],
+                  colors: isDark
+                      ? [const Color(0xFF1A1A24), const Color(0xFF121212)]
+                      : [const Color(0xFFF5F7FA), const Color(0xFFE4E9F2)],
                 ),
               ),
               child: Column(
@@ -107,8 +140,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 16,
+                          ),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.white.withValues(alpha: 0.5),
                           width: double.infinity,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,7 +164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 icon: const Icon(Icons.settings),
                                 onPressed: () => _showSettingsModal(context),
                                 tooltip: 'Settings',
-                              )
+                              ),
                             ],
                           ),
                         ),
@@ -199,7 +237,10 @@ class _DashboardContent extends StatelessWidget {
                   indicatorColor: Theme.of(context).primaryColor,
                   tabs: const [
                     Tab(text: 'Chat', icon: Icon(Icons.chat_bubble_outline)),
-                    Tab(text: 'Vitals', icon: Icon(Icons.monitor_heart_outlined)),
+                    Tab(
+                      text: 'Vitals',
+                      icon: Icon(Icons.monitor_heart_outlined),
+                    ),
                     Tab(text: 'Score', icon: Icon(Icons.score)),
                   ],
                 ),
@@ -211,7 +252,11 @@ class _DashboardContent extends StatelessWidget {
                         children: const [
                           ClinicalChangeBanner(),
                           SizedBox(height: 8),
-                          Expanded(child: SingleChildScrollView(child: VitalSignsDeltaChart())),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: VitalSignsDeltaChart(),
+                            ),
+                          ),
                         ],
                       ),
                       _ScoreTabContent(),
@@ -236,7 +281,7 @@ class _ScoreTabContent extends StatelessWidget {
         if (status == null || status.isEmpty) {
           return const Center(child: Text("No scoring data available."));
         }
-        
+
         return ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
@@ -245,13 +290,15 @@ class _ScoreTabContent extends StatelessWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            ...status.entries.map((e) => Card(
-              margin: const EdgeInsets.only(bottom: 8.0),
-              child: ListTile(
-                title: Text(e.key.toUpperCase()),
-                subtitle: Text(e.value),
+            ...status.entries.map(
+              (e) => Card(
+                margin: const EdgeInsets.only(bottom: 8.0),
+                child: ListTile(
+                  title: Text(e.key.toUpperCase()),
+                  subtitle: Text(e.value),
+                ),
               ),
-            )),
+            ),
           ],
         );
       },
@@ -274,7 +321,10 @@ class ModelManagementWidget extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Current Version:'),
-                Text(manager.currentVersion, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  manager.currentVersion,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -284,10 +334,12 @@ class ModelManagementWidget extends StatelessWidget {
                 const Text('Status:'),
                 Expanded(
                   child: Text(
-                    manager.status.name, 
+                    manager.status.name,
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      color: manager.status == ModelStatus.error ? Colors.red : Colors.green,
+                      color: manager.status == ModelStatus.error
+                          ? Colors.red
+                          : Colors.green,
                       fontSize: 12,
                     ),
                   ),
@@ -304,11 +356,22 @@ class ModelManagementWidget extends StatelessWidget {
                 ),
               ],
             ),
-            if (manager.status == ModelStatus.downloading) 
-              LinearProgressIndicator(value: double.tryParse(manager.downloadProgress.replaceAll('%', '')) != null ? double.parse(manager.downloadProgress.replaceAll('%', '')) / 100 : null)
+            if (manager.status == ModelStatus.downloading)
+              LinearProgressIndicator(
+                value:
+                    double.tryParse(
+                          manager.downloadProgress.replaceAll('%', ''),
+                        ) !=
+                        null
+                    ? double.parse(
+                            manager.downloadProgress.replaceAll('%', ''),
+                          ) /
+                          100
+                    : null,
+              ),
           ],
         );
-      }
+      },
     );
   }
 }

@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/llm_service.dart';
 import 'dashboard_screen.dart';
 
-
-/// First-launch screen that asks the user to download the on-device AI model.
+/// Optional screen for downloading the on-device conversational model.
 class ModelDownloadScreen extends StatefulWidget {
   const ModelDownloadScreen({super.key});
 
@@ -37,6 +36,10 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
   }
 
   void _navigateToDashboard() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const DashboardScreen()),
     );
@@ -82,8 +85,9 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color:
-                                      const Color(0xFF1565C0).withOpacity(0.4),
+                                  color: const Color(
+                                    0xFF1565C0,
+                                  ).withValues(alpha: 0.4),
                                   blurRadius: 30,
                                   spreadRadius: 5,
                                 ),
@@ -129,25 +133,33 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                         ),
                       ),
                       child: Column(
                         children: [
-                          _infoRow(Icons.download_rounded,
-                              'Download size: ~1.3 GB'),
+                          _infoRow(
+                            Icons.download_rounded,
+                            'Large optional download',
+                          ),
                           const SizedBox(height: 12),
-                          _infoRow(Icons.wifi_off_rounded,
-                              'Works 100% offline after download'),
+                          _infoRow(
+                            Icons.wifi_off_rounded,
+                            'Works 100% offline after download',
+                          ),
                           const SizedBox(height: 12),
-                          _infoRow(Icons.lock_rounded,
-                              'All data stays on your device'),
+                          _infoRow(
+                            Icons.lock_rounded,
+                            'All data stays on your device',
+                          ),
                           const SizedBox(height: 12),
-                          _infoRow(Icons.auto_awesome,
-                              'Powered by Google Gemma 3'),
+                          _infoRow(
+                            Icons.auto_awesome,
+                            'Powered by Google Gemma 3',
+                          ),
                         ],
                       ),
                     ),
@@ -181,7 +193,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.15),
+                          color: Colors.red.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -207,7 +219,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                       TextButton(
                         onPressed: _navigateToDashboard,
                         child: Text(
-                          'Skip for now (limited AI)',
+                          'Continue without the optional LLM',
                           style: GoogleFonts.outfit(
                             fontSize: 14,
                             color: Colors.white38,
@@ -239,7 +251,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
             borderRadius: BorderRadius.circular(16),
           ),
           elevation: 8,
-          shadowColor: const Color(0xFF1565C0).withOpacity(0.5),
+          shadowColor: const Color(0xFF1565C0).withValues(alpha: 0.5),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -267,10 +279,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
         Expanded(
           child: Text(
             text,
-            style: GoogleFonts.outfit(
-              fontSize: 14,
-              color: Colors.white70,
-            ),
+            style: GoogleFonts.outfit(fontSize: 14, color: Colors.white70),
           ),
         ),
       ],

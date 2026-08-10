@@ -8,6 +8,7 @@ on:
       - 'ml_pipeline/scripts/train_intent_model.py'
       - 'ml_pipeline/scripts/train_ner_model.py'
       - 'ml_pipeline/scripts/export_mobile_models.py'
+      - 'ml_pipeline/scripts/verify_mobile_export.py'
       - 'ml_pipeline/nlp/**'
       - 'ml_pipeline/requirements.txt'
       - '.github/workflows/train-models.yml'
@@ -62,6 +63,7 @@ jobs:
           echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
           
           python ml_pipeline/scripts/export_mobile_models.py
+          python ml_pipeline/scripts/verify_mobile_export.py
           
           if [ ! -f "ml_pipeline/data/mobile_export/nurseassist-model-${VERSION}.zip" ]; then
             echo "Error: ZIP package not found!"

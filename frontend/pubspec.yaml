@@ -73,11 +73,9 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  assets:
-    - assets/models/intent.json
-    - assets/models/ner.json
-    - assets/models/metadata.json
+  # Exported NLP models are installed atomically from GitHub Releases. The
+  # clinical command parser works without them, so the app remains usable on a
+  # first offline launch instead of declaring missing build-time assets.
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
