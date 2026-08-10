@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -122,8 +121,10 @@ class LlmService extends ChangeNotifier {
       _statusMessage = 'Loading AI engine...';
       notifyListeners();
 
-      // Use CPU on Windows due to known GPU crash bug
-      final preferCpu = !kIsWeb && Platform.isWindows;
+      // The Gemma 2 task crashes on some OpenCL/GPU drivers while allocating
+      // its key/value cache (including Android emulators). CPU is slower but
+      // gives a reliable on-device initialization path.
+      final preferCpu = !kIsWeb;
 
       _model = await FlutterGemma.getActiveModel(
         preferredBackend: preferCpu
