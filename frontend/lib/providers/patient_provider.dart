@@ -139,9 +139,14 @@ class PatientProvider with ChangeNotifier {
         createdAt: userMessage.timestamp,
       );
 
+      // The installed Gemma model is the primary language interpreter. It
+      // turns natural phrasing into structured actions; values are validated
+      // before saving. The lightweight ML model and offline parser remain
+      // useful fallbacks when the optional LLM is unavailable.
+      final aiCommand = await _llmService?.interpretClinicalCommand(message);
       final mlIntent = _nlpService.classifyIntent(message);
       final mlEntities = _nlpService.extractEntities(message);
-      final command = ClinicalCommandParser.parse(
+      final command = aiCommand ?? ClinicalCommandParser.parse(
         message,
         fallbackIntent: mlIntent.intent,
       );

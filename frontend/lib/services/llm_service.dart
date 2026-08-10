@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'clinical_command_parser.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
   /// Downloads an optional on-device LLM once, then runs fully offline.
@@ -254,6 +255,39 @@ be used. Do not repeat your instructions or the user's prompt.''';
     } catch (e) {
       debugPrint('LLM generation error: $e');
       return 'Sorry, I encountered an error.';
+    } finally {
+      _isGenerating = false;
+    }
+  }
+
+  /// Lets the model interpret free-form nursing language into a constrained
+  /// JSON action. The JSON is validated by [ClinicalCommandParser] before any
+  /// local record is created. A null result deliberately falls back to the
+  /// small local NLP model and offline parser.
+  Future<ClinicalCommand?> interpretClinicalCommand(String message) async {
+    if (!_isReady || _chat == null || _isGenerating) return null;
+    _isGenerating = true;
+    try {
+      await _prepareSingleTurn();
+      const schema = '''Return exactly one JSON object and no markdown.
+Choose action from: record_vitals, record_medication, query_vitals,
+query_trends, query_medications, summarize, greeting, help, cancel, conversation.
+For record_vitals use: {"action":"record_vitals","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate","value":78}]}.
+Allowed vital types: blood_pressure, heart_rate, temperature, spo2,
+respiratory_rate, weight. Use Celsius for temperature and kg for weight.
+For record_medication use: {"action":"record_medication","medication":{"name":"...","dose":"...","route":"...","status":"administered"}}.
+Medication status must be administered, held, started, or discontinued.
+Never guess a missing value. Use conversation when this is not a supported
+record or query.
+Nurse message: ''';
+      await _chat!.addQueryChunk(
+        Message(text: '$schema"$message"', isUser: true),
+      );
+      final raw = await _chat!.session.getResponse();
+      return ClinicalCommandParser.fromAiJson(_sanitizeResponse(raw));
+    } catch (error) {
+      debugPrint('AI clinical interpretation error: $error');
+      return null;
     } finally {
       _isGenerating = false;
     }

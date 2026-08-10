@@ -1,6 +1,8 @@
-// Deterministic parsing for the clinical actions that change or retrieve
-// patient data. This runs before the statistical NLP model so an action such
-// as recording a blood pressure never depends on a probabilistic guess.
+import 'dart:convert';
+
+// Validates structured clinical actions before they can change patient data.
+// Natural-language interpretation is performed by the on-device LLM first;
+// the pattern parser below is retained only as an offline fallback.
 
 enum ClinicalAction {
   recordVitals,
@@ -72,6 +74,97 @@ class ClinicalCommand {
 }
 
 class ClinicalCommandParser {
+  /// Converts the LLM's strict JSON response into a safe local command.
+  /// Invalid, incomplete, or unsupported output returns null and never writes
+  /// a patient record.
+  static ClinicalCommand? fromAiJson(String raw) {
+    Map<String, dynamic>? data;
+    final trimmed = raw.trim();
+    for (final candidate in [
+      trimmed,
+      if (trimmed.contains('{') && trimmed.contains('}'))
+        trimmed.substring(trimmed.indexOf('{'), trimmed.lastIndexOf('}') + 1),
+    ]) {
+      try {
+        final decoded = jsonDecode(candidate);
+        if (decoded is Map) {
+          data = Map<String, dynamic>.from(decoded);
+          break;
+        }
+      } catch (_) {
+        // Try the next JSON envelope.
+      }
+    }
+    if (data == null) return null;
+
+    switch (data['action']?.toString()) {
+      case 'record_vitals':
+        final rawVitals = data['vitals'];
+        if (rawVitals is! List) return null;
+        final vitals = <ParsedVital>[];
+        for (final item in rawVitals) {
+          if (item is! Map) continue;
+          final vital = Map<String, dynamic>.from(item);
+          final type = vital['type']?.toString();
+          if (type == 'blood_pressure') {
+            _addIfInRange(vitals, 'systolic', _number(vital['systolic']), 'mmHg', 40, 260);
+            _addIfInRange(vitals, 'diastolic', _number(vital['diastolic']), 'mmHg', 20, 180);
+          } else if (type == 'heart_rate') {
+            _addIfInRange(vitals, 'heart_rate', _number(vital['value']), 'bpm', 20, 260);
+          } else if (type == 'temperature') {
+            _addIfInRange(vitals, 'temperature', _number(vital['value']), '°C', 25, 45);
+          } else if (type == 'spo2') {
+            _addIfInRange(vitals, 'spo2', _number(vital['value']), '%', 40, 100);
+          } else if (type == 'respiratory_rate') {
+            _addIfInRange(vitals, 'respiratory_rate', _number(vital['value']), '/min', 4, 80);
+          } else if (type == 'weight') {
+            _addIfInRange(vitals, 'weight', _number(vital['value']), 'kg', 2, 500);
+          }
+        }
+        return vitals.isEmpty
+            ? null
+            : ClinicalCommand(action: ClinicalAction.recordVitals, vitals: vitals);
+      case 'record_medication':
+        final rawMedication = data['medication'];
+        if (rawMedication is! Map) return null;
+        final medication = Map<String, dynamic>.from(rawMedication);
+        final name = medication['name']?.toString().trim() ?? '';
+        if (name.isEmpty) return null;
+        const statuses = {'administered', 'held', 'started', 'discontinued'};
+        final status = medication['status']?.toString();
+        if (!statuses.contains(status)) return null;
+        return ClinicalCommand(
+          action: ClinicalAction.recordMedication,
+          medication: ParsedMedication(
+            name: name,
+            dose: medication['dose']?.toString(),
+            route: medication['route']?.toString(),
+            status: status!,
+          ),
+        );
+      case 'query_vitals':
+        return const ClinicalCommand(action: ClinicalAction.queryVitals);
+      case 'query_trends':
+        return const ClinicalCommand(action: ClinicalAction.queryTrends);
+      case 'query_medications':
+        return const ClinicalCommand(action: ClinicalAction.queryMedications);
+      case 'summarize':
+        return const ClinicalCommand(action: ClinicalAction.summarize);
+      case 'greeting':
+        return const ClinicalCommand(action: ClinicalAction.greeting);
+      case 'help':
+        return const ClinicalCommand(action: ClinicalAction.help);
+      case 'cancel':
+        return const ClinicalCommand(action: ClinicalAction.cancel);
+      default:
+        return null;
+    }
+  }
+
+  static double? _number(dynamic value) => value is num
+      ? value.toDouble()
+      : double.tryParse(value?.toString() ?? '');
+
   static final RegExp _bpPattern = RegExp(
     r'\b(?:bp|blood\s+pressure)\s*(?:is|of|as|at|:|=)?\s*(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b',
     caseSensitive: false,
