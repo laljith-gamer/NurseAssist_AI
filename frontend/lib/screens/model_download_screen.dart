@@ -143,7 +143,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                         children: [
                           _infoRow(
                             Icons.download_rounded,
-                            'Large optional download',
+                            'Large optional download (2.7 GB)',
                           ),
                           const SizedBox(height: 12),
                           _infoRow(
@@ -158,7 +158,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen>
                           const SizedBox(height: 12),
                           _infoRow(
                             Icons.auto_awesome,
-                            'Powered by Google Gemma 3',
+                            'Powered by Google Gemma 2',
                           ),
                         ],
                       ),
