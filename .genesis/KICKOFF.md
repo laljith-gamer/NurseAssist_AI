@@ -1,12 +1,14 @@
 # NurseAssist_AI — KICKOFF
 
-Paste this into a cold session to resume:
+NurseAssist is a Flutter nursing-assistant app with deterministic clinical
+commands and an optional, downloadable on-device Gemma model.
 
-1. Read `.genesis/DONE.html` (locked spec + DoD)
-2. Read `.genesis/PLAN.md` (milestones)
-3. Read `.genesis/wiki/index.md` (what exists)
-4. Read `.genesis/implementation-notes.html` (what’s live)
-5. Read `.genesis/LOOPS.md` (how to build)
-6. Read `.genesis/checkpoints/CURRENT.md` (where we are)
+To resume work:
 
-Then continue from CURRENT.md → next_action.
+1. Read `.genesis/checkpoints/CURRENT.md` for the immediate next action.
+2. Read `.genesis/wiki/index.md` for the architecture and model contract.
+3. Read `.genesis/PLAN.md` for the active milestones.
+4. Read `.genesis/implementation-notes.html` for verified implementation facts.
+
+Do not change the model filename, release tag, or app download URL independently:
+they are one release contract.

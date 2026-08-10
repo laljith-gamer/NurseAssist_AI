@@ -26,25 +26,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Download Model from Hugging Face
+      - name: Download Model
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          if [ -z "$HF_TOKEN" ]; then
-            echo "Error: HF_TOKEN secret is not set!"
-            exit 1
+          echo "Downloading model..."
+          # Public sources (such as a Hugging Face bucket) do not need a token.
+          # Gated Hugging Face models still work when HF_TOKEN is configured.
+          if [ -n "$HF_TOKEN" ]; then
+            curl --fail --location --retry 3 \
+              -H "Authorization: Bearer $HF_TOKEN" \
+              "${{ github.event.inputs.model_url }}" \
+              -o "${{ github.event.inputs.model_filename }}"
+          else
+            curl --fail --location --retry 3 \
+              "${{ github.event.inputs.model_url }}" \
+              -o "${{ github.event.inputs.model_filename }}"
           fi
-          
-          echo "Downloading model from Hugging Face..."
-          # Download using curl with the provided Hugging Face token
-          curl -L -H "Authorization: Bearer $HF_TOKEN" \
-            "${{ github.event.inputs.model_url }}" \
-            -o "${{ github.event.inputs.model_filename }}"
             
           # Verify the file was downloaded successfully (check if it's larger than 1MB)
           FILESIZE=$(stat -c%s "${{ github.event.inputs.model_filename }}")
           if [ "$FILESIZE" -lt 1000000 ]; then
-            echo "Error: Downloaded file is too small ($FILESIZE bytes). Token might be invalid or lacking permissions."
+            echo "Error: Downloaded file is too small ($FILESIZE bytes). Check the direct URL, file access, and model format."
             cat "${{ github.event.inputs.model_filename }}"
             exit 1
           fi
