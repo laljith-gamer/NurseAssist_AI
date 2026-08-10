@@ -9,6 +9,7 @@ enum ClinicalAction {
   queryVitals,
   queryTrends,
   recordMedication,
+  recordNote,
   queryMedications,
   summarize,
   greeting,
@@ -66,11 +67,13 @@ class ClinicalCommand {
     required this.action,
     this.vitals = const [],
     this.medication,
+    this.noteCategory,
   });
 
   final ClinicalAction action;
   final List<ParsedVital> vitals;
   final ParsedMedication? medication;
+  final String? noteCategory;
 }
 
 class ClinicalCommandParser {
@@ -195,6 +198,11 @@ class ClinicalCommandParser {
             route: medication['route']?.toString(),
             status: status!,
           ),
+        );
+      case 'record_note':
+        return const ClinicalCommand(
+          action: ClinicalAction.recordNote,
+          noteCategory: 'nursing_observation',
         );
       case 'query_vitals':
         return const ClinicalCommand(action: ClinicalAction.queryVitals);

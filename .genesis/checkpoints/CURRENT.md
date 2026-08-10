@@ -1,10 +1,10 @@
 # CURRENT
 - active_loop: real-data-nursing-language-pipeline
 - target: combine a safe on-device AI interpreter with a measurable nursing-language sidecar model
-- iteration: 2
+- iteration: 3
 - last_gate: SYNUR training, mobile export parity, and quality gate passed (validation micro-F1 0.7689; held-out test micro-F1 0.7068)
-- last_action: replaced synthetic CI training with pinned public SYNUR training and added an in-chat nurse review/confirm flow for all AI chart proposals
-- next_action: push the small-model workflow, install the new debug APK on an Android device, then verify a vital and medication proposal can each be confirmed and discarded
+- last_action: added patient-isolated nursing observations, New chat/history sessions, and bounded selected-patient memory for the on-device AI prompt
+- next_action: install the new debug APK on an Android device; verify note capture, New chat/history, and patient isolation alongside vital and medication confirmation/discard
 - model: `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` from the public Hugging Face bucket
 - sidecar_data: Microsoft SYNUR, pinned revision `fc5a8c4882cfc6cd09c87c602dcdb6f3bba905b2` (synthetic nursing research data; advisory only)
 - tokens_used: not tracked

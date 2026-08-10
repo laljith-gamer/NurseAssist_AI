@@ -277,6 +277,108 @@ class _ChatInterfaceState extends State<ChatInterface> {
     );
   }
 
+  Widget _buildChatSessionBar(PatientProvider provider) {
+    final session = provider.activeChatSession;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: Row(
+        children: [
+          const Icon(Icons.forum_outlined, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              session?.title ?? 'New chat',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Chat history',
+            icon: const Icon(Icons.history_outlined),
+            onPressed: provider.isResponding
+                ? null
+                : () => _showChatHistory(context, provider),
+          ),
+          IconButton(
+            tooltip: 'New chat',
+            icon: const Icon(Icons.edit_square),
+            onPressed: provider.isResponding
+                ? null
+                : () async {
+                    await provider.startNewChat();
+                    if (mounted) _scrollToBottom();
+                  },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showChatHistory(
+    BuildContext context,
+    PatientProvider provider,
+  ) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: 360,
+          child: Column(
+            children: [
+              ListTile(
+                title: const Text(
+                  'Chat history',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                trailing: FilledButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(sheetContext);
+                    await provider.startNewChat();
+                    if (mounted) _scrollToBottom();
+                  },
+                  icon: const Icon(Icons.add_comment_outlined),
+                  label: const Text('New chat'),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: provider.chatSessions.length,
+                  itemBuilder: (context, index) {
+                    final session = provider.chatSessions[index];
+                    final selected =
+                        session.id == provider.activeChatSession?.id;
+                    return ListTile(
+                      leading: Icon(
+                        selected
+                            ? Icons.chat_bubble
+                            : Icons.chat_bubble_outline,
+                      ),
+                      title: Text(session.title),
+                      subtitle: Text(
+                        '${session.createdAt.day}/${session.createdAt.month}/${session.createdAt.year}',
+                      ),
+                      selected: selected,
+                      onTap: () async {
+                        Navigator.pop(sheetContext);
+                        await provider.selectChatSession(session);
+                        if (mounted) _scrollToBottom();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -287,6 +389,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
               final llmService = context.watch<LlmService>();
               return Column(
                 children: [
+                  _buildChatSessionBar(provider),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(8),

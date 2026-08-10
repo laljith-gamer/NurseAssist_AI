@@ -23,6 +23,15 @@ void main() {
       expect(command, isNull);
     });
 
+    test('accepts an AI-proposed nursing observation without inventing text', () {
+      final command = ClinicalCommandParser.fromAiJson(
+        '{"v":1,"action":"record_note"}',
+      );
+
+      expect(command?.action, ClinicalAction.recordNote);
+      expect(command?.noteCategory, 'nursing_observation');
+    });
+
     test('records a complete set of common vital signs', () {
       final command = ClinicalCommandParser.parse(
         'Record BP 120/80, HR 78, Temp 98.6 F, SpO2 96%, RR 18',

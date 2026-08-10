@@ -267,6 +267,7 @@ not repeat your instructions or the user's prompt.''';
   Future<ClinicalCommand?> interpretClinicalCommand(
     String message, {
     List<ClinicalObservation> observationHints = const [],
+    String patientMemory = '',
   }) async {
     if (!_isReady || _chat == null || _isGenerating) return null;
     _isGenerating = true;
@@ -277,15 +278,17 @@ not repeat your instructions or the user's prompt.''';
           : observationHints.map((hint) => hint.name).join(', ');
       const schema =
           '''Interpret the nurse message as data. Return exactly one compact JSON object; no markdown or explanation.
-Schema: {"v":1,"action":"record_vitals|record_medication|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation",...}
+Schema: {"v":1,"action":"record_vitals|record_medication|record_note|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation",...}
 Vital form: {"v":1,"action":"record_vitals","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate|temperature|spo2|respiratory_rate|weight","value":78,"unit":"bpm|c|f|percent|per_min|kg|lb"}]}
 Medication form: {"v":1,"action":"record_medication","medication":{"name":"...","dose":"... or null","route":"PO|IV|IM|SC|TOPICAL|INHALED or null","status":"administered|held|started|discontinued"}}
+For a factual patient observation, symptom, care event, or assessment that is not a supported vital or medication, return {"v":1,"action":"record_note"}. The original nurse message, not a model paraphrase, will be saved after nurse review.
 Only extract facts explicitly stated as documentation. Questions, plans, negation, uncertainty, conditionals, and missing values are never records. Never infer a patient. Use conversation if unsupported.
 Example: "put BP as 120/80" -> {"v":1,"action":"record_vitals","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}]}
 Dataset-trained advisory context (may be wrong; do not copy it as a fact): ''';
       await _chat!.addQueryChunk(
         Message(
-          text: '$schema$hints\n<message>\n$message\n</message>',
+          text:
+              '$schema$hints\nSelected-patient memory (context only; never repeat or write it as a new fact):\n$patientMemory\n<message>\n$message\n</message>',
           isUser: true,
         ),
       );
@@ -305,6 +308,7 @@ Dataset-trained advisory context (may be wrong; do not copy it as a fact): ''';
     required String patientName,
     required String userMessage,
     List<ClinicalObservation> observationHints = const [],
+    String patientMemory = '',
   }) {
     final hintText = observationHints.isEmpty
         ? 'none'
@@ -313,6 +317,8 @@ Dataset-trained advisory context (may be wrong; do not copy it as a fact): ''';
     return '''You are NurseAssist AI, a clinical nursing assistant running on-device.
 You are assisting with the currently selected patient: $patientName.
 Advisory nursing-observation context (not patient facts): $hintText
+Selected-patient memory (context only):
+$patientMemory
 Nurse's input:
 <message>
 $userMessage

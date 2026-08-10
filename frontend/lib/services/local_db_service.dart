@@ -14,7 +14,7 @@ class LocalDbService {
   factory LocalDbService() => _instance;
   LocalDbService._internal();
 
-  static const _databaseVersion = 2;
+  static const _databaseVersion = 4;
   Database? _database;
 
   Future<Database> get database async {
@@ -57,6 +57,12 @@ class LocalDbService {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createClinicalTables(db);
+    }
+    if (oldVersion < 3) {
+      await _createNursingNotesTable(db);
+    }
+    if (oldVersion < 4) {
+      await _migrateChatSessions(db);
     }
   }
 
@@ -114,6 +120,7 @@ class LocalDbService {
       CREATE TABLE IF NOT EXISTS chat_messages (
         id TEXT PRIMARY KEY,
         patient_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         data TEXT,
@@ -121,8 +128,77 @@ class LocalDbService {
       )
     ''');
     await db.execute('''
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_patient_time
-      ON chat_messages(patient_id, created_at ASC)
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_patient_session_time
+      ON chat_messages(patient_id, session_id, created_at ASC)
+    ''');
+    await _createNursingNotesTable(db);
+    await _createChatSessionsTable(db);
+  }
+
+  Future<void> _createNursingNotesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS nursing_notes (
+        id TEXT PRIMARY KEY,
+        patient_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        category TEXT NOT NULL,
+        source_text TEXT NOT NULL,
+        recorded_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_nursing_notes_patient_time
+      ON nursing_notes(patient_id, recorded_at DESC)
+    ''');
+  }
+
+  Future<void> _createChatSessionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chat_sessions (
+        id TEXT PRIMARY KEY,
+        patient_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_patient_time
+      ON chat_sessions(patient_id, created_at DESC)
+    ''');
+  }
+
+  Future<void> _migrateChatSessions(Database db) async {
+    await _createChatSessionsTable(db);
+    final columns = await db.rawQuery('PRAGMA table_info(chat_messages)');
+    final hasSessionId = columns.any(
+      (column) => column['name'] == 'session_id',
+    );
+    if (!hasSessionId) {
+      await db.execute('ALTER TABLE chat_messages ADD COLUMN session_id TEXT');
+    }
+    final patients = await db.rawQuery(
+      'SELECT DISTINCT patient_id FROM chat_messages',
+    );
+    for (final row in patients) {
+      final patientId = row['patient_id']?.toString();
+      if (patientId == null || patientId.isEmpty) continue;
+      final sessionId = 'legacy_$patientId';
+      await db.insert('chat_sessions', {
+        'id': sessionId,
+        'patient_id': patientId,
+        'title': 'Previous chat history',
+        'created_at': 0,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await db.update(
+        'chat_messages',
+        {'session_id': sessionId},
+        where: 'patient_id = ? AND session_id IS NULL',
+        whereArgs: [patientId],
+      );
+    }
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_patient_session_time
+      ON chat_messages(patient_id, session_id, created_at ASC)
     ''');
   }
 
@@ -239,11 +315,79 @@ class LocalDbService {
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
+  Future<void> saveNursingNote({
+    required String id,
+    required String patientId,
+    required String content,
+    required String category,
+    required String sourceText,
+    DateTime? recordedAt,
+  }) async {
+    final db = await database;
+    await db.insert('nursing_notes', {
+      'id': id,
+      'patient_id': patientId,
+      'content': content,
+      'category': category,
+      'source_text': sourceText,
+      'recorded_at': (recordedAt ?? DateTime.now()).millisecondsSinceEpoch,
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getNursingNotes(
+    String patientId, {
+    int limit = 50,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'nursing_notes',
+      where: 'patient_id = ?',
+      whereArgs: [patientId],
+      orderBy: 'recorded_at DESC',
+      limit: limit,
+    );
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
+
   // Chat history -----------------------------------------------------------
+
+  Future<Map<String, dynamic>> createChatSession({
+    required String id,
+    required String patientId,
+    required String title,
+    DateTime? createdAt,
+  }) async {
+    final timestamp = createdAt ?? DateTime.now();
+    final db = await database;
+    await db.insert('chat_sessions', {
+      'id': id,
+      'patient_id': patientId,
+      'title': title,
+      'created_at': timestamp.millisecondsSinceEpoch,
+    });
+    return {
+      'id': id,
+      'patient_id': patientId,
+      'title': title,
+      'created_at': timestamp.millisecondsSinceEpoch,
+    };
+  }
+
+  Future<List<Map<String, dynamic>>> getChatSessions(String patientId) async {
+    final db = await database;
+    final rows = await db.query(
+      'chat_sessions',
+      where: 'patient_id = ?',
+      whereArgs: [patientId],
+      orderBy: 'created_at DESC',
+    );
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
+  }
 
   Future<void> saveChatMessage({
     required String id,
     required String patientId,
+    required String sessionId,
     required String role,
     required String content,
     Map<String, dynamic>? data,
@@ -253,6 +397,7 @@ class LocalDbService {
     await db.insert('chat_messages', {
       'id': id,
       'patient_id': patientId,
+      'session_id': sessionId,
       'role': role,
       'content': content,
       'data': data == null ? null : jsonEncode(data),
@@ -260,13 +405,22 @@ class LocalDbService {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<List<Map<String, dynamic>>> getChatMessages(String patientId) async {
+  Future<List<Map<String, dynamic>>> getChatMessages(
+    String patientId, {
+    String? sessionId,
+    int? limit,
+  }) async {
     final db = await database;
+    final where = sessionId == null
+        ? 'patient_id = ?'
+        : 'patient_id = ? AND session_id = ?';
+    final arguments = sessionId == null ? [patientId] : [patientId, sessionId];
     final rows = await db.query(
       'chat_messages',
-      where: 'patient_id = ?',
-      whereArgs: [patientId],
+      where: where,
+      whereArgs: arguments,
       orderBy: 'created_at ASC',
+      limit: limit,
     );
     return rows.map((row) {
       final data = row['data'];
@@ -275,6 +429,22 @@ class LocalDbService {
         if (data is String && data.isNotEmpty) 'data': jsonDecode(data),
       };
     }).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentNurseMessages(
+    String patientId, {
+    int limit = 6,
+  }) async {
+    final db = await database;
+    final rows = await db.query(
+      'chat_messages',
+      columns: ['content', 'created_at'],
+      where: 'patient_id = ? AND role = ?',
+      whereArgs: [patientId, 'user'],
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
   // Deferred feedback / future sync ---------------------------------------

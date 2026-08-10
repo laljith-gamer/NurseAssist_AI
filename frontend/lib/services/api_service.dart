@@ -98,6 +98,48 @@ class ApiService {
     int limit = 100,
   }) => _db.getMedicationRecords(patientId, limit: limit);
 
+  Future<void> recordNursingNote(
+    String patientId, {
+    required String content,
+    required String sourceText,
+    String category = 'nursing_observation',
+  }) {
+    final now = DateTime.now();
+    return _db.saveNursingNote(
+      id: 'NOTE_${now.microsecondsSinceEpoch}',
+      patientId: patientId,
+      content: content,
+      category: category,
+      sourceText: sourceText,
+      recordedAt: now,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getNursingNotes(
+    String patientId, {
+    int limit = 50,
+  }) => _db.getNursingNotes(patientId, limit: limit);
+
+  /// A compact, selected-patient-only context for on-device AI. It contains
+  /// local records and a small amount of prior nurse conversation, never data
+  /// from another patient or a cloud source.
+  Future<Map<String, List<Map<String, dynamic>>>> getPatientMemory(
+    String patientId,
+  ) async {
+    final results = await Future.wait([
+      _db.getNursingNotes(patientId, limit: 6),
+      _db.getVitalReadings(patientId, limit: 8),
+      _db.getMedicationRecords(patientId, limit: 5),
+      _db.getRecentNurseMessages(patientId, limit: 4),
+    ]);
+    return {
+      'notes': results[0],
+      'vitals': results[1],
+      'medications': results[2],
+      'recent_nurse_messages': results[3],
+    };
+  }
+
   Future<Map<String, dynamic>> getPatientMetrics(String patientId) async {
     final metrics = await getVitalsDelta(patientId);
     return {
@@ -241,6 +283,7 @@ class ApiService {
   Future<void> saveChatMessage({
     required String id,
     required String patientId,
+    required String sessionId,
     required String role,
     required String content,
     Map<String, dynamic>? data,
@@ -249,6 +292,7 @@ class ApiService {
     return _db.saveChatMessage(
       id: id,
       patientId: patientId,
+      sessionId: sessionId,
       role: role,
       content: content,
       data: data,
@@ -256,8 +300,26 @@ class ApiService {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getChatHistory(String patientId) =>
-      _db.getChatMessages(patientId);
+  Future<Map<String, dynamic>> createChatSession(
+    String patientId, {
+    required String title,
+  }) {
+    final now = DateTime.now();
+    return _db.createChatSession(
+      id: 'CHAT_${now.microsecondsSinceEpoch}',
+      patientId: patientId,
+      title: title,
+      createdAt: now,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getChatSessions(String patientId) =>
+      _db.getChatSessions(patientId);
+
+  Future<List<Map<String, dynamic>>> getChatHistory(
+    String patientId, {
+    String? sessionId,
+  }) => _db.getChatMessages(patientId, sessionId: sessionId);
 
   Future<bool> submitIntentFeedback(String text, String correctIntent) async {
     await _db.queueAction('/api/feedback/intent', {
