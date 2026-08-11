@@ -54,6 +54,7 @@ class ApiService {
     String patientId,
     List<Map<String, dynamic>> vitals, {
     required String sourceText,
+    DateTime? recordedAt,
   }) async {
     for (final vital in vitals) {
       final type = vital['type']?.toString();
@@ -66,6 +67,7 @@ class ApiService {
         value: value,
         unit: unit,
         sourceText: sourceText,
+        recordedAt: recordedAt,
       );
     }
   }
@@ -77,6 +79,7 @@ class ApiService {
     required String sourceText,
     String? dose,
     String? route,
+    DateTime? recordedAt,
   }) {
     return _db.saveMedication(
       patientId: patientId,
@@ -85,6 +88,7 @@ class ApiService {
       route: route,
       status: status,
       sourceText: sourceText,
+      recordedAt: recordedAt,
     );
   }
 
@@ -103,6 +107,7 @@ class ApiService {
     required String content,
     required String sourceText,
     String category = 'nursing_observation',
+    DateTime? recordedAt,
   }) {
     final now = DateTime.now();
     return _db.saveNursingNote(
@@ -111,7 +116,7 @@ class ApiService {
       content: content,
       category: category,
       sourceText: sourceText,
-      recordedAt: now,
+      recordedAt: recordedAt ?? now,
     );
   }
 

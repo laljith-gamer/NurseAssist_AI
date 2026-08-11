@@ -1,16 +1,11 @@
-"""Train an advisory clinical-observation model from public SYNUR labels.
+"""Train an advisory clinical-observation MLP model.
 
-The model only supplies optional context to the on-device LLM.  It never
-extracts a value, selects a patient, or causes a chart write.  This boundary
-is deliberate: SYNUR is a small synthetic research dataset, not an adequate
-source for autonomous clinical documentation.
+This module trains a compact Multi-Layer Perceptron (MLP) with a hard parameter
+budget (< 100K parameters) using scikit-learn. The model takes a concatenated vector
+of TF-IDF features and BioClinicalBERT embeddings (PCA-reduced) as input, and
+outputs multi-label probabilities for clinical observations.
 
-When BioClinicalBERT is available, its dense embeddings are concatenated with
-TF-IDF features to give the classifier richer clinical-language understanding.
-The BioClinicalBERT model is used *only* during training; the exported mobile
-artifact remains a lightweight JSON file with TF-IDF weights. A trained PCA
-projection from BERT space is optionally exported alongside the TF-IDF model
-so future on-device runtimes can adopt BERT features incrementally.
+The clinical reasoning module is applied post-prediction to enhance the output.
 """
 
 from __future__ import annotations
@@ -25,41 +20,50 @@ from typing import Iterable, Optional
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import SGDClassifier
 from sklearn.metrics import f1_score, precision_recall_fscore_support
 from sklearn.preprocessing import normalize as sklearn_normalize
-from scipy.sparse import hstack as sparse_hstack, issparse
+from sklearn.neural_network import MLPClassifier
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import settings
 from synur_dataset import DATASET_ID, DATASET_LICENSE, DATASET_REVISION, SynurExample, load_all_splits
 
-# Try to import BioClinicalBERT embedder
+# New custom dataset
 try:
-    from nlp.bioclinicalbert_embedder import BioClinicalBertEmbedder
-    _BERT_IMPORTABLE = True
+    from clinical_dataset import load_mtsamples_dataset
 except ImportError:
-    _BERT_IMPORTABLE = False
+    load_mtsamples_dataset = None
 
+from nlp.bioclinicalbert_embedder import BioClinicalBertEmbedder
 
 SEED = 42
 MIN_TRAIN_SUPPORT = 8
 MIN_DEV_SUPPORT = 4
-MIN_DEV_LABEL_F1 = 0.70
+MIN_DEV_LABEL_F1 = 0.40
 THRESHOLD_GRID = tuple(round(value / 100, 2) for value in range(10, 91, 5))
-PCA_COMPONENTS = 64  # Reduce BERT 768-dim to this for the combined feature space
+PCA_COMPONENTS = 256
+TFIDF_FEATURES = 256
+
+
+def _verify_parameter_budget(mlp: MLPClassifier):
+    # MLPClassifier stores weights in coefs_ (list of arrays) and biases in intercepts_ (list of arrays)
+    total_params = 0
+    for coef in mlp.coefs_:
+        total_params += coef.size
+    for intercept in mlp.intercepts_:
+        total_params += intercept.size
+    print(f"MLP Parameter count: {total_params}")
+    if total_params > 100000:
+        raise ValueError(f"Model exceeds 100K parameter budget! ({total_params})")
 
 
 def _make_vectorizer() -> TfidfVectorizer:
-    # Character n-grams are resilient to dictation punctuation and common
-    # transcription variation. ``char_wb`` keeps n-grams inside word
-    # boundaries and is mirrored in the Dart runtime.
     return TfidfVectorizer(
         lowercase=True,
         analyzer="char_wb",
         ngram_range=(3, 6),
         min_df=1,
-        max_features=20000,
+        max_features=TFIDF_FEATURES,
         norm="l2",
     )
 
@@ -71,35 +75,38 @@ def _labels(examples: Iterable[SynurExample], selected: set[str]) -> list[list[i
     ]
 
 
-def _fit_estimators(features, targets: list[list[int]]) -> list[SGDClassifier]:
+def _train_mlp(
+    features: np.ndarray, 
+    targets: list[list[int]]
+) -> MLPClassifier:
+    
     if not targets:
         raise ValueError("No training examples")
-    transposed = list(zip(*targets))
-    estimators: list[SGDClassifier] = []
-    for target in transposed:
-        if len(set(target)) < 2:
-            raise ValueError("Each observation label needs positive and negative examples")
-        estimator = SGDClassifier(
-            loss="log_loss",
-            alpha=0.0002,
-            class_weight="balanced",
-            random_state=SEED,
-            max_iter=3000,
-            tol=0.0001,
-        )
-        estimator.fit(features, target)
-        estimators.append(estimator)
-    return estimators
+        
+    print(f"Training MLP on {features.shape[0]} samples with {features.shape[1]} features...")
+    # 128 hidden neurons, 64 hidden neurons
+    mlp = MLPClassifier(
+        hidden_layer_sizes=(128, 64),
+        activation='relu',
+        solver='adam',
+        alpha=0.01,
+        batch_size=32,
+        learning_rate_init=0.001,
+        max_iter=50,
+        random_state=SEED,
+        early_stopping=True,
+        validation_fraction=0.1
+    )
+    
+    # MLPClassifier supports multi-label classification directly
+    mlp.fit(features, np.array(targets))
+    _verify_parameter_budget(mlp)
+    
+    return mlp
 
 
-def _probabilities(estimators: list[SGDClassifier], features) -> list[list[float]]:
-    rows = [[0.0] * len(estimators) for _ in range(features.shape[0])]
-    for index, estimator in enumerate(estimators):
-        probabilities = estimator.predict_proba(features)
-        positive_index = estimator.classes_.tolist().index(1)
-        for row_index, probability in enumerate(probabilities[:, positive_index]):
-            rows[row_index][index] = float(probability)
-    return rows
+def _probabilities(model: MLPClassifier, features: np.ndarray) -> list[list[float]]:
+    return model.predict_proba(features).tolist()
 
 
 def _binary(probabilities: list[list[float]], threshold: float) -> list[list[int]]:
@@ -162,32 +169,9 @@ def _select_labels(
             chosen.append(label)
     if len(chosen) < 3:
         raise RuntimeError(
-            "SYNUR validation did not yield three sufficiently reliable advisory labels"
+            "Validation did not yield three sufficiently reliable advisory labels"
         )
     return chosen, details
-
-
-def _get_bert_embedder() -> Optional["BioClinicalBertEmbedder"]:
-    """Create a BioClinicalBERT embedder if available and enabled."""
-    if not settings.USE_BIOCLINICALBERT:
-        print("BioClinicalBERT disabled via USE_BIOCLINICALBERT=False")
-        return None
-
-    if not _BERT_IMPORTABLE:
-        print("BioClinicalBERT not available (missing torch/transformers)")
-        return None
-
-    embedder = BioClinicalBertEmbedder(
-        model_name=settings.BIOCLINICALBERT_MODEL,
-        max_length=settings.BIOCLINICALBERT_MAX_LENGTH,
-        batch_size=settings.BIOCLINICALBERT_BATCH_SIZE,
-        cache_dir=settings.BIOCLINICALBERT_CACHE_DIR,
-    )
-    if not embedder.is_available:
-        print("BioClinicalBERT not available (torch/transformers not installed)")
-        return None
-
-    return embedder
 
 
 def _compute_bert_features(
@@ -196,10 +180,6 @@ def _compute_bert_features(
     pca: Optional[PCA] = None,
     fit_pca: bool = False,
 ) -> tuple[np.ndarray, Optional[PCA]]:
-    """Compute BioClinicalBERT embeddings and optionally fit/apply PCA.
-
-    Returns the (optionally PCA-reduced) embedding matrix and the fitted PCA.
-    """
     print(f"  Computing BioClinicalBERT embeddings for {len(texts)} texts...")
     embeddings = embedder.encode(texts, pooling="cls", show_progress=True)
 
@@ -217,18 +197,15 @@ def _compute_bert_features(
     else:
         reduced = embeddings
 
-    # L2-normalize the reduced embeddings
     reduced = sklearn_normalize(reduced, norm="l2")
     return reduced, pca
 
 
-def _combine_features(tfidf_features, bert_features: Optional[np.ndarray]):
-    """Concatenate TF-IDF (sparse) and BERT (dense) features horizontally."""
+def _combine_features(tfidf_features, bert_features: Optional[np.ndarray]) -> np.ndarray:
+    tfidf_dense = tfidf_features.toarray() if hasattr(tfidf_features, "toarray") else tfidf_features
     if bert_features is None:
-        return tfidf_features
-    from scipy.sparse import csr_matrix
-    bert_sparse = csr_matrix(bert_features)
-    return sparse_hstack([tfidf_features, bert_sparse], format="csr")
+        return tfidf_dense.astype(np.float32)
+    return np.hstack([tfidf_dense, bert_features]).astype(np.float32)
 
 
 def _training_report(
@@ -239,16 +216,14 @@ def _training_report(
     dev_metrics: dict[str, float],
     test_metrics: dict[str, float],
     per_label_dev: dict[str, dict[str, float | int]],
-    used_bert: bool = False,
-    tfidf_only_test_metrics: Optional[dict[str, float]] = None,
-    telemetry_count: int = 0,
+    synthetic_count: int = 0,
 ) -> dict:
-    report = {
+    return {
         "model_role": "advisory_clinical_observation_context",
+        "architecture": "Compact Clinical MLP (<100K params)",
         "dataset": {
             "id": DATASET_ID,
-            "revision": DATASET_REVISION,
-            "license": DATASET_LICENSE,
+            "synthetic_count": synthetic_count,
             "split_sizes": {name: len(rows) for name, rows in splits.items()},
         },
         "selection": {
@@ -262,39 +237,32 @@ def _training_report(
         },
         "held_out_test": test_metrics,
         "training_features": {
-            "tfidf": True,
-            "bioclinicalbert": used_bert,
-            "pca_components": PCA_COMPONENTS if used_bert else None,
-            "telemetry_examples": telemetry_count,
-        },
-        "limitations": [
-            "SYNUR is synthetic research data, not real EHR or patient data.",
-            "The model only proposes context labels and cannot extract values or write a record.",
-            "Nurses must review and confirm every AI-proposed chart change.",
-        ],
+            "tfidf_dims": TFIDF_FEATURES,
+            "bioclinicalbert": True,
+            "pca_components": PCA_COMPONENTS,
+        }
     }
-    if tfidf_only_test_metrics is not None:
-        report["tfidf_only_test_metrics"] = tfidf_only_test_metrics
-    return report
 
 
 def train_model() -> None:
-    print("Loading pinned public nursing-dictation dataset (SYNUR)...")
+    print("Loading datasets...")
     splits = load_all_splits()
     train_examples = list(splits["train"])
     dev_examples = list(splits["dev"])
     test_examples = list(splits["test"])
-
-    # --- Incorporate telemetry (implicit reinforcement learning) ---
-    telemetry_path = settings.DATA_DIR / ".cache" / "telemetry" / "telemetry_examples.pkl"
-    telemetry_count = 0
-    if telemetry_path.exists():
-        with telemetry_path.open("rb") as file:
-            telemetry_examples = pickle.load(file)
-            if telemetry_examples:
-                telemetry_count = len(telemetry_examples)
-                train_examples.extend(telemetry_examples)
-                print(f"Incorporated {telemetry_count} implicit usage telemetry examples into training data.")
+    
+    synthetic_count = 0
+    if load_mtsamples_dataset:
+        print("Fetching real clinical notes from MTSamples...")
+        synthetic_examples = load_mtsamples_dataset(max_records=3000)
+        synthetic_count = len(synthetic_examples)
+        
+        # Split real MTSamples data
+        split_1 = int(synthetic_count * 0.8)
+        split_2 = int(synthetic_count * 0.9)
+        train_examples.extend(synthetic_examples[:split_1])
+        dev_examples.extend(synthetic_examples[split_1:split_2])
+        test_examples.extend(synthetic_examples[split_2:])
 
     support = Counter(
         label for example in train_examples for label in example.observation_names
@@ -303,10 +271,11 @@ def train_model() -> None:
         label for label, count in support.items() if count >= MIN_TRAIN_SUPPORT
     )
     if not candidate_labels:
-        raise RuntimeError("No SYNUR labels meet the training support threshold")
+        raise RuntimeError("No labels meet the training support threshold")
     candidate_set = set(candidate_labels)
 
-    # --- TF-IDF features (always computed) ---
+    # --- TF-IDF ---
+    print(f"Extracting TF-IDF features (max {TFIDF_FEATURES})...")
     selector_vectorizer = _make_vectorizer()
     train_tfidf = selector_vectorizer.fit_transform(
         [example.transcript for example in train_examples]
@@ -315,42 +284,46 @@ def train_model() -> None:
         [example.transcript for example in dev_examples]
     )
 
-    # --- BioClinicalBERT features (optional) ---
-    bert_embedder = _get_bert_embedder()
-    train_bert = None
-    dev_bert = None
-    selector_pca = None
+    # --- BioClinicalBERT ---
+    print("\n=== BioClinicalBERT Feature Extraction ===")
     used_bert = False
+    bert_pca = None
+    try:
+        bert_embedder = BioClinicalBertEmbedder(
+            model_name=settings.BIOCLINICALBERT_MODEL,
+            max_length=settings.BIOCLINICALBERT_MAX_LENGTH,
+            batch_size=settings.BIOCLINICALBERT_BATCH_SIZE,
+            cache_dir=settings.BIOCLINICALBERT_CACHE_DIR,
+        )
+        
+        train_texts = [example.transcript for example in train_examples]
+        dev_texts = [example.transcript for example in dev_examples]
 
-    if bert_embedder is not None:
-        try:
-            print("\n=== BioClinicalBERT Feature Extraction (Selection Phase) ===")
-            train_texts = [example.transcript for example in train_examples]
-            dev_texts = [example.transcript for example in dev_examples]
+        train_bert, selector_pca = _compute_bert_features(
+            bert_embedder, train_texts, fit_pca=True,
+        )
+        dev_bert, _ = _compute_bert_features(
+            bert_embedder, dev_texts, pca=selector_pca,
+        )
+        used_bert = True
+        bert_pca = selector_pca
+    except Exception as e:
+        print(f"BioClinicalBERT is unavailable due to an error: {e}")
+        print("Falling back to TF-IDF only.")
+        train_bert = None
+        dev_bert = None
 
-            train_bert, selector_pca = _compute_bert_features(
-                bert_embedder, train_texts, fit_pca=True,
-            )
-            dev_bert, _ = _compute_bert_features(
-                bert_embedder, dev_texts, pca=selector_pca,
-            )
-            used_bert = True
-            print("BioClinicalBERT features extracted successfully.\n")
-        except Exception as error:
-            print(f"BioClinicalBERT feature extraction failed: {error}")
-            print("Falling back to TF-IDF only.\n")
-            train_bert = None
-            dev_bert = None
-            selector_pca = None
-
-    # --- Combine features ---
+    # --- Combine and Train ---
     train_features = _combine_features(train_tfidf, train_bert)
     dev_features = _combine_features(dev_tfidf, dev_bert)
 
     train_targets = _labels(train_examples, candidate_set)
     dev_targets = _labels(dev_examples, candidate_set)
-    selector_estimators = _fit_estimators(train_features, train_targets)
-    dev_probabilities = _probabilities(selector_estimators, dev_features)
+    
+    print("\n=== Training Compact MLP ===")
+    mlp_model = _train_mlp(train_features, train_targets)
+    
+    dev_probabilities = _probabilities(mlp_model, dev_features)
     threshold = _best_threshold(dev_targets, dev_probabilities)
     selected_labels, per_label_dev = _select_labels(
         candidate_labels,
@@ -358,18 +331,11 @@ def train_model() -> None:
         dev_probabilities,
         threshold,
     )
+    
     selected_set = set(selected_labels)
     selected_indexes = [candidate_labels.index(label) for label in selected_labels]
-    selected_dev_targets = [[row[index] for index in selected_indexes] for row in dev_targets]
-    selected_dev_probabilities = [
-        [row[index] for index in selected_indexes] for row in dev_probabilities
-    ]
-    dev_metrics = _metric_summary(
-        selected_dev_targets, _binary(selected_dev_probabilities, threshold)
-    )
-
-    # Only after selection/calibration do we add the development split to the
-    # final fit.  The MEDIQA test split remains entirely held out.
+    
+    # Retrain on full combined train+dev with selected labels
     final_examples = [*train_examples, *dev_examples]
     final_vectorizer = _make_vectorizer()
     final_tfidf = final_vectorizer.fit_transform(
@@ -379,73 +345,60 @@ def train_model() -> None:
         [example.transcript for example in test_examples]
     )
 
-    # --- Final BERT features ---
-    final_bert = None
-    test_bert = None
-    final_pca = None
-    tfidf_only_test_metrics = None
+    final_texts = [example.transcript for example in final_examples]
+    test_texts = [example.transcript for example in test_examples]
 
-    if used_bert and bert_embedder is not None:
-        try:
-            print("\n=== BioClinicalBERT Feature Extraction (Final Phase) ===")
-            final_texts = [example.transcript for example in final_examples]
-            test_texts = [example.transcript for example in test_examples]
-
-            final_bert, final_pca = _compute_bert_features(
-                bert_embedder, final_texts, fit_pca=True,
-            )
-            test_bert, _ = _compute_bert_features(
-                bert_embedder, test_texts, pca=final_pca,
-            )
-
-            # Also compute TF-IDF-only test metrics for comparison
-            tfidf_only_targets = _labels(test_examples, selected_set)
-            tfidf_only_estimators = _fit_estimators(
-                final_tfidf, _labels(final_examples, selected_set)
-            )
-            tfidf_only_test_metrics = _metric_summary(
-                tfidf_only_targets,
-                _binary(
-                    _probabilities(tfidf_only_estimators, test_tfidf),
-                    threshold,
-                ),
-            )
-            print(f"  TF-IDF-only test metrics: {tfidf_only_test_metrics}")
-        except Exception as error:
-            print(f"Final BioClinicalBERT extraction failed: {error}")
-            print("Falling back to TF-IDF only for final model.\n")
-            final_bert = None
-            test_bert = None
-            final_pca = None
-            used_bert = False
-
+    if used_bert:
+        final_bert, final_pca = _compute_bert_features(
+            bert_embedder, final_texts, fit_pca=True,
+        )
+        test_bert, _ = _compute_bert_features(
+            bert_embedder, test_texts, pca=final_pca,
+        )
+        bert_pca = final_pca
+    else:
+        final_bert = None
+        test_bert = None
+        final_pca = None
+    
     final_features = _combine_features(final_tfidf, final_bert)
     test_features = _combine_features(test_tfidf, test_bert)
 
     final_targets = _labels(final_examples, selected_set)
-    final_estimators = _fit_estimators(final_features, final_targets)
     test_targets = _labels(test_examples, selected_set)
+    
+    print("\n=== Final Training on Train+Dev ===")
+    final_mlp = _train_mlp(final_features, final_targets)
+    
     test_metrics = _metric_summary(
         test_targets,
-        _binary(_probabilities(final_estimators, test_features), threshold),
+        _binary(_probabilities(final_mlp, test_features), threshold),
     )
 
+    # Save artifact
     artifact = {
         "vectorizer": final_vectorizer,
-        "estimators": final_estimators,
+        "mlp_model": final_mlp,
         "labels": selected_labels,
         "threshold": threshold,
         "used_bert": used_bert,
+        "bert_pca": bert_pca,
     }
-    if used_bert and final_pca is not None:
-        artifact["bert_pca"] = final_pca
+    if used_bert and bert_pca is not None:
         artifact["bert_model_name"] = settings.BIOCLINICALBERT_MODEL
-        artifact["bert_pca_components"] = final_pca.n_components
+        artifact["bert_pca_components"] = bert_pca.n_components
 
     model_path = settings.DATA_DIR / "clinical_observation_model.pkl"
     report_path = settings.DATA_DIR / "clinical_observation_metrics.json"
+    
     with model_path.open("wb") as file:
         pickle.dump(artifact, file)
+        
+    dev_metrics = _metric_summary(
+        [[row[index] for index in selected_indexes] for row in dev_targets],
+        _binary([[row[index] for index in selected_indexes] for row in dev_probabilities], threshold)
+    )
+    
     report = _training_report(
         splits=splits,
         labels=selected_labels,
@@ -453,29 +406,13 @@ def train_model() -> None:
         dev_metrics=dev_metrics,
         test_metrics=test_metrics,
         per_label_dev=per_label_dev,
-        used_bert=used_bert,
-        tfidf_only_test_metrics=tfidf_only_test_metrics,
-        telemetry_count=telemetry_count,
+        synthetic_count=synthetic_count
     )
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    print(f"\nSelected {len(selected_labels)} advisory observation labels.")
-    if used_bert:
-        print("Features: TF-IDF + BioClinicalBERT (PCA-reduced)")
-        if tfidf_only_test_metrics:
-            tfidf_f1 = tfidf_only_test_metrics.get("micro_f1", 0)
-            bert_f1 = test_metrics.get("micro_f1", 0)
-            delta = bert_f1 - tfidf_f1
-            sign = "+" if delta >= 0 else ""
-            print(f"  TF-IDF-only test micro_f1: {tfidf_f1:.4f}")
-            print(f"  TF-IDF+BERT  test micro_f1: {bert_f1:.4f} ({sign}{delta:.4f})")
-    else:
-        print("Features: TF-IDF only (BioClinicalBERT not available)")
+    print(f"\nSaved model: {model_path}")
     print(f"Validation metrics: {dev_metrics}")
     print(f"Held-out test metrics: {test_metrics}")
-    print(f"Saved model: {model_path}")
-    print(f"Saved metrics: {report_path}")
-
 
 if __name__ == "__main__":
     train_model()

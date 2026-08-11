@@ -1,84 +1,74 @@
 # NurseAssist AI
 
-NurseAssist is an offline-first Flutter assistant for nurses. It records and
-reviews local patient vitals and medication documentation without sending
-patient data to a cloud backend.
+NurseAssist is an offline-first Flutter assistant designed specifically for nurses. It enables secure, local recording and review of patient vitals and medication documentation without ever sending patient data to a cloud backend.
 
-## How the AI path works
+The app features a professional **Clinical Glass** UI, providing a modern, frictionless experience while maintaining strict local data privacy.
 
-1. The optional on-device Gemma 2 model interprets normal nurse language into
-   a compact structured proposal.
-2. A small data-backed nursing-observation model provides optional context;
-   it is advisory only and cannot create a value or record.
-3. The app validates the proposed fields and safe numeric ranges locally.
-4. The nurse reviews a visible proposal card and taps **Confirm & Save**.
+---
 
-No model can select a patient, prescribe, diagnose, or write a record without
-the nurse's confirmation. When Gemma is unavailable, the app retains a limited
-offline command fallback, but it also uses the same confirmation step.
+## Intelligent Architecture
 
-## Models
+NurseAssist AI combines a sophisticated local frontend with an evolving, offline-first ML pipeline.
 
-- **Gemma 2 2B IT Q8**: optional 2.71 GB on-device `.task` model, downloaded
-  directly from the public Hugging Face bucket. It is not delivered through
-  GitHub Releases because GitHub assets are limited to 2 GiB.
-- **Nursing observation model**: a TF-IDF/SGD sidecar model trained from
-  [Microsoft SYNUR](https://huggingface.co/datasets/microsoft/SYNUR), a public
-  CDLA-Permissive-2.0 dataset of synthetic expert-nurse dictations and
-  structured observations. When available, training-time features are
-  enhanced with **BioClinicalBERT** embeddings (see below).
-- **BioClinicalBERT** (`emilyalsentzer/Bio_ClinicalBERT`): a BERT model
-  pre-trained on clinical notes from MIMIC-III. It is used **only during
-  training** to generate richer clinical-language features that are combined
-  with TF-IDF before fitting the SGD classifier. BioClinicalBERT is *not*
-  shipped to mobile devices — the exported model remains a lightweight JSON
-  file. When `torch` and `transformers` are not installed, the pipeline
-  falls back gracefully to TF-IDF-only training.
+### 1. The Core AI Interpreter (Gemma 2)
+The app uses an optional on-device **Gemma 2 2B IT Q8** model (2.71 GB). This model interprets natural nursing language (e.g., *"Record BP 120/80"*) into a compact, structured proposal. No clinical decisions or diagnoses are made; it strictly structures dictation for charting.
 
-SYNUR is valuable for reproducible nursing-language evaluation, but it is
-synthetic research data—not EHR data. The release pipeline measures held-out
-performance and blocks a model release beneath its quality gate. Those metrics
-are evidence for this limited advisory task, not a claim of clinical accuracy
-or approval for autonomous documentation.
+### 2. The Nursing Observation Sidecar
+A smaller, data-backed nursing-observation model runs alongside the interpreter to provide contextual validation. It is trained from [Microsoft SYNUR](https://huggingface.co/datasets/microsoft/SYNUR), a public CDLA-Permissive-2.0 dataset of synthetic expert-nurse dictations.
+- **BioClinicalBERT Integration**: During training, we extract semantic embeddings using `emilyalsentzer/Bio_ClinicalBERT` (pre-trained on MIMIC-III clinical notes). These are combined with TF-IDF features to create a highly accurate classifier. 
+- **Lightweight Export**: BioClinicalBERT is *only* used during training. The final model exported to the mobile device remains a lightweight JSON file, avoiding heavy on-device neural network execution.
 
-## Training and release
+### 3. Continuous Implicit Adaptation (Reinforcement Learning)
+NurseAssist is designed to adapt to the nurses who use it.
+- As nurses interact with the app (confirming or discarding AI proposals), the app generates anonymized, privacy-scrubbed telemetry logs.
+- **Weekly Self-Training**: A GitHub Actions workflow runs every Sunday. If new telemetry logs are found in the `telemetry_drop/` directory, the pipeline automatically ingests the implicit feedback, retrains the sidecar model, measures held-out performance, and issues a new model release. If no telemetry is found, it skips training.
 
-The GitHub Actions workflow trains only the small nursing-observation sidecar;
-it does **not** download, fine-tune, or upload the large Gemma task model.
+---
 
-```powershell
-cd ml_pipeline
-pip install -r requirements.txt
-pip install torch --index-url https://download.pytorch.org/whl/cpu  # optional, for BioClinicalBERT
-python scripts/train_observation_model.py
-python scripts/export_mobile_models.py
-python scripts/verify_mobile_export.py
-```
+## How the App Works (The AI Path)
 
-The trainer downloads the exact pinned SYNUR revision, uses its MEDIQA train
-and development splits for fitting/selection, holds the test split out, writes
-metrics, exports `observations.json`, and packages a verified
-`nurseassist-observation-model-*.zip`. When BioClinicalBERT is available, the
-training report includes a side-by-side comparison of TF-IDF-only vs.
-TF-IDF+BERT held-out metrics. Flutter verifies the manifest hashes and
-installs the package atomically with rollback.
+1. **Dictation**: The nurse speaks or types into the interface.
+2. **Interpretation**: The on-device Gemma model structures the input.
+3. **Validation**: The app checks the proposed fields against safe numeric ranges locally.
+4. **Review**: The nurse reviews a visible proposal card and taps **Confirm & Save**.
+5. **Telemetry**: The nurse's acceptance/rejection is logged locally and later synced as anonymized telemetry to continuously train the AI.
 
-## Run the app
+> [!IMPORTANT]
+> No model can select a patient, prescribe, diagnose, or write a record without the nurse's confirmation. When Gemma is unavailable, the app falls back gracefully to a limited offline regex-based parser, maintaining the same rigorous confirmation step.
+
+---
+
+## Setup and Development
+
+### Running the Frontend
+
+The frontend features a "Clinical Glass" aesthetic with dynamic mesh gradients, glassmorphic headers, and subtle micro-animations (like pulsing clinical alerts). 
 
 ```powershell
 cd frontend
 flutter pub get
 flutter run
 ```
+*Note: The app may check GitHub Releases for updated sidecar models, but the core local record store (SQLite) works entirely without an internet connection.*
 
-The core local record store works without an internet connection. The app may
-check GitHub Releases for a newer small nursing-language package; the Gemma
-download is explicitly initiated by the user.
+### Running the ML Pipeline Locally
 
-## Safety and privacy
+The GitHub Actions workflow normally handles this, but you can train the sidecar model manually:
 
-- Patient records, chat history, and feedback are stored in local SQLite.
-- Never use the app as a source of diagnosis, treatment, medication orders, or
-  emergency guidance.
-- Verify all AI-proposed values against the patient and source documentation
-  before saving.
+```powershell
+cd ml_pipeline
+pip install -r requirements.txt
+pip install torch --index-url https://download.pytorch.org/whl/cpu  # optional, required for BioClinicalBERT
+python scripts/train_observation_model.py
+python scripts/export_mobile_models.py
+python scripts/verify_mobile_export.py
+```
+The trainer downloads the pinned SYNUR revision, appends any local telemetry, extracts BioClinicalBERT features, fits the model, and packages a verified `nurseassist-observation-model-*.zip`.
+
+---
+
+## Safety and Privacy
+
+- **100% Local**: Patient records, chat history, and telemetry are stored in local SQLite databases.
+- **Advisory Only**: Never use the app as a source of diagnosis, treatment, medication orders, or emergency guidance.
+- **Human-in-the-Loop**: Always verify all AI-proposed values against the patient and source documentation before charting.

@@ -1,9 +1,7 @@
-"""Export the real-data SYNUR advisory model for deterministic Dart inference.
+"""Export the real-data SYNUR advisory MLP model for Dart inference.
 
-When BioClinicalBERT was used during training, the export includes an optional
-``bert_projection`` field containing the PCA components matrix. This field is
-optional and backward-compatible: the Dart runtime ignores it if absent and
-continues to use TF-IDF-only inference.
+Exports the sklearn MLPClassifier weights, biases, TF-IDF vocabulary, and BERT PCA
+projection into a single JSON artifact.
 """
 
 from __future__ import annotations
@@ -34,42 +32,35 @@ def calculate_sha256(path: Path) -> str:
 def export_observation_model(model_path: Path, output_path: Path) -> str:
     with model_path.open("rb") as file:
         artifact = pickle.load(file)
+        
     vectorizer = artifact["vectorizer"]
-    estimators = artifact["estimators"]
+    mlp_model = artifact["mlp_model"]
     labels = artifact["labels"]
     threshold = artifact["threshold"]
-    used_bert = artifact.get("used_bert", False)
-    bert_pca = artifact.get("bert_pca")
-    if len(estimators) != len(labels):
-        raise ValueError("Observation model estimators and labels do not match")
+    bert_pca = artifact["bert_pca"]
 
-    # Extract the TF-IDF portion of the coefficients
-    tfidf_dim = len(vectorizer.vocabulary_)
-    if used_bert and bert_pca is not None:
-        bert_dim = bert_pca.n_components
-        total_dim = tfidf_dim + bert_dim
-        # Verify dimensions match
-        for est in estimators:
-            if est.coef_.shape[1] != total_dim:
-                raise ValueError(
-                    f"Estimator has {est.coef_.shape[1]} features, "
-                    f"expected {total_dim} (tfidf={tfidf_dim} + bert={bert_dim})"
-                )
-        # Split coefficients into TF-IDF and BERT parts
-        tfidf_coef = [est.coef_[0, :tfidf_dim].tolist() for est in estimators]
-        bert_coef = [est.coef_[0, tfidf_dim:].tolist() for est in estimators]
-    else:
-        tfidf_coef = [est.coef_[0].tolist() for est in estimators]
-        bert_coef = None
+    # Extract MLP weights from sklearn MLPClassifier
+    # mlp_model.coefs_ is a list of length n_layers - 1
+    # For a (128, 64) hidden layer MLP, length is 3.
+    # coefs_[0] shape: (n_features, 128)
+    # coefs_[1] shape: (128, 64)
+    # coefs_[2] shape: (64, n_classes)
+    
+    # Dart expects transposed weights for its matrix-vector multiply 
+    # (or we can just export as is and handle in Dart)
+    layer1_weight = mlp_model.coefs_[0].T.tolist()
+    layer1_bias = mlp_model.intercepts_[0].tolist()
+    layer2_weight = mlp_model.coefs_[1].T.tolist()
+    layer2_bias = mlp_model.intercepts_[1].tolist()
+    output_weight = mlp_model.coefs_[2].T.tolist()
+    output_bias = mlp_model.intercepts_[2].tolist()
 
     payload = {
-        "type": "multi_label_sgd_classifier",
-        "format_version": 1,
+        "type": "compact_clinical_mlp",
+        "format_version": 2,
         "role": "advisory_clinical_observation_context",
         "vocabulary": {key: int(value) for key, value in vectorizer.vocabulary_.items()},
         "idf": vectorizer.idf_.tolist(),
-        "coef": tfidf_coef,
-        "intercept": [float(est.intercept_[0]) for est in estimators],
         "classes": labels,
         "threshold": float(threshold),
         "preprocessing": {
@@ -78,21 +69,27 @@ def export_observation_model(model_path: Path, output_path: Path) -> str:
             "ngram_range": [3, 6],
             "vectorizer": "tfidf_l2",
         },
+        "mlp": {
+            "arch": {
+                "input_dim": mlp_model.coefs_[0].shape[0],
+                "output_dim": len(labels)
+            },
+            "layer1_weight": layer1_weight,
+            "layer1_bias": layer1_bias,
+            "layer2_weight": layer2_weight,
+            "layer2_bias": layer2_bias,
+            "output_weight": output_weight,
+            "output_bias": output_bias,
+        },
     }
-
-    # Add optional BioClinicalBERT projection data (backward-compatible)
-    if used_bert and bert_pca is not None and bert_coef is not None:
+    
+    if bert_pca is not None:
         payload["bert_projection"] = {
             "model_name": artifact.get("bert_model_name", "emilyalsentzer/Bio_ClinicalBERT"),
             "pca_components": bert_pca.components_.tolist(),
             "pca_mean": bert_pca.mean_.tolist(),
-            "bert_coef": bert_coef,
             "embedding_dim": int(bert_pca.components_.shape[1]),
             "reduced_dim": int(bert_pca.n_components),
-            "note": (
-                "Optional. Dart runtime uses TF-IDF inference by default. "
-                "BERT projection is available for future on-device BERT integration."
-            ),
         }
 
     output_path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
@@ -105,12 +102,13 @@ def main() -> None:
     model_path = settings.DATA_DIR / "clinical_observation_model.pkl"
     metrics_path = settings.DATA_DIR / "clinical_observation_metrics.json"
     if not model_path.exists() or not metrics_path.exists():
-        raise FileNotFoundError("Train the SYNUR observation model before exporting it")
+        raise FileNotFoundError("Train the observation model before exporting it")
 
     observations_path = output_dir / "observations.json"
     observation_sha = export_observation_model(model_path, observations_path)
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     version = os.environ.get("MODEL_VERSION", "nurse-nlp-dev")
+    
     metadata = {
         "model_version": version,
         "schema_version": 2,
@@ -123,17 +121,15 @@ def main() -> None:
             "scikit_learn_version": sklearn.__version__,
             "dataset": metrics["dataset"],
             "model_role": metrics["model_role"],
-            "features": metrics.get("training_features", {"tfidf": True, "bioclinicalbert": False}),
+            "features": metrics.get("training_features", {}),
+            "architecture": metrics.get("architecture", "Unknown")
         },
         "metrics": {
             "validation": metrics["selection"]["dev_metrics"],
             "held_out_test": metrics["held_out_test"],
             "selected_labels": metrics["selection"]["labels"],
-            "limitations": metrics["limitations"],
         },
     }
-    if "tfidf_only_test_metrics" in metrics:
-        metadata["metrics"]["tfidf_only_test"] = metrics["tfidf_only_test_metrics"]
 
     metadata_path = output_dir / "metadata.json"
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
@@ -143,8 +139,6 @@ def main() -> None:
         archive.write(observations_path, "observations.json")
         archive.write(metadata_path, "metadata.json")
     print(f"Exported {observations_path.name} ({observation_sha[:12]}...)")
-    if metrics.get("training_features", {}).get("bioclinicalbert"):
-        print("  Includes BioClinicalBERT projection data (optional, backward-compatible)")
     print(f"Packaged {package_path.name}")
 
 

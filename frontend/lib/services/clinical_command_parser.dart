@@ -68,12 +68,14 @@ class ClinicalCommand {
     this.vitals = const [],
     this.medication,
     this.noteCategory,
+    this.recordedAt,
   });
 
   final ClinicalAction action;
   final List<ParsedVital> vitals;
   final ParsedMedication? medication;
   final String? noteCategory;
+  final DateTime? recordedAt;
 }
 
 class ClinicalCommandParser {
@@ -99,6 +101,10 @@ class ClinicalCommandParser {
       }
     }
     if (data == null || data['v'] != 1) return null;
+
+    final recordedAt = data['timestamp'] != null 
+        ? DateTime.tryParse(data['timestamp'].toString()) 
+        : null;
 
     switch (data['action']?.toString()) {
       case 'record_vitals':
@@ -180,6 +186,7 @@ class ClinicalCommandParser {
             : ClinicalCommand(
                 action: ClinicalAction.recordVitals,
                 vitals: vitals,
+                recordedAt: recordedAt,
               );
       case 'record_medication':
         final rawMedication = data['medication'];
@@ -198,11 +205,13 @@ class ClinicalCommandParser {
             route: medication['route']?.toString(),
             status: status!,
           ),
+          recordedAt: recordedAt,
         );
       case 'record_note':
-        return const ClinicalCommand(
+        return ClinicalCommand(
           action: ClinicalAction.recordNote,
           noteCategory: 'nursing_observation',
+          recordedAt: recordedAt,
         );
       case 'query_vitals':
         return const ClinicalCommand(action: ClinicalAction.queryVitals);

@@ -367,7 +367,13 @@ class PatientProvider with ChangeNotifier {
         return _medicationsResponse(patient);
 
       case ClinicalAction.summarize:
-        return _summaryResponse(patient);
+      case ClinicalAction.unknown:
+        return _optionalLlmResponse(
+          patient,
+          message,
+          observationHints,
+          patientMemory,
+        );
 
       case ClinicalAction.greeting:
         return 'Hello. Select or admit a patient, then record vitals such as "BP 120/80, HR 78" or document a medication such as "Administered Zofran 4 mg PO".';
@@ -377,14 +383,6 @@ class PatientProvider with ChangeNotifier {
 
       case ClinicalAction.cancel:
         return 'No new record was created.';
-
-      case ClinicalAction.unknown:
-        return _optionalLlmResponse(
-          patient,
-          message,
-          observationHints,
-          patientMemory,
-        );
     }
   }
 
@@ -446,6 +444,7 @@ class PatientProvider with ChangeNotifier {
                 )
                 .toList(),
             sourceText: proposal.sourceText,
+            recordedAt: proposal.command.recordedAt,
           );
           await _refreshMetrics(proposal.patientId);
           await _appendAssistantMessage(
@@ -455,14 +454,14 @@ class PatientProvider with ChangeNotifier {
           );
           break;
         case ClinicalAction.recordMedication:
-          final medication = proposal.command.medication!;
           await _apiService.recordMedication(
             proposal.patientId,
-            name: medication.name,
-            dose: medication.dose,
-            route: medication.route,
-            status: medication.status,
+            name: proposal.command.medication!.name,
+            dose: proposal.command.medication!.dose,
+            route: proposal.command.medication!.route,
+            status: proposal.command.medication!.status,
             sourceText: proposal.sourceText,
+            recordedAt: proposal.command.recordedAt,
           );
           await _appendAssistantMessage(
             proposal.patientId,
@@ -476,6 +475,7 @@ class PatientProvider with ChangeNotifier {
             content: proposal.sourceText,
             sourceText: proposal.sourceText,
             category: proposal.command.noteCategory ?? 'nursing_observation',
+            recordedAt: proposal.command.recordedAt,
           );
           await _appendAssistantMessage(
             proposal.patientId,
@@ -616,24 +616,6 @@ class PatientProvider with ChangeNotifier {
       return '${pieces.join(' ')} — ${record['status']}';
     }).toList();
     return 'Medication history for ${patient.name}:\n${lines.join('\n')}\n\nThis app does not calculate medication due times.';
-  }
-
-  Future<String> _summaryResponse(Patient patient) async {
-    final metrics = await _apiService.getVitalsDelta(patient.id);
-    final medications = await _apiService.getMedications(patient.id, limit: 3);
-    final notes = await _apiService.getNursingNotes(patient.id, limit: 3);
-    final vitalSummary = await _vitalsResponse(patient);
-    final alerts = List<String>.from(metrics['alerts'] as List? ?? const []);
-    final medicationSummary = medications.isEmpty
-        ? 'No medications documented.'
-        : 'Recent medications: ${medications.map((m) => m['name']).join(', ')}.';
-    final alertSummary = alerts.isEmpty
-        ? 'No configured alerts.'
-        : alerts.join(' ');
-    final noteSummary = notes.isEmpty
-        ? 'No nursing observations documented.'
-        : 'Recent nursing observations: ${notes.map((note) => note['content']).join(' | ')}.';
-    return '${patient.name}: $vitalSummary $medicationSummary $noteSummary $alertSummary';
   }
 
   Future<String> _optionalLlmResponse(

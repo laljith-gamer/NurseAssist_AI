@@ -1,11 +1,11 @@
 # CURRENT
-- active_loop: ui-polish-and-dependency-upgrade
-- target: improve UI aesthetics to a professional standard and upgrade all Flutter dependencies
-- iteration: 6
-- last_gate: Continuous implicit reinforcement learning pipeline verified locally
-- last_action: read genesis files as instructed and updated PLAN.md with milestone M6 for UI polishing
-- next_action: create an implementation plan for the frontend UI redesign and dependency upgrades, then await user approval
-- model: `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` from the public Hugging Face bucket
-- sidecar_data: Microsoft SYNUR + implicit usage telemetry
+- active_loop: ml-pipeline-optimization
+- target: fixed <100K parameter MLP with curated datasets and clinical reasoning
+- iteration: 7
+- last_gate: MLP model exported and integrated into Dart runtime successfully
+- last_action: Rebuilt ML pipeline using sklearn MLPClassifier due to PyTorch Windows DLL errors, and implemented clinical reasoning rules in local_nlp_service.dart
+- next_action: Follow up with frontend UI redesign and dependency upgrades (Milestone M6)
+- model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
+- sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked
 - skills_loaded: []

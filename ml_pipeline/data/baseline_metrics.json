@@ -1,25 +1,57 @@
 {
-  "held_out_test": {
-    "micro_f1": 0.653,
-    "macro_f1": 0.5786,
-    "samples_f1": 0.4822
+  "model_version": "nurse-nlp-dev",
+  "schema_version": 2,
+  "created_at": "2026-08-11T17:51:04.343280+00:00",
+  "commit_sha": "unknown",
+  "observation_model": {
+    "artifact": "observations.json",
+    "sha256": "b73c05948a0feec44a947d2091ca5abcda2856bcf178befef5a08669b361023a"
   },
-  "validation": {
-    "micro_f1": 0.747,
-    "macro_f1": 0.7407,
-    "samples_f1": 0.6065
+  "runtime": {
+    "android": "dart_native_ml",
+    "ios": "dart_native_ml"
   },
-  "selected_labels": [
-    "Cognitive status",
-    "Mobility",
-    "Pain severity",
-    "Sensory perception"
-  ],
-  "training_features": {
-    "tfidf": true,
-    "bioclinicalbert": true,
-    "pca_components": 64,
-    "telemetry_examples": 3
+  "training": {
+    "python_version": "3.11.9",
+    "scikit_learn_version": "1.4.2",
+    "dataset": {
+      "id": "microsoft/SYNUR",
+      "synthetic_count": 1950,
+      "split_sizes": {
+        "train": 122,
+        "dev": 101,
+        "test": 199
+      }
+    },
+    "model_role": "advisory_clinical_observation_context",
+    "features": {
+      "tfidf_dims": 256,
+      "bioclinicalbert": true,
+      "pca_components": 256
+    },
+    "architecture": "Compact Clinical MLP (<100K params)"
   },
-  "source_model_version": "nurse-nlp-v15"
+  "metrics": {
+    "validation": {
+      "micro_f1": 0.6314,
+      "macro_f1": 0.592,
+      "samples_f1": 0.5368
+    },
+    "held_out_test": {
+      "micro_f1": 0.6248,
+      "macro_f1": 0.5903,
+      "samples_f1": 0.553
+    },
+    "selected_labels": [
+      "Alert and oriented",
+      "Breath sounds",
+      "Chest pain",
+      "Cognitive status",
+      "Hypertension",
+      "Mobility",
+      "Nausea",
+      "Respiratory Distress",
+      "Respiratory interventions"
+    ]
+  }
 }

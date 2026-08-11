@@ -76,10 +76,21 @@ class LocalNlpService {
                   confidence: entry.value,
                 ),
               )
-              .toList()
-            ..sort(
-              (left, right) => right.confidence.compareTo(left.confidence),
-            );
+              .toList();
+
+      // Clinical Reasoning Rules
+      final activeLabels = observations.map((e) => e.name).toSet();
+      if (activeLabels.contains('Hypertension') && activeLabels.contains('Tachycardia')) {
+        observations.insert(0, const ClinicalObservation(name: 'Hemodynamic Instability', confidence: 1.0));
+      }
+      if (activeLabels.contains('Hypoxia') && activeLabels.contains('Respiratory Distress')) {
+        observations.insert(0, const ClinicalObservation(name: 'Respiratory Compromise', confidence: 1.0));
+      }
+      if (activeLabels.contains('Severe pain') && activeLabels.contains('Agitated')) {
+        observations.insert(0, const ClinicalObservation(name: 'Inadequate Pain Control', confidence: 1.0));
+      }
+
+      observations.sort((left, right) => right.confidence.compareTo(left.confidence));
       return observations.take(maxResults).toList(growable: false);
     } catch (error) {
       debugPrint('Nursing observation inference error: $error');
@@ -113,27 +124,26 @@ class LocalNlpService {
   ) {
     final rawVocabulary = model['vocabulary'];
     final rawIdf = model['idf'];
-    final rawCoefficients = model['coef'];
-    final rawIntercept = model['intercept'];
+    final mlp = model['mlp'];
     final rawClasses = model['classes'];
+    
     if (rawVocabulary is! Map ||
         rawIdf is! List ||
-        rawCoefficients is! List ||
-        rawIntercept is! List ||
+        mlp is! Map ||
         rawClasses is! List) {
       throw const FormatException('Observation model structure is invalid');
     }
+    
+    final inputDim = (mlp['arch']['input_dim'] as num).toInt();
+
     final vocabulary = <String, int>{
       for (final entry in rawVocabulary.entries)
         if (entry.value is num)
           entry.key.toString(): (entry.value as num).toInt(),
     };
     final idf = rawIdf.map((value) => (value as num).toDouble()).toList();
-    if (rawClasses.length != rawCoefficients.length ||
-        rawClasses.length != rawIntercept.length) {
-      throw const FormatException('Observation model dimensions do not match');
-    }
 
+    // 1. TF-IDF Feature Extraction
     final counts = <int, int>{};
     for (final token in tokens) {
       final index = vocabulary[token];
@@ -141,46 +151,91 @@ class LocalNlpService {
         counts[index] = (counts[index] ?? 0) + 1;
       }
     }
-    final vector = <int, double>{};
+    
+    final vector = List<double>.filled(inputDim, 0.0);
     var squares = 0.0;
     for (final entry in counts.entries) {
-      final value = entry.value * idf[entry.key];
-      vector[entry.key] = value;
-      squares += value * value;
+      if (entry.key < inputDim) {
+        final value = entry.value * idf[entry.key];
+        vector[entry.key] = value;
+        squares += value * value;
+      }
     }
     final norm = sqrt(squares);
     if (norm > 0) {
-      for (final index in vector.keys.toList()) {
-        vector[index] = vector[index]! / norm;
+      for (var i = 0; i < vector.length; i++) {
+        vector[i] = vector[i] / norm;
       }
     }
 
+    // 2. MLP Forward Pass
+    final layer1W = _parseMatrix(mlp['layer1_weight']);
+    final layer1B = _parseVector(mlp['layer1_bias']);
+    final layer2W = _parseMatrix(mlp['layer2_weight']);
+    final layer2B = _parseVector(mlp['layer2_bias']);
+    final outW = _parseMatrix(mlp['output_weight']);
+    final outB = _parseVector(mlp['output_bias']);
+
+    final h1 = _relu(_dot(layer1W, vector, layer1B));
+    final h2 = _relu(_dot(layer2W, h1, layer2B));
+    final logits = _dot(outW, h2, outB);
+
     final results = <String, double>{};
-    for (var classIndex = 0; classIndex < rawClasses.length; classIndex++) {
-      final coefficientRow = rawCoefficients[classIndex];
-      if (coefficientRow is! List || coefficientRow.length != idf.length) {
-        throw const FormatException('Observation coefficients are invalid');
-      }
-      var score = (rawIntercept[classIndex] as num).toDouble();
-      for (final entry in vector.entries) {
-        score += (coefficientRow[entry.key] as num).toDouble() * entry.value;
-      }
-      // Stable sigmoid calculation for the raw SGD log-loss score.
-      final probability = score >= 0
-          ? 1 / (1 + exp(-score))
-          : exp(score) / (1 + exp(score));
-      results[rawClasses[classIndex].toString()] = probability;
+    for (var i = 0; i < rawClasses.length; i++) {
+      results[rawClasses[i].toString()] = _sigmoid(logits[i]);
     }
+    
     return results;
   }
 
+  List<List<double>> _parseMatrix(dynamic raw) {
+    if (raw is! List) throw const FormatException('Invalid matrix');
+    return raw.map((row) {
+      if (row is! List) throw const FormatException('Invalid matrix row');
+      return row.map((v) => (v as num).toDouble()).toList();
+    }).toList();
+  }
+
+  List<double> _parseVector(dynamic raw) {
+    if (raw is! List) throw const FormatException('Invalid vector');
+    return raw.map((v) => (v as num).toDouble()).toList();
+  }
+
+  List<double> _dot(List<List<double>> matrix, List<double> vector, List<double> bias) {
+    final result = List<double>.filled(matrix.length, 0.0);
+    for (var i = 0; i < matrix.length; i++) {
+      var sum = bias[i];
+      final row = matrix[i];
+      for (var j = 0; j < vector.length; j++) {
+        sum += row[j] * vector[j];
+      }
+      result[i] = sum;
+    }
+    return result;
+  }
+
+  List<double> _relu(List<double> x) {
+    for (var i = 0; i < x.length; i++) {
+      if (x[i] < 0) x[i] = 0;
+    }
+    return x;
+  }
+  
+  double _sigmoid(double score) {
+    if (score >= 0) {
+      return 1 / (1 + exp(-score));
+    } else {
+      final expScore = exp(score);
+      return expScore / (1 + expScore);
+    }
+  }
+
   void _validateModel(Map<String, dynamic> model) {
-    if (model['type'] != 'multi_label_sgd_classifier' ||
+    if (model['type'] != 'compact_clinical_mlp' ||
         model['role'] != 'advisory_clinical_observation_context' ||
         model['vocabulary'] is! Map ||
         model['idf'] is! List ||
-        model['coef'] is! List ||
-        model['intercept'] is! List ||
+        model['mlp'] is! Map ||
         model['classes'] is! List ||
         model['threshold'] is! num) {
       throw const FormatException('Unexpected observation model format');
