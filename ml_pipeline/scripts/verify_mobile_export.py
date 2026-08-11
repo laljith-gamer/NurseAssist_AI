@@ -15,6 +15,8 @@ from config import settings
 MIN_VALIDATION_MICRO_F1 = 0.70
 MIN_HELD_OUT_TEST_MICRO_F1 = 0.60
 MIN_SELECTED_LABELS = 3
+MAX_HELD_OUT_REGRESSION = 0.02
+BASELINE_METRICS_PATH_NAME = "baseline_metrics.json"
 
 
 def _load_pickle() -> dict:
@@ -106,7 +108,39 @@ def _verify_quality_gate() -> None:
         raise AssertionError("Held-out SYNUR F1 is below the release quality gate")
 
 
+def _verify_no_regression() -> None:
+    baseline_path = settings.DATA_DIR / BASELINE_METRICS_PATH_NAME
+    if not baseline_path.exists():
+        print(
+            f"No {BASELINE_METRICS_PATH_NAME} found at {baseline_path}; "
+            "skipping regression check. This is expected only on the first "
+            "release -- commit this run's metrics as the new baseline."
+        )
+        return
+
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    current = _load_json("metadata.json").get("metrics", {})
+
+    baseline_held_out = baseline.get("held_out_test", {}).get("micro_f1", 0.0)
+    current_held_out = current.get("held_out_test", {}).get("micro_f1", 0.0)
+    if current_held_out < baseline_held_out - MAX_HELD_OUT_REGRESSION:
+        raise AssertionError(
+            "Held-out micro_f1 regressed beyond tolerance: "
+            f"baseline={baseline_held_out:.4f}, current={current_held_out:.4f}, "
+            f"max_allowed_drop={MAX_HELD_OUT_REGRESSION}"
+        )
+
+    baseline_labels = set(baseline.get("selected_labels", []))
+    current_labels = set(current.get("selected_labels", []))
+    if len(current_labels) < len(baseline_labels):
+        raise AssertionError(
+            "Number of validated advisory labels dropped: "
+            f"baseline={len(baseline_labels)}, current={len(current_labels)}"
+        )
+
+
 if __name__ == "__main__":
     _verify_export_parity()
     _verify_quality_gate()
+    _verify_no_regression()
     print("Mobile observation export matches the trained model and passed quality gates.")

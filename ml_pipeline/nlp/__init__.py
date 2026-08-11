@@ -11,5 +11,5 @@ __all__ = [
     "EntityExtractor",
     "Entity",
     "EntityType",
-    "ExtractionResult"
+    "ExtractionResult",
 ]

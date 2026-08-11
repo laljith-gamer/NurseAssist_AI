@@ -1,0 +1,90 @@
+name: Validate Observation Model (PR)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'ml_pipeline/scripts/synur_dataset.py'
+      - 'ml_pipeline/scripts/train_observation_model.py'
+      - 'ml_pipeline/scripts/export_mobile_models.py'
+      - 'ml_pipeline/scripts/verify_mobile_export.py'
+      - 'ml_pipeline/nlp/**'
+      - 'ml_pipeline/tests/**'
+      - 'ml_pipeline/config.py'
+      - 'ml_pipeline/requirements.txt'
+      - 'ml_pipeline/data/baseline_metrics.json'
+      - '.github/workflows/validate-pr.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ml_pipeline/requirements.txt
+
+      - name: Run unit tests
+        run: |
+          cd ml_pipeline
+          python -m pytest tests/ -v
+
+      - name: Train nursing observation model (pinned SYNUR revision)
+        env:
+          PYTHONHASHSEED: "0"
+        run: |
+          echo "SYNUR MODEL TRAINING (PR VALIDATION): STARTED"
+          python ml_pipeline/scripts/train_observation_model.py
+
+      - name: Verify model artifact exists
+        run: |
+          if [ ! -f "ml_pipeline/data/clinical_observation_model.pkl" ]; then
+            echo "Error: clinical_observation_model.pkl not found!"
+            exit 1
+          fi
+
+      - name: Generate mobile export
+        env:
+          MODEL_VERSION: "pr-${{ github.event.pull_request.number }}-${{ github.run_number }}"
+        run: |
+          echo "MODEL_VERSION=$MODEL_VERSION" >> $GITHUB_ENV
+          python ml_pipeline/scripts/export_mobile_models.py
+
+      - name: Verify export parity, quality gate, and regression
+        run: |
+          python ml_pipeline/scripts/verify_mobile_export.py
+
+      - name: Upload trained artifacts for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ github.event.pull_request.number }}-observation-model
+          path: |
+            ml_pipeline/data/clinical_observation_model.pkl
+            ml_pipeline/data/clinical_observation_metrics.json
+            ml_pipeline/data/mobile_export/metadata.json
+            ml_pipeline/data/mobile_export/observations.json
+          retention-days: 30
+
+      - name: Post metrics summary
+        if: always()
+        run: |
+          echo "## Observation model metrics (this PR)" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat ml_pipeline/data/clinical_observation_metrics.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "## Baseline metrics (currently released)" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat ml_pipeline/data/baseline_metrics.json >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

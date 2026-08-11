@@ -1,10 +1,7 @@
-import os
-import spacy
-from typing import Dict, List, Optional, Tuple, Any
+import re
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
-
-from config import settings
 
 
 class EntityType(Enum):
@@ -14,22 +11,8 @@ class EntityType(Enum):
     VITAL_SPO2 = "vital_spo2"
     VITAL_RR = "vital_rr"
     VITAL_WEIGHT = "vital_weight"
-    VITAL_HEIGHT = "vital_height"
-    VITAL_GLUCOSE = "vital_glucose"
     MEDICATION_NAME = "medication_name"
-    MEDICATION_DOSE = "medication_dose"
-    MEDICATION_ROUTE = "medication_route"
-    MEDICATION_FREQUENCY = "medication_frequency"
-    PATIENT_NAME = "patient_name"
     PATIENT_ROOM = "patient_room"
-    PATIENT_MRN = "patient_mrn"
-    TIME_REFERENCE = "time_reference"
-    DATE_REFERENCE = "date_reference"
-    DURATION = "duration"
-    NUMERIC_VALUE = "numeric_value"
-    BODY_PART = "body_part"
-    SYMPTOM = "symptom"
-    CONDITION = "condition"
 
 
 @dataclass
@@ -54,112 +37,98 @@ class ExtractionResult:
     unmatched_text: str
 
 
+_KNOWN_MEDICATIONS = [
+    "tylenol", "metformin", "lisinopril", "aspirin", "ibuprofen",
+    "morphine", "zofran", "lasix", "heparin", "insulin", "propofol",
+]
+
+_PATTERNS: List[tuple] = [
+    (EntityType.VITAL_BP, re.compile(r"\b(\d{2,3})\s*/\s*(\d{2,3})\b")),
+    (EntityType.VITAL_TEMP, re.compile(r"\btemp(?:erature)?\s*(?:is|of)?\s*(\d{2,3}(?:\.\d)?)\b", re.IGNORECASE)),
+    (EntityType.VITAL_SPO2, re.compile(r"\b(?:spo2|sp02|o2\s*sat(?:uration)?|oxygen\s*sat(?:uration)?)\s*(?:is|of)?\s*(\d{2,3})\s*%?\b", re.IGNORECASE)),
+    (EntityType.VITAL_RR, re.compile(r"\b(?:rr|respiratory\s*rate|respirations?)\s*(?:is|of)?\s*(\d{1,2})\b", re.IGNORECASE)),
+    (EntityType.VITAL_HR, re.compile(r"\b(?:hr|heart\s*rate|pulse)\s*(?:is|of)?\s*(\d{2,3})\b", re.IGNORECASE)),
+    (EntityType.VITAL_WEIGHT, re.compile(r"\bweight\s*(?:is|of)?\s*(\d{2,3})\s*(kg|lbs?)\b", re.IGNORECASE)),
+    (EntityType.PATIENT_ROOM, re.compile(r"\broom\s*(\d{2,4})\b", re.IGNORECASE)),
+]
+
+_MED_PATTERN = re.compile(
+    r"\b(?:gave|administered|hold|held|discontinue[d]?)\s+(?:patient\s+)?(?:\d+\s*(?:mg|mcg|units?)\s+)?("
+    + "|".join(_KNOWN_MEDICATIONS) + r")\b",
+    re.IGNORECASE,
+)
+
+
 class EntityExtractor:
-    def __init__(self):
-        self.nlp = None
-        self._load_model()
-    
-    def _load_model(self):
-        model_path = settings.DATA_DIR / "ner_model"
-        if os.path.exists(model_path):
-            try:
-                self.nlp = spacy.load(model_path)
-                print(f"Loaded ML NER Model from {model_path}")
-            except Exception as e:
-                print(f"Failed to load ML NER Model: {e}")
-        else:
-            print(f"ML NER Model not found at {model_path}")
-    
     def extract(self, text: str) -> ExtractionResult:
-        entities = []
-        vitals = {}
-        medications = {}
-        patient_identifiers = {}
-        time_references = []
-        
-        if self.nlp:
-            doc = self.nlp(text)
-            for ent in doc.ents:
-                try:
-                    # Attempt to map to Enum, fallback if missing
-                    try:
-                        ent_type = EntityType(ent.label_.lower())
-                    except ValueError:
-                        try:
-                            ent_type = EntityType[ent.label_]
-                        except KeyError:
-                            continue # Skip unknown labels
-                    
-                    entity = Entity(
-                        entity_type=ent_type,
-                        value=ent.text,
-                        raw_text=ent.text,
-                        start=ent.start_char,
-                        end=ent.end_char,
-                        confidence=0.99
-                    )
-                    entities.append(entity)
-                    
-                    if "VITAL" in ent.label_:
-                        vital_key = ent.label_.lower().replace("vital_", "")
-                        if vital_key == "bp" and "/" in ent.text:
-                            parts = ent.text.split("/")
-                            vitals["bp"] = {"systolic": int(parts[0]), "diastolic": int(parts[1])}
-                        else:
-                            vitals[vital_key] = ent.text
-                    elif "MEDICATION" in ent.label_:
-                        medications[ent.label_.lower().replace("medication_", "")] = ent.text
-                    elif "PATIENT" in ent.label_:
-                        patient_identifiers[ent.label_.lower().replace("patient_", "")] = ent.text
-                        
-                except Exception as e:
-                    print(f"Error extracting entity: {e}")
-        
-        # Determine unmatched text
+        entities: List[Entity] = []
+        vitals: Dict[str, Any] = {}
+        medications: Dict[str, Any] = {}
+        patient_identifiers: Dict[str, Any] = {}
+        time_references: List[Dict] = []
+
+        for entity_type, pattern in _PATTERNS:
+            for match in pattern.finditer(text):
+                raw_text = match.group(0)
+                entity = Entity(
+                    entity_type=entity_type,
+                    value=raw_text,
+                    raw_text=raw_text,
+                    start=match.start(),
+                    end=match.end(),
+                    confidence=1.0,
+                )
+                entities.append(entity)
+
+                if entity_type == EntityType.VITAL_BP:
+                    vitals["bp"] = {
+                        "systolic": int(match.group(1)),
+                        "diastolic": int(match.group(2)),
+                    }
+                elif entity_type == EntityType.VITAL_TEMP:
+                    vitals["temp"] = float(match.group(1))
+                elif entity_type == EntityType.VITAL_SPO2:
+                    vitals["spo2"] = int(match.group(1))
+                elif entity_type == EntityType.VITAL_RR:
+                    vitals["rr"] = int(match.group(1))
+                elif entity_type == EntityType.VITAL_HR:
+                    vitals["hr"] = int(match.group(1))
+                elif entity_type == EntityType.VITAL_WEIGHT:
+                    vitals["weight"] = {
+                        "value": float(match.group(1)),
+                        "unit": match.group(2).lower(),
+                    }
+                elif entity_type == EntityType.PATIENT_ROOM:
+                    patient_identifiers["room"] = match.group(1)
+
+        for match in _MED_PATTERN.finditer(text):
+            raw_text = match.group(0)
+            name = match.group(1)
+            entities.append(
+                Entity(
+                    entity_type=EntityType.MEDICATION_NAME,
+                    value=name,
+                    raw_text=raw_text,
+                    start=match.start(1),
+                    end=match.end(1),
+                    confidence=1.0,
+                )
+            )
+            medications["name"] = name
+
         matched_spans = set()
         for entity in entities:
             for i in range(entity.start, entity.end):
                 matched_spans.add(i)
-        
-        unmatched_chars = []
-        for i, char in enumerate(text):
-            if i not in matched_spans:
-                unmatched_chars.append(char)
-        unmatched_text = "".join(unmatched_chars).strip()
-        
+        unmatched_text = "".join(
+            char for i, char in enumerate(text) if i not in matched_spans
+        ).strip()
+
         return ExtractionResult(
             entities=entities,
             vitals=vitals,
             medications=medications,
             patient_identifiers=patient_identifiers,
             time_references=time_references,
-            unmatched_text=unmatched_text
+            unmatched_text=unmatched_text,
         )
-
-    def update_model(self, text: str, entity_label: str, start_idx: int, end_idx: int) -> bool:
-        """
-        Online Reinforcement Learning: Adjust the spaCy deep learning weights live.
-        """
-        from spacy.training.example import Example
-        if self.nlp is None:
-            return False
-            
-        try:
-            # We must resume training to update gradients
-            optimizer = self.nlp.resume_training()
-            
-            doc = self.nlp.make_doc(text)
-            annotations = {"entities": [(start_idx, end_idx, entity_label)]}
-            example = Example.from_dict(doc, annotations)
-            
-            self.nlp.update([example], sgd=optimizer)
-            
-            # Save updated weights
-            model_path = settings.DATA_DIR / "ner_model"
-            self.nlp.to_disk(model_path)
-            
-            print(f"RL Update: Trained NER Model on '{text[start_idx:end_idx]}' -> {entity_label}")
-            return True
-        except Exception as e:
-            print(f"Failed RL update for NER: {e}")
-            return False

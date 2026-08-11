@@ -11,6 +11,8 @@ import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+import sklearn
+
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import settings
 
@@ -75,7 +77,7 @@ def main() -> None:
         "runtime": {"android": "dart_native_ml", "ios": "dart_native_ml"},
         "training": {
             "python_version": sys.version.split()[0],
-            "scikit_learn_version": "1.4+",
+            "scikit_learn_version": sklearn.__version__,
             "dataset": metrics["dataset"],
             "model_role": metrics["model_role"],
         },

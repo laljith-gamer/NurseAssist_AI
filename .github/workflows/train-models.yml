@@ -9,6 +9,7 @@ on:
       - 'ml_pipeline/scripts/train_observation_model.py'
       - 'ml_pipeline/scripts/export_mobile_models.py'
       - 'ml_pipeline/scripts/verify_mobile_export.py'
+      - 'ml_pipeline/nlp/**'
       - 'ml_pipeline/config.py'
       - 'ml_pipeline/requirements.txt'
       - '.github/workflows/train-models.yml'
@@ -16,6 +17,10 @@ on:
 jobs:
   train-and-publish:
     runs-on: ubuntu-latest
+    # Configure a required-reviewers protection rule on this environment in
+    # repo Settings > Environments so this job pauses for human approval
+    # before it runs. YAML alone cannot create that rule.
+    environment: production-release
     permissions:
       contents: write
 
@@ -34,38 +39,84 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ml_pipeline/requirements.txt
 
+      - name: Run unit tests
+        run: |
+          cd ml_pipeline
+          python -m pytest tests/ -v
+
       - name: Train real-data nursing observation model
+        env:
+          PYTHONHASHSEED: "0"
         run: |
           echo "SYNUR MODEL TRAINING: STARTED"
           python ml_pipeline/scripts/train_observation_model.py
 
-      - name: Verify Model Artifacts
+      - name: Verify model artifact exists
         run: |
           if [ ! -f "ml_pipeline/data/clinical_observation_model.pkl" ]; then
             echo "Error: clinical_observation_model.pkl not found!"
             exit 1
           fi
-      - name: Generate Mobile Artifacts
+
+      - name: Generate mobile artifacts
         id: generate
         run: |
           VERSION="nurse-nlp-v${{ github.run_number }}"
-          export MODEL_VERSION="$VERSION"
           echo "MODEL_VERSION=$VERSION" >> $GITHUB_ENV
-          
+          export MODEL_VERSION="$VERSION"
+
           python ml_pipeline/scripts/export_mobile_models.py
-          python ml_pipeline/scripts/verify_mobile_export.py
-          
+
           if [ ! -f "ml_pipeline/data/mobile_export/nurseassist-observation-model-${VERSION}.zip" ]; then
             echo "Error: ZIP package not found!"
             exit 1
           fi
+
+      - name: Verify export parity, quality gate, and regression vs baseline
+        run: |
+          python ml_pipeline/scripts/verify_mobile_export.py
+
+      - name: Upload trained artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MODEL_VERSION }}-observation-model
+          path: |
+            ml_pipeline/data/clinical_observation_model.pkl
+            ml_pipeline/data/clinical_observation_metrics.json
+            ml_pipeline/data/mobile_export/metadata.json
+            ml_pipeline/data/mobile_export/observations.json
+          retention-days: 90
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: nurse-nlp-v${{ github.run_number }}
-          name: Nursing language model v${{ github.run_number }}
-          files: ml_pipeline/data/mobile_export/nurseassist-observation-model-nurse-nlp-v${{ github.run_number }}.zip
+          tag_name: ${{ env.MODEL_VERSION }}
+          name: Nursing language model ${{ env.MODEL_VERSION }}
+          files: ml_pipeline/data/mobile_export/nurseassist-observation-model-${{ env.MODEL_VERSION }}.zip
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update committed baseline for future regression checks
+        run: |
+          python - <<'PYEOF'
+          import json
+          from pathlib import Path
+
+          metrics = json.loads(Path("ml_pipeline/data/clinical_observation_metrics.json").read_text())
+          baseline = {
+              "held_out_test": metrics["held_out_test"],
+              "validation": metrics["selection"]["dev_metrics"],
+              "selected_labels": metrics["selection"]["labels"],
+              "source_model_version": "${{ env.MODEL_VERSION }}",
+          }
+          Path("ml_pipeline/data/baseline_metrics.json").write_text(json.dumps(baseline, indent=2) + "\n")
+          PYEOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ml_pipeline/data/baseline_metrics.json
+          git diff --cached --quiet || git commit -m "Update observation model baseline to ${{ env.MODEL_VERSION }}"
+          git push
