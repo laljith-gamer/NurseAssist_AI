@@ -13,9 +13,32 @@ on:
       - 'ml_pipeline/config.py'
       - 'ml_pipeline/requirements.txt'
       - '.github/workflows/train-models.yml'
+  schedule:
+    - cron: '0 0 * * 0' # Run weekly on Sunday at midnight
 
 jobs:
+  check-telemetry:
+    runs-on: ubuntu-latest
+    outputs:
+      has_telemetry: ${{ steps.telemetry.outputs.has_telemetry }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for telemetry data
+        id: telemetry
+        run: |
+          if ls ml_pipeline/telemetry_drop/*.json 1> /dev/null 2>&1; then
+            echo "has_telemetry=true" >> $GITHUB_OUTPUT
+            echo "Found new implicit usage telemetry. Proceeding with continuous learning."
+          else
+            echo "has_telemetry=false" >> $GITHUB_OUTPUT
+            echo "No new usage telemetry found. Skipping training."
+          fi
+
   train-and-publish:
+    needs: check-telemetry
+    if: github.event_name != 'schedule' || needs.check-telemetry.outputs.has_telemetry == 'true'
     runs-on: ubuntu-latest
     # Configure a required-reviewers protection rule on this environment in
     # repo Settings > Environments so this job pauses for human approval
@@ -60,6 +83,7 @@ jobs:
           PYTHONHASHSEED: "0"
         run: |
           echo "SYNUR MODEL TRAINING: STARTED"
+          python ml_pipeline/scripts/ingest_telemetry.py
           python ml_pipeline/scripts/train_observation_model.py
 
       - name: Verify model artifact exists
@@ -129,6 +153,6 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ml_pipeline/data/baseline_metrics.json
+          git add -f ml_pipeline/data/baseline_metrics.json
           git diff --cached --quiet || git commit -m "Update observation model baseline to ${{ env.MODEL_VERSION }}"
           git push

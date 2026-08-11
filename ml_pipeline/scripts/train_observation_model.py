@@ -241,6 +241,7 @@ def _training_report(
     per_label_dev: dict[str, dict[str, float | int]],
     used_bert: bool = False,
     tfidf_only_test_metrics: Optional[dict[str, float]] = None,
+    telemetry_count: int = 0,
 ) -> dict:
     report = {
         "model_role": "advisory_clinical_observation_context",
@@ -264,6 +265,7 @@ def _training_report(
             "tfidf": True,
             "bioclinicalbert": used_bert,
             "pca_components": PCA_COMPONENTS if used_bert else None,
+            "telemetry_examples": telemetry_count,
         },
         "limitations": [
             "SYNUR is synthetic research data, not real EHR or patient data.",
@@ -279,9 +281,20 @@ def _training_report(
 def train_model() -> None:
     print("Loading pinned public nursing-dictation dataset (SYNUR)...")
     splits = load_all_splits()
-    train_examples = splits["train"]
-    dev_examples = splits["dev"]
-    test_examples = splits["test"]
+    train_examples = list(splits["train"])
+    dev_examples = list(splits["dev"])
+    test_examples = list(splits["test"])
+
+    # --- Incorporate telemetry (implicit reinforcement learning) ---
+    telemetry_path = settings.DATA_DIR / ".cache" / "telemetry" / "telemetry_examples.pkl"
+    telemetry_count = 0
+    if telemetry_path.exists():
+        with telemetry_path.open("rb") as file:
+            telemetry_examples = pickle.load(file)
+            if telemetry_examples:
+                telemetry_count = len(telemetry_examples)
+                train_examples.extend(telemetry_examples)
+                print(f"Incorporated {telemetry_count} implicit usage telemetry examples into training data.")
 
     support = Counter(
         label for example in train_examples for label in example.observation_names
@@ -442,6 +455,7 @@ def train_model() -> None:
         per_label_dev=per_label_dev,
         used_bert=used_bert,
         tfidf_only_test_metrics=tfidf_only_test_metrics,
+        telemetry_count=telemetry_count,
     )
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 

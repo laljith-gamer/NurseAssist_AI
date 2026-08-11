@@ -4,7 +4,7 @@
 
 | ID | Goal | Verification | Status |
 |---|---|---|---|
-| M1 | Replace synthetic NLP templates with reproducible nursing data. | Train, hold out test split, export parity test, and quality gate pass. | Implemented locally; workflow pending first run |
+| M1 | Replace synthetic NLP templates with reproducible nursing data and integrate BioClinicalBERT. | Train, hold out test split, export parity test, and quality gate pass (TF-IDF + BERT). | Implemented locally; tests pass |
 | M2 | Make on-device Gemma replies single-turn, concise, and safe. | Test several unrelated prompts in one session; no prompt/history echo or repetition. | Needs device verification |
 | M3 | Require nurse review before every AI-proposed chart write. | Stage a vital and medication proposal; confirm and discard each on device. | Implemented; needs device verification |
 | M4 | Serve one valid MediaPipe/LiteRT `.task` model from the public Hugging Face bucket. | Clean install downloads and initializes it. | Ready for device verification |
@@ -13,7 +13,7 @@
 
 ## Current decision
 
-The 2.71 GB model is delivered directly from the public Hugging Face bucket.
+The 2.71 GB Gemma model is delivered directly from the public Hugging Face bucket.
 GitHub Release assets are limited to under 2 GiB, so the model-upload workflow
 has been removed. The app model filename and bucket URL must stay aligned.
 
@@ -21,7 +21,18 @@ The separate small nursing-observation update is trained from Microsoft's
 public SYNUR dataset. It is advisory context only; the nurse must confirm all
 chart proposals before they are stored.
 
+**BioClinicalBERT** is used as a training-time feature extractor to enhance the
+nursing-observation model with dense clinical embeddings. The embeddings are
+PCA-reduced and combined with TF-IDF features. BioClinicalBERT is *not* shipped
+to the mobile device; the exported app artifact remains a lightweight JSON file.
+
 Each patient has isolated chat sessions, history, nursing observations, and a
 bounded local memory summary. The local Gemma prompt receives only that
 selected patient's summary. A new chat starts with an empty transcript while
 retaining the selected patient's local clinical memory.
+
+**Continuous Adaptation**: The ML pipeline is driven by implicit reinforcement
+learning. A weekly GitHub Actions workflow checks a telemetry drop folder for
+implicit usage signals (AI proposals that nurses actually confirmed). If new
+usage data exists, it ingests it into the training dataset and retrains the
+model. If no new data exists, it skips training to save resources.

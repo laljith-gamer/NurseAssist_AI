@@ -1,0 +1,14 @@
+[
+  {
+    "transcript": "Patient reports mild headache and some nausea.",
+    "accepted_labels": ["Nausea", "Headache"]
+  },
+  {
+    "transcript": "Oxygen saturation is hovering around 89 percent.",
+    "accepted_labels": ["Oxygen saturation low"]
+  },
+  {
+    "transcript": "Administered 10 units of insulin.",
+    "accepted_labels": ["Medication administered"]
+  }
+]
