@@ -18,6 +18,7 @@ venv.bak/
 # Application runtime data
 backend/data/
 data/
+!ml_pipeline/data/baseline_metrics.json
 
 # Frontend dependencies and build output
 node_modules/
