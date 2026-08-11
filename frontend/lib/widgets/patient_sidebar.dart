@@ -17,26 +17,42 @@ class PatientSidebar extends StatelessWidget {
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return Container(
-          width: 250,
-          color: isDark ? const Color(0xFF1A1A1A) : Colors.grey[100],
+          width: 280,
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.7),
+            border: Border(
+              right: BorderSide(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       "Patients",
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.person_add),
-                      onPressed: () => _showAddPatientDialog(context, provider),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: IconButton(
+                        icon: Icon(Icons.person_add, color: Theme.of(context).colorScheme.primary),
+                        onPressed: () => _showAddPatientDialog(context, provider),
+                        tooltip: 'Admit Patient',
+                      ),
                     ),
                   ],
                 ),
@@ -45,25 +61,24 @@ class PatientSidebar extends StatelessWidget {
                 child: patients.isEmpty 
                   ? const Center(child: Text("No patients found"))
                   : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: patients.length,
-                  itemBuilder: (context, index) {
-                    final patient = patients[index];
-                    final isSelected = provider.selectedPatient?.id == patient.id;
+                      itemBuilder: (context, index) {
+                        final patient = patients[index];
+                        final isSelected = provider.selectedPatient?.id == patient.id;
 
-                    return ListTile(
-                      title: Text(patient.name),
-                      subtitle: Text("Room: ${patient.room} Bed: ${patient.bed}"),
-                      selected: isSelected,
-                      selectedTileColor: Colors.blue.withValues(alpha: 0.1),
-                      onTap: () {
-                        provider.selectPatient(patient);
-                        if (Scaffold.of(context).isDrawerOpen) {
-                          Navigator.pop(context); // Close drawer on mobile
-                        }
+                        return _AnimatedPatientListItem(
+                          patient: patient,
+                          isSelected: isSelected,
+                          onTap: () {
+                            provider.selectPatient(patient);
+                            if (Scaffold.of(context).isDrawerOpen) {
+                              Navigator.pop(context);
+                            }
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
               ),
             ],
           ),
@@ -130,6 +145,91 @@ class PatientSidebar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _AnimatedPatientListItem extends StatefulWidget {
+  final dynamic patient;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _AnimatedPatientListItem({
+    required this.patient,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_AnimatedPatientListItem> createState() => _AnimatedPatientListItemState();
+}
+
+class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.only(bottom: 8),
+          transform: Matrix4.diagonal3Values(
+            _isHovered ? 1.02 : 1.0, 
+            _isHovered ? 1.02 : 1.0, 
+            1.0
+          ),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1)
+                : (_isHovered
+                    ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03))
+                    : Colors.transparent),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: widget.isSelected
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(
+              widget.patient.name,
+              style: TextStyle(
+                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                color: widget.isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : (isDark ? Colors.white : const Color(0xFF334155)),
+              ),
+            ),
+            subtitle: Text(
+              "Room: ${widget.patient.room} • Bed: ${widget.patient.bed}",
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+              ),
+            ),
+            leading: CircleAvatar(
+              backgroundColor: widget.isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              foregroundColor: widget.isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white : const Color(0xFF475569)),
+              child: Text(widget.patient.name[0].toUpperCase()),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

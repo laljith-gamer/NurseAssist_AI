@@ -1,11 +1,11 @@
 # CURRENT
-- active_loop: real-data-nursing-language-pipeline
-- target: combine a safe on-device AI interpreter with a measurable nursing-language sidecar model
-- iteration: 5
-- last_gate: SYNUR training, mobile export parity, and quality gate passed (with BioClinicalBERT feature integration)
-- last_action: built a continuous implicit reinforcement learning pipeline that parses usage telemetry and automatically retrains via a weekly cron workflow (skipping if no data)
-- next_action: install the new debug APK on an Android device; verify note capture, New chat/history, and patient isolation alongside vital and medication confirmation/discard
+- active_loop: ui-polish-and-dependency-upgrade
+- target: improve UI aesthetics to a professional standard and upgrade all Flutter dependencies
+- iteration: 6
+- last_gate: Continuous implicit reinforcement learning pipeline verified locally
+- last_action: read genesis files as instructed and updated PLAN.md with milestone M6 for UI polishing
+- next_action: create an implementation plan for the frontend UI redesign and dependency upgrades, then await user approval
 - model: `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` from the public Hugging Face bucket
-- sidecar_data: Microsoft SYNUR, pinned revision `fc5a8c4882cfc6cd09c87c602dcdb6f3bba905b2` (synthetic nursing research data) + `emilyalsentzer/Bio_ClinicalBERT` (training-only embeddings) + implicit usage telemetry
+- sidecar_data: Microsoft SYNUR + implicit usage telemetry
 - tokens_used: not tracked
 - skills_loaded: []

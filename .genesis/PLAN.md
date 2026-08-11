@@ -9,7 +9,8 @@
 | M3 | Require nurse review before every AI-proposed chart write. | Stage a vital and medication proposal; confirm and discard each on device. | Implemented; needs device verification |
 | M4 | Serve one valid MediaPipe/LiteRT `.task` model from the public Hugging Face bucket. | Clean install downloads and initializes it. | Ready for device verification |
 | M5 | Keep chats, nursing observations, and AI context strictly patient-scoped. | Switch between two patients; verify New chat, History, notes, and model context never cross patients. | Implemented; needs device verification |
-| M6 | Build and install a release APK. | `flutter build apk --release` from `frontend`. | Pending after M2–M5 |
+| M6 | Improve UI aesthetics to a professional standard and upgrade all Flutter dependencies to recent versions. | Visual review of glassmorphism/typography and `flutter pub outdated` shows no major stragglers. | Pending implementation |
+| M7 | Build and install a release APK. | `flutter build apk --release` from `frontend`. | Pending after M2–M6 |
 
 ## Current decision
 

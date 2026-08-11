@@ -64,24 +64,83 @@ class NurseAssistApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           themeMode: settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF0D47A1), // Premium deep blue
-              brightness: Brightness.light,
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1E3A8A), // Deep Sapphire
+              secondary: Color(0xFF3B82F6), // Vibrant Blue
+              surface: Color(0xFFF8FAFC), // Soft Frost (formerly background)
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme),
-            scaffoldBackgroundColor: const Color(
-              0xFFF5F7FA,
-            ), // Light sleek background
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme).apply(
+              bodyColor: const Color(0xFF334155),
+              displayColor: const Color(0xFF0F172A),
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            cardTheme: CardThemeData(
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.05),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: Colors.white,
+            ),
+            dialogTheme: DialogThemeData(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              elevation: 8,
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            splashFactory: InkRipple.splashFactory, // Subtle ripple
           ),
           darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1565C0), // Dark mode accent
-              brightness: Brightness.dark,
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFF06B6D4), // Vibrant Cyan
+              secondary: Color(0xFF3B82F6), // Deep Blue
+              surface: Color(0xFF0B0F19), // Deep Space (formerly background)
+              onPrimary: Colors.black,
+              onSurface: Color(0xFFF1F5F9),
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
-            scaffoldBackgroundColor: const Color(0xFF121212), // True dark
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).apply(
+              bodyColor: const Color(0xFFCBD5E1),
+              displayColor: const Color(0xFFF8FAFC),
+            ),
+            scaffoldBackgroundColor: const Color(0xFF0B0F19),
+            cardTheme: CardThemeData(
+              elevation: 8,
+              shadowColor: Colors.black.withValues(alpha: 0.3),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              color: const Color(0xFF1E293B).withValues(alpha: 0.8), // Translucent dark glass
+            ),
+            dialogTheme: DialogThemeData(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              elevation: 12,
+              backgroundColor: const Color(0xFF0F172A),
+            ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            outlinedButtonTheme: OutlinedButtonThemeData(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            splashFactory: InkRipple.splashFactory,
           ),
           // The LLM is an optional enhancement. Core recording, lookup, and
           // local NLP must be available immediately rather than hidden behind

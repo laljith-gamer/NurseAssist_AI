@@ -132,9 +132,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
+                  stops: const [0.0, 0.5, 1.0],
                   colors: isDark
-                      ? [const Color(0xFF1A1A24), const Color(0xFF121212)]
-                      : [const Color(0xFFF5F7FA), const Color(0xFFE4E9F2)],
+                      ? [
+                          const Color(0xFF0B0F19),
+                          const Color(0xFF0F172A),
+                          const Color(0xFF1E293B)
+                        ]
+                      : [
+                          const Color(0xFFF8FAFC),
+                          const Color(0xFFF1F5F9),
+                          const Color(0xFFE2E8F0)
+                        ],
                 ),
               ),
               child: Column(
@@ -142,15 +151,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (isDesktop)
                     ClipRRect(
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 16,
+                            horizontal: 32,
+                            vertical: 20,
                           ),
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.white.withValues(alpha: 0.5),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF0F172A).withValues(alpha: 0.6)
+                                : Colors.white.withValues(alpha: 0.7),
+                            border: Border(
+                              bottom: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.black.withValues(alpha: 0.05),
+                              ),
+                            ),
+                          ),
                           width: double.infinity,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -158,14 +176,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Text(
                                 "NurseAssist AI Dashboard",
                                 style: TextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
                                   letterSpacing: -0.5,
-                                  color: isDark ? Colors.white : Colors.black87,
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.settings),
+                                icon: const Icon(Icons.settings_outlined),
                                 onPressed: () => _showSettingsModal(context),
                                 tooltip: 'Settings',
                               ),

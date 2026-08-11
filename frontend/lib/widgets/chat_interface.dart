@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -129,46 +130,57 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
+                ClipRRect(
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(24),
+                    topRight: const Radius.circular(24),
+                    bottomLeft: isUser
+                        ? const Radius.circular(24)
+                        : const Radius.circular(8),
+                    bottomRight: isUser
+                        ? const Radius.circular(8)
+                        : const Radius.circular(24),
                   ),
-                  decoration: BoxDecoration(
-                    gradient: isUser
-                        ? const LinearGradient(
-                            colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    color: isUser ? null : Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(20),
-                      topRight: const Radius.circular(20),
-                      bottomLeft: isUser
-                          ? const Radius.circular(20)
-                          : const Radius.circular(4),
-                      bottomRight: isUser
-                          ? const Radius.circular(4)
-                          : const Radius.circular(20),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+                  child: BackdropFilter(
+                    filter: isUser ? ImageFilter.blur(sigmaX: 0, sigmaY: 0) : ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    msg.content,
-                    style: TextStyle(
-                      color: isUser
-                          ? Colors.white
-                          : Theme.of(context).textTheme.bodyLarge?.color,
-                      height: 1.4,
-                      fontSize: 15,
+                      decoration: BoxDecoration(
+                        gradient: isUser
+                            ? const LinearGradient(
+                                colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)], // Vibrant cyan to blue
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: isUser 
+                            ? null 
+                            : (Theme.of(context).brightness == Brightness.dark 
+                                ? const Color(0xFF1E293B).withValues(alpha: 0.6) 
+                                : Colors.white.withValues(alpha: 0.8)),
+                        border: isUser 
+                            ? null 
+                            : Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.black.withValues(alpha: 0.05),
+                                width: 1,
+                              ),
+                      ),
+                      child: Text(
+                        msg.content,
+                        style: TextStyle(
+                          color: isUser
+                              ? Colors.white
+                              : Theme.of(context).textTheme.bodyLarge?.color,
+                          height: 1.5,
+                          fontSize: 15,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
                     ),
                   ),
                 ),
