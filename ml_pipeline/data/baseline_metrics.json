@@ -1,0 +1,25 @@
+{
+  "held_out_test": {
+    "micro_f1": 0.653,
+    "macro_f1": 0.5786,
+    "samples_f1": 0.4822
+  },
+  "validation": {
+    "micro_f1": 0.747,
+    "macro_f1": 0.7407,
+    "samples_f1": 0.6065
+  },
+  "selected_labels": [
+    "Cognitive status",
+    "Mobility",
+    "Pain severity",
+    "Sensory perception"
+  ],
+  "training_features": {
+    "tfidf": true,
+    "bioclinicalbert": true,
+    "pca_components": 64,
+    "telemetry_examples": 3
+  },
+  "source_model_version": "nurse-nlp-v15"
+}
