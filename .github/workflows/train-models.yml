@@ -38,6 +38,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r ml_pipeline/requirements.txt
+          # Install PyTorch CPU-only for BioClinicalBERT feature extraction
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install scipy
+
+      - name: Cache BioClinicalBERT model weights
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub/models--emilyalsentzer--Bio_ClinicalBERT
+          key: bioclinicalbert-v1
+          restore-keys: |
+            bioclinicalbert-
 
       - name: Run unit tests
         run: |
@@ -110,6 +121,7 @@ jobs:
               "held_out_test": metrics["held_out_test"],
               "validation": metrics["selection"]["dev_metrics"],
               "selected_labels": metrics["selection"]["labels"],
+              "training_features": metrics.get("training_features", {"tfidf": True, "bioclinicalbert": False}),
               "source_model_version": "${{ env.MODEL_VERSION }}",
           }
           Path("ml_pipeline/data/baseline_metrics.json").write_text(json.dumps(baseline, indent=2) + "\n")

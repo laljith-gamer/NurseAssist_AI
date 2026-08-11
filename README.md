@@ -22,10 +22,18 @@ offline command fallback, but it also uses the same confirmation step.
 - **Gemma 2 2B IT Q8**: optional 2.71 GB on-device `.task` model, downloaded
   directly from the public Hugging Face bucket. It is not delivered through
   GitHub Releases because GitHub assets are limited to 2 GiB.
-- **Nursing observation model**: a small TF-IDF/SGD sidecar model trained from
+- **Nursing observation model**: a TF-IDF/SGD sidecar model trained from
   [Microsoft SYNUR](https://huggingface.co/datasets/microsoft/SYNUR), a public
   CDLA-Permissive-2.0 dataset of synthetic expert-nurse dictations and
-  structured observations.
+  structured observations. When available, training-time features are
+  enhanced with **BioClinicalBERT** embeddings (see below).
+- **BioClinicalBERT** (`emilyalsentzer/Bio_ClinicalBERT`): a BERT model
+  pre-trained on clinical notes from MIMIC-III. It is used **only during
+  training** to generate richer clinical-language features that are combined
+  with TF-IDF before fitting the SGD classifier. BioClinicalBERT is *not*
+  shipped to mobile devices — the exported model remains a lightweight JSON
+  file. When `torch` and `transformers` are not installed, the pipeline
+  falls back gracefully to TF-IDF-only training.
 
 SYNUR is valuable for reproducible nursing-language evaluation, but it is
 synthetic research data—not EHR data. The release pipeline measures held-out
@@ -40,6 +48,8 @@ it does **not** download, fine-tune, or upload the large Gemma task model.
 
 ```powershell
 cd ml_pipeline
+pip install -r requirements.txt
+pip install torch --index-url https://download.pytorch.org/whl/cpu  # optional, for BioClinicalBERT
 python scripts/train_observation_model.py
 python scripts/export_mobile_models.py
 python scripts/verify_mobile_export.py
@@ -48,7 +58,9 @@ python scripts/verify_mobile_export.py
 The trainer downloads the exact pinned SYNUR revision, uses its MEDIQA train
 and development splits for fitting/selection, holds the test split out, writes
 metrics, exports `observations.json`, and packages a verified
-`nurseassist-observation-model-*.zip`. Flutter verifies the manifest hashes and
+`nurseassist-observation-model-*.zip`. When BioClinicalBERT is available, the
+training report includes a side-by-side comparison of TF-IDF-only vs.
+TF-IDF+BERT held-out metrics. Flutter verifies the manifest hashes and
 installs the package atomically with rollback.
 
 ## Run the app

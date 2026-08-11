@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     LLM_TIMEOUT_MS: int = 0  # 0 disables orchestrator deadline
     FAST_RESPONSE_MODE: bool = True
     FAST_MAX_TOKENS: int = 256
+
+    # BioClinicalBERT training-time feature extraction
+    BIOCLINICALBERT_MODEL: str = "emilyalsentzer/Bio_ClinicalBERT"
+    BIOCLINICALBERT_MAX_LENGTH: int = 512
+    BIOCLINICALBERT_BATCH_SIZE: int = 32
+    BIOCLINICALBERT_CACHE_DIR: Path = BASE_DIR / "data" / ".cache" / "bioclinicalbert"
+    USE_BIOCLINICALBERT: bool = True
     
     BP_NORMAL_SYSTOLIC: tuple = (90, 120)
     BP_NORMAL_DIASTOLIC: tuple = (60, 80)

@@ -45,3 +45,4 @@ Thumbs.db
 *.onnx
 models/
 flutter_gemma_tmp/
+ml_pipeline.zip

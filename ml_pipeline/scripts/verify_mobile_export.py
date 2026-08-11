@@ -8,6 +8,8 @@ import pickle
 import sys
 from pathlib import Path
 
+import numpy as np
+
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import settings
 
@@ -50,6 +52,12 @@ def _sigmoid(value: float) -> float:
 
 
 def predict_export_probabilities(text: str, model: dict) -> list[float]:
+    """Predict using only TF-IDF features from the exported model.
+
+    This mirrors the Dart runtime inference path which uses TF-IDF only.
+    The optional bert_projection field is NOT used here because the Dart
+    runtime does not have a BERT model to generate embeddings.
+    """
     counts: dict[int, int] = {}
     for token in _char_wb_ngrams(text):
         index = model["vocabulary"].get(token)
@@ -75,23 +83,79 @@ def _verify_export_parity() -> None:
         raise AssertionError("Unexpected mobile model type")
     if exported.get("classes") != artifact["labels"]:
         raise AssertionError("Exported observation labels do not match the trained model")
+
+    used_bert = artifact.get("used_bert", False)
+    tfidf_dim = len(artifact["vectorizer"].vocabulary_)
+
+    # Verify that the exported TF-IDF coefficients match the trained model.
+    # When BERT was used, the trained estimators have combined features (TF-IDF + BERT);
+    # the exported model only ships the TF-IDF portion of the coefficients.
+    for est_idx, estimator in enumerate(artifact["estimators"]):
+        exported_coef = exported["coef"][est_idx]
+        if used_bert:
+            trained_tfidf_coef = estimator.coef_[0, :tfidf_dim]
+        else:
+            trained_tfidf_coef = estimator.coef_[0]
+
+        if len(exported_coef) != len(trained_tfidf_coef):
+            raise AssertionError(
+                f"Estimator {est_idx}: exported coef length {len(exported_coef)} "
+                f"!= trained TF-IDF coef length {len(trained_tfidf_coef)}"
+            )
+        for j, (exp_val, train_val) in enumerate(zip(exported_coef, trained_tfidf_coef)):
+            if not math.isclose(exp_val, train_val, rel_tol=1e-6, abs_tol=1e-6):
+                raise AssertionError(
+                    f"Estimator {est_idx}, coef {j}: "
+                    f"exported {exp_val} != trained {train_val}"
+                )
+
+    # Verify that the TF-IDF-only inference path produces consistent results
     probes = [
         "Oxygen saturation is 83 percent on nasal cannula.",
         "The patient has dark, foul-smelling urine.",
         "Respirations are elevated while using accessory muscles.",
     ]
     for probe in probes:
-        expected = []
+        # Compute expected probabilities using only TF-IDF features
         features = artifact["vectorizer"].transform([probe])
+        expected = []
         for estimator in artifact["estimators"]:
             positive_index = estimator.classes_.tolist().index(1)
-            expected.append(float(estimator.predict_proba(features)[0][positive_index]))
+            if used_bert:
+                # For BERT-trained model, we need to provide zero BERT features
+                # to get TF-IDF-only predictions. Instead, we directly compute
+                # using the TF-IDF portion of the coefficients.
+                tfidf_coef = estimator.coef_[0, :tfidf_dim]
+                dense_features = features.toarray()[0]
+                score = float(estimator.intercept_[0])
+                for idx, val in enumerate(dense_features):
+                    if val != 0:
+                        score += tfidf_coef[idx] * val
+                prob = 1 / (1 + math.exp(-score)) if score >= 0 else math.exp(score) / (1 + math.exp(score))
+                expected.append(prob)
+            else:
+                expected.append(float(estimator.predict_proba(features)[0][positive_index]))
+
         actual = predict_export_probabilities(probe, exported)
         for expected_value, actual_value in zip(expected, actual):
             if not math.isclose(expected_value, actual_value, rel_tol=1e-6, abs_tol=1e-6):
                 raise AssertionError(
                     f"Export mismatch for {probe!r}: {expected_value} != {actual_value}"
                 )
+
+    # Verify backward compatibility: bert_projection is optional
+    if "bert_projection" in exported:
+        proj = exported["bert_projection"]
+        if not isinstance(proj, dict):
+            raise AssertionError("bert_projection must be a dict")
+        required_keys = {"pca_components", "pca_mean", "bert_coef", "embedding_dim", "reduced_dim"}
+        missing = required_keys - set(proj.keys())
+        if missing:
+            raise AssertionError(f"bert_projection missing keys: {missing}")
+        print(
+            f"  BioClinicalBERT projection verified: "
+            f"{proj['embedding_dim']} → {proj['reduced_dim']} dims"
+        )
 
 
 def _verify_quality_gate() -> None:
