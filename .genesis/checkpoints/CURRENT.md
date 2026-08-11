@@ -1,9 +1,9 @@
 # CURRENT
 - active_loop: ml-pipeline-optimization
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
-- iteration: 7
-- last_gate: MLP model exported and integrated into Dart runtime successfully
-- last_action: Rebuilt ML pipeline using sklearn MLPClassifier due to PyTorch Windows DLL errors, and implemented clinical reasoning rules in local_nlp_service.dart
+- iteration: 8
+- last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
+- last_action: Integrated continuous learning telemetry, aligned PR validation dependencies, and added robust unit tests and TF-IDF-only parity metrics.
 - next_action: Follow up with frontend UI redesign and dependency upgrades (Milestone M6)
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates

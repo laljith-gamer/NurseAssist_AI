@@ -314,34 +314,64 @@ class ModelManager extends ChangeNotifier {
     }
   }
 
-  Future<void> _validateExportedModel(File file) async {
+  @visibleForTesting
+  static Future<void> validateExportedModelForTest(File file) => _validateExportedModel(file);
+
+  static Future<void> _validateExportedModel(File file) async {
     final model = jsonDecode(await file.readAsString());
     if (model is! Map ||
-        model['type'] != 'multi_label_sgd_classifier' ||
+        model['type'] != 'compact_clinical_mlp' ||
         model['role'] != 'advisory_clinical_observation_context' ||
         model['vocabulary'] is! Map ||
         model['idf'] is! List ||
-        model['coef'] is! List ||
-        model['intercept'] is! List ||
+        model['mlp'] is! Map ||
         model['classes'] is! List ||
         model['threshold'] is! num ||
         (model['classes'] as List).isEmpty) {
       throw const FormatException('Invalid exported classifier');
     }
-    final classes = model['classes'] as List;
-    final coefficients = model['coef'] as List;
-    if (coefficients.length != classes.length ||
-        (model['intercept'] as List).length != classes.length ||
-        !(model['threshold'] as num).isFinite ||
-        (model['threshold'] as num) <= 0 ||
-        (model['threshold'] as num) >= 1) {
+
+    final threshold = model['threshold'] as num;
+    if (!threshold.isFinite || threshold <= 0 || threshold >= 1) {
       throw const FormatException('Classifier dimensions do not match');
     }
+
+    final classes = model['classes'] as List;
     final idf = model['idf'] as List;
-    if (coefficients.any((row) => row is! List || row.length != idf.length)) {
-      throw const FormatException(
-        'Classifier coefficient dimensions do not match',
-      );
+    final mlp = model['mlp'] as Map;
+    final arch = mlp['arch'];
+
+    if (arch is! Map || arch['input_dim'] is! num || arch['output_dim'] is! num) {
+      throw const FormatException('Invalid exported classifier');
+    }
+
+    final inputDim = (arch['input_dim'] as num).toInt();
+
+    final l1W = mlp['layer1_weight'];
+    final l1B = mlp['layer1_bias'];
+    final l2W = mlp['layer2_weight'];
+    final l2B = mlp['layer2_bias'];
+    final outW = mlp['output_weight'];
+    final outB = mlp['output_bias'];
+
+    if (l1W is! List || l1B is! List || l2W is! List || l2B is! List || outW is! List || outB is! List) {
+      throw const FormatException('Invalid exported classifier');
+    }
+
+    if (outW.length != classes.length || outB.length != classes.length || idf.length != inputDim) {
+      throw const FormatException('Classifier dimensions do not match');
+    }
+
+    if (l1W.any((row) => row is! List || row.length != inputDim)) {
+      throw const FormatException('Classifier coefficient dimensions do not match');
+    }
+
+    if (l2W.any((row) => row is! List || row.length != l1W.length) || l2B.length != l2W.length) {
+      throw const FormatException('Classifier coefficient dimensions do not match');
+    }
+
+    if (outW.any((row) => row is! List || row.length != l2W.length)) {
+      throw const FormatException('Classifier coefficient dimensions do not match');
     }
   }
 

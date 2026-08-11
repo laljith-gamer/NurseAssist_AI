@@ -217,6 +217,7 @@ def _training_report(
     test_metrics: dict[str, float],
     per_label_dev: dict[str, dict[str, float | int]],
     synthetic_count: int = 0,
+    telemetry_count: int = 0,
 ) -> dict:
     return {
         "model_role": "advisory_clinical_observation_context",
@@ -224,6 +225,7 @@ def _training_report(
         "dataset": {
             "id": DATASET_ID,
             "synthetic_count": synthetic_count,
+            "telemetry_count": telemetry_count,
             "split_sizes": {name: len(rows) for name, rows in splits.items()},
         },
         "selection": {
@@ -263,6 +265,22 @@ def train_model() -> None:
         train_examples.extend(synthetic_examples[:split_1])
         dev_examples.extend(synthetic_examples[split_1:split_2])
         test_examples.extend(synthetic_examples[split_2:])
+
+    telemetry_count = 0
+    telemetry_path = settings.DATA_DIR / ".cache" / "telemetry" / "telemetry_examples.pkl"
+    if telemetry_path.exists():
+        try:
+            with telemetry_path.open("rb") as f:
+                telemetry_data = pickle.load(f)
+            telemetry_count = len(telemetry_data)
+            split_1 = int(telemetry_count * 0.8)
+            split_2 = int(telemetry_count * 0.9)
+            train_examples.extend(telemetry_data[:split_1])
+            dev_examples.extend(telemetry_data[split_1:split_2])
+            test_examples.extend(telemetry_data[split_2:])
+            print(f"Loaded {telemetry_count} field-telemetry examples for continual training.")
+        except Exception as e:
+            print(f"Failed to load field-telemetry examples: {e}")
 
     support = Counter(
         label for example in train_examples for label in example.observation_names
@@ -406,7 +424,8 @@ def train_model() -> None:
         dev_metrics=dev_metrics,
         test_metrics=test_metrics,
         per_label_dev=per_label_dev,
-        synthetic_count=synthetic_count
+        synthetic_count=synthetic_count,
+        telemetry_count=telemetry_count,
     )
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 

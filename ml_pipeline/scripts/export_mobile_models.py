@@ -16,6 +16,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import sklearn
+import numpy as np
+from sklearn.metrics import f1_score
+
+try:
+    from clinical_dataset import load_mtsamples_dataset
+except ImportError:
+    load_mtsamples_dataset = None
+from synur_dataset import load_all_splits
 
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import settings
@@ -27,6 +35,57 @@ def calculate_sha256(path: Path) -> str:
         for block in iter(lambda: file.read(65536), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def evaluate_tfidf_parity(artifact: dict) -> dict:
+    vectorizer = artifact["vectorizer"]
+    mlp_model = artifact["mlp_model"]
+    labels = artifact["labels"]
+    threshold = artifact["threshold"]
+    bert_pca = artifact.get("bert_pca")
+
+    splits = load_all_splits()
+    test_examples = list(splits["test"])
+
+    if load_mtsamples_dataset:
+        synthetic_examples = load_mtsamples_dataset(max_records=3000)
+        synthetic_count = len(synthetic_examples)
+        split_2 = int(synthetic_count * 0.9)
+        test_examples.extend(synthetic_examples[split_2:])
+
+    telemetry_path = settings.DATA_DIR / ".cache" / "telemetry" / "telemetry_examples.pkl"
+    if telemetry_path.exists():
+        try:
+            with telemetry_path.open("rb") as f:
+                telemetry_data = pickle.load(f)
+            telemetry_count = len(telemetry_data)
+            split_2 = int(telemetry_count * 0.9)
+            test_examples.extend(telemetry_data[split_2:])
+        except Exception:
+            pass
+
+    test_tfidf = vectorizer.transform([example.transcript for example in test_examples])
+    tfidf_dense = test_tfidf.toarray()
+
+    if artifact.get("used_bert") and bert_pca is not None:
+        zero_bert = np.zeros((len(test_examples), bert_pca.n_components), dtype=np.float32)
+        parity_features = np.hstack([tfidf_dense, zero_bert])
+    else:
+        parity_features = tfidf_dense
+
+    targets = [
+        [int(label in example.observation_names) for label in labels]
+        for example in test_examples
+    ]
+
+    probabilities = mlp_model.predict_proba(parity_features).tolist()
+    predictions = [[int(val >= threshold) for val in row] for row in probabilities]
+
+    return {
+        "micro_f1": round(float(f1_score(targets, predictions, average="micro", zero_division=0)), 4),
+        "macro_f1": round(float(f1_score(targets, predictions, average="macro", zero_division=0)), 4),
+        "samples_f1": round(float(f1_score(targets, predictions, average="samples", zero_division=0)), 4),
+    }
 
 
 def export_observation_model(model_path: Path, output_path: Path) -> str:
@@ -130,6 +189,11 @@ def main() -> None:
             "selected_labels": metrics["selection"]["labels"],
         },
     }
+
+    with model_path.open("rb") as f:
+        artifact = pickle.load(f)
+    
+    metadata["metrics"]["held_out_test_tfidf_only"] = evaluate_tfidf_parity(artifact)
 
     metadata_path = output_dir / "metadata.json"
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")

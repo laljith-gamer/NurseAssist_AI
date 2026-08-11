@@ -80,13 +80,16 @@ class TestEmbedderInterface:
         result = embedder._load_cached("key")
         assert result is None
 
-    def test_invalid_pooling_raises(self):
+    @patch("nlp.bioclinicalbert_embedder._try_import_torch")
+    def test_invalid_pooling_raises(self, mock_torch_import):
         """Ensure invalid pooling strategy is caught (via mocked model)."""
         embedder = BioClinicalBertEmbedder()
         # Mock the model loading and inference
         embedder._model = MagicMock()
         embedder._tokenizer = MagicMock()
         embedder._device = "cpu"
+        mock_torch = MagicMock()
+        mock_torch_import.return_value = mock_torch
 
         with pytest.raises(ValueError, match="Unknown pooling"):
             embedder.encode(["test text"], pooling="invalid")

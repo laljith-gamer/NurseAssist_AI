@@ -29,7 +29,7 @@ def _try_import_torch():
     try:
         import torch
         return torch
-    except ImportError:
+    except (ImportError, OSError):
         return None
 
 
@@ -38,7 +38,7 @@ def _try_import_transformers():
     try:
         from transformers import AutoModel, AutoTokenizer
         return AutoModel, AutoTokenizer
-    except ImportError:
+    except (ImportError, OSError):
         return None, None
 
 
