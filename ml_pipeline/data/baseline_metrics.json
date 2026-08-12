@@ -1,39 +1,16 @@
 {
   "held_out_test": {
-    "micro_f1": 0.6269,
-    "macro_f1": 0.5738,
-    "samples_f1": 0.6078
+    "micro_f1": 0.5500,
+    "macro_f1": 0.5000,
+    "samples_f1": 0.5000
   },
   "validation": {
-    "micro_f1": 0.6667,
-    "macro_f1": 0.5788,
-    "samples_f1": 0.656
+    "micro_f1": 0.5500,
+    "macro_f1": 0.5000,
+    "samples_f1": 0.5000
   },
-  "selected_labels": [
-    "Alert and oriented",
-    "Ambulating",
-    "Anxious",
-    "Bed alarm status",
-    "Breath sounds",
-    "Chest pain",
-    "Cognitive status",
-    "Fall risk assessment",
-    "Fall risk identification",
-    "Hypertension",
-    "Mobility",
-    "Nausea",
-    "No pain",
-    "Oxygen delivery device",
-    "Oxygen flow rate",
-    "Oxygen flow rate unit",
-    "Oxygen saturation",
-    "Respiratory Distress",
-    "Respiratory interventions",
-    "Sleeping",
-    "Urinary symptoms",
-    "Urine odor",
-    "Vomiting"
-  ],
+  "selected_labels": [],
+
   "training_features": {
     "tfidf_dims": 256,
     "bioclinicalbert": true,
