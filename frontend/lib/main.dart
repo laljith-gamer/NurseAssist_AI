@@ -9,6 +9,8 @@ import 'providers/settings_provider.dart';
 import 'screens/dashboard_screen.dart';
 import 'services/model_manager.dart';
 import 'services/local_nlp_service.dart';
+import 'services/local_db_service.dart';
+import 'services/telemetry_service.dart';
 import 'services/llm_service.dart';
 
 void main() async {
@@ -29,13 +31,22 @@ void main() async {
     llmService.initializeEngine();
   }
 
+  final settingsProvider = SettingsProvider();
+  await settingsProvider.loadFromPrefs();
+
+  final telemetryService = TelemetryService(
+    db: LocalDbService(),
+    settings: settingsProvider,
+  );
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: modelManager),
         ChangeNotifierProvider.value(value: llmService),
         Provider.value(value: localNlpService),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        Provider.value(value: telemetryService),
+        ChangeNotifierProvider.value(value: settingsProvider),
         ChangeNotifierProxyProvider2<
           SettingsProvider,
           ModelManager,

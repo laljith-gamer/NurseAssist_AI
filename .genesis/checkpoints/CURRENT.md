@@ -3,8 +3,8 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 8
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: Integrated continuous learning telemetry, aligned PR validation dependencies, and added robust unit tests and TF-IDF-only parity metrics.
-- next_action: Follow up with frontend UI redesign and dependency upgrades (Milestone M6)
+- last_action: Started telemetry feedback loop (Tasks 1-2). Added telemetry consent settings, observation chips in chat UI with accept/dismiss actions, and on-device telemetry capture with PII redaction.
+- next_action: Implement sync client (Task 3), relay service (Task 4), archiving (Task 5), and tests (Task 6).
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked

@@ -14,7 +14,7 @@ class LocalDbService {
   factory LocalDbService() => _instance;
   LocalDbService._internal();
 
-  static const _databaseVersion = 4;
+  static const _databaseVersion = 5;
   Database? _database;
 
   Future<Database> get database async {
@@ -63,6 +63,9 @@ class LocalDbService {
     }
     if (oldVersion < 4) {
       await _migrateChatSessions(db);
+    }
+    if (oldVersion < 5) {
+      await _createTelemetryQueueTable(db);
     }
   }
 
@@ -133,6 +136,24 @@ class LocalDbService {
     ''');
     await _createNursingNotesTable(db);
     await _createChatSessionsTable(db);
+    await _createTelemetryQueueTable(db);
+  }
+
+  Future<void> _createTelemetryQueueTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS telemetry_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        redacted_transcript TEXT NOT NULL,
+        suggested_labels TEXT NOT NULL,
+        accepted_labels TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        synced_at INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_telemetry_queue_synced
+      ON telemetry_queue(synced_at)
+    ''');
   }
 
   Future<void> _createNursingNotesTable(Database db) async {

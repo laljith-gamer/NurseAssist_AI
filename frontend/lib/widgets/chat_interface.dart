@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/patient_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
+import '../services/telemetry_service.dart';
 
 class ChatInterface extends StatefulWidget {
   const ChatInterface({super.key});
@@ -19,6 +21,10 @@ class _ChatInterfaceState extends State<ChatInterface> {
   final ScrollController _scrollController = ScrollController();
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
+
+  /// Tracks per-message label verdicts: messageId -> {label: true/false/null}.
+  /// true = accepted, false = dismissed, null = not yet acted on.
+  final Map<String, Map<String, bool?>> _labelVerdicts = {};
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
@@ -184,6 +190,8 @@ class _ChatInterfaceState extends State<ChatInterface> {
                     ),
                   ),
                 ),
+                if (!isUser && msg.observationHints.isNotEmpty)
+                  _buildObservationChips(msg),
                 if (!isUser) // Add 'Correct AI' button for assistant messages
                   TextButton.icon(
                     onPressed: () {
@@ -524,6 +532,206 @@ class _ChatInterfaceState extends State<ChatInterface> {
     );
   }
 
+  Widget _buildObservationChips(ChatMessage msg) {
+    final verdicts = _labelVerdicts.putIfAbsent(
+      msg.id,
+      () => {for (final label in msg.observationHints) label: null},
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 2),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: msg.observationHints.map((label) {
+          final verdict = verdicts[label];
+          final accepted = verdict == true;
+          final dismissed = verdict == false;
+          final acted = verdict != null;
+
+          return InputChip(
+            label: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: acted
+                    ? (accepted ? Colors.green.shade900 : Colors.red.shade900)
+                    : null,
+                decoration: dismissed ? TextDecoration.lineThrough : null,
+              ),
+            ),
+            avatar: acted
+                ? Icon(
+                    accepted ? Icons.check_circle : Icons.cancel,
+                    size: 16,
+                    color: accepted
+                        ? Colors.green.shade700
+                        : Colors.red.shade400,
+                  )
+                : const Icon(Icons.psychology_alt, size: 16),
+            backgroundColor: acted
+                ? (accepted
+                    ? Colors.green.shade50
+                    : Colors.red.shade50)
+                : null,
+            deleteIcon: acted
+                ? null
+                : const Icon(Icons.close, size: 14),
+            onDeleted: acted
+                ? null
+                : () => _setLabelVerdict(msg, label, false),
+            onPressed: acted
+                ? null
+                : () => _setLabelVerdict(msg, label, true),
+            tooltip: acted
+                ? (accepted ? 'Accepted' : 'Dismissed')
+                : 'Tap to accept, ✕ to dismiss',
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _setLabelVerdict(ChatMessage msg, String label, bool accepted) {
+    final settings = context.read<SettingsProvider>();
+
+    // Show consent dialog on first interaction if not yet shown
+    if (!settings.consentDialogShown) {
+      _showTelemetryConsentDialog(context, () {
+        // After dialog is handled, apply the verdict
+        _applyVerdict(msg, label, accepted);
+      });
+      return;
+    }
+
+    _applyVerdict(msg, label, accepted);
+  }
+
+  void _applyVerdict(ChatMessage msg, String label, bool accepted) {
+    setState(() {
+      _labelVerdicts.putIfAbsent(
+        msg.id,
+        () => {for (final l in msg.observationHints) l: null},
+      )[label] = accepted;
+    });
+
+    // Check if all labels have been decided
+    final verdicts = _labelVerdicts[msg.id]!;
+    final allDecided = verdicts.values.every((v) => v != null);
+    if (allDecided) {
+      _queueTelemetryEvent(msg, verdicts.cast<String, bool>());
+    }
+  }
+
+  void _queueTelemetryEvent(
+    ChatMessage msg,
+    Map<String, bool> verdicts,
+  ) {
+    final provider = context.read<PatientProvider>();
+    final telemetry = context.read<TelemetryService>();
+
+    // Find the user message that preceded this assistant response
+    final messages = provider.messages;
+    String transcript = '';
+    final msgIndex = messages.indexWhere((m) => m.id == msg.id);
+    if (msgIndex > 0) {
+      for (int i = msgIndex - 1; i >= 0; i--) {
+        if (messages[i].role == 'user') {
+          transcript = messages[i].content;
+          break;
+        }
+      }
+    }
+
+    telemetry.recordLabelVerdict(
+      transcript: transcript,
+      suggestedLabels: msg.observationHints,
+      verdicts: verdicts,
+      patientName: provider.selectedPatient?.name,
+    );
+  }
+
+  void _showTelemetryConsentDialog(BuildContext context, VoidCallback onDone) {
+    final settings = context.read<SettingsProvider>();
+    settings.markConsentDialogShown();
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.volunteer_activism, color: Color(0xFF06B6D4)),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Help improve suggestions?',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          content: const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'When you accept or dismiss a suggested observation label, '
+                  'we can use that feedback to improve future suggestions.\n',
+                ),
+                Text(
+                  'What's collected:',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  '• Which labels were suggested and whether you kept them\n'
+                  '• A de-identified version of the note text that triggered '
+                  'the suggestion (room numbers, MRN-like digits, and patient '
+                  'names are removed before anything leaves the device)\n',
+                ),
+                Text(
+                  'What's NOT collected:',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  '• Raw patient data or chart records\n'
+                  '• Any data that could auto-chart anything\n',
+                ),
+                Text(
+                  'You can turn this off anytime in Settings, view queued '
+                  'events, or clear them at any time.',
+                  style: TextStyle(fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                onDone();
+              },
+              child: const Text('No thanks'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                settings.setTelemetrySharingEnabled(true);
+                Navigator.pop(dialogContext);
+                onDone();
+              },
+              icon: const Icon(Icons.check),
+              label: const Text('Enable & help improve'),
+            ),
+          ],
+        );
+      },
+    );
+  }
   void _showFeedbackDialog(BuildContext context, String lastUserMsg) {
     final typeController = TextEditingController(text: 'Intent');
     final labelController = TextEditingController();

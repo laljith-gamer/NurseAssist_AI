@@ -86,6 +86,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   );
                 },
               ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Suggestion Telemetry',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Consumer<SettingsProvider>(
+                builder: (context, settingsRef, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Share suggestion feedback'),
+                      subtitle: const Text(
+                        'Help improve observation suggestions by sharing '
+                        'de-identified label feedback.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: settingsRef.telemetrySharingEnabled,
+                      onChanged: (val) {
+                        settingsRef.setTelemetrySharingEnabled(val);
+                      },
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Queued events: ${settingsRef.queuedTelemetryCount}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        TextButton.icon(
+                          onPressed: settingsRef.queuedTelemetryCount == 0
+                              ? null
+                              : () {
+                                  // Will be wired to TelemetryService in Task 2
+                                  settingsRef.updateQueuedTelemetryCount(0);
+                                },
+                          icon: const Icon(Icons.delete_outline, size: 16),
+                          label: const Text('Clear queued', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
           actions: [

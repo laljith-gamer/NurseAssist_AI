@@ -39,4 +39,4 @@ retaining the selected patient's local clinical memory.
 learning. A weekly GitHub Actions workflow checks a telemetry drop folder for
 implicit usage signals (AI proposals that nurses actually confirmed). If new
 usage data exists, it ingests it into the training dataset and retrains the
-model. If no new data exists, it skips training to save resources.
+model. If no new data exists, it skips training to save resources. We are currently implementing the telemetry feedback loop to safely collect de-identified feedback from the device and pipe it to the training workflow.

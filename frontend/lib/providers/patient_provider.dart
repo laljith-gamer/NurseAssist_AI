@@ -285,6 +285,8 @@ class PatientProvider with ChangeNotifier {
         role: 'assistant',
         content: response,
         timestamp: DateTime.now(),
+        observationHints:
+            observationHints.map((hint) => hint.name).toList(),
       );
       if (_selectedPatient?.id == patient.id &&
           _activeChatSession?.id == chatSession.id) {
