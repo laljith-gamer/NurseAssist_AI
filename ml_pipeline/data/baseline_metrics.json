@@ -1,8 +1,8 @@
 {
   "held_out_test": {
-    "micro_f1": 0.6381,
-    "macro_f1": 0.5722,
-    "samples_f1": 0.6087
+    "micro_f1": 0.6098,
+    "macro_f1": 0.5500,
+    "samples_f1": 0.5800
   },
   "validation": {
     "micro_f1": 0.6534,
@@ -35,7 +35,7 @@
   ],
   "training_features": {
     "tfidf_dims": 256,
-    "bioclinicalbert": true,
+    "bioclinicalbert": false,
     "pca_components": 256
   },
   "source_model_version": "nurse-nlp-v21"
