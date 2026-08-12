@@ -265,11 +265,14 @@ class PatientProvider with ChangeNotifier {
           newTitle = '${newTitle.substring(0, 20)}...';
         }
         await _apiService.updateChatSessionTitle(chatSession.id, newTitle);
-        chatSession.title = newTitle;
+        final updatedSession = chatSession.copyWith(title: newTitle);
+        if (_activeChatSession?.id == chatSession.id) {
+          _activeChatSession = updatedSession;
+        }
         // Update the session list so the sidebar redraws
         final index = _chatSessions.indexWhere((s) => s.id == chatSession.id);
         if (index != -1) {
-          _chatSessions[index] = chatSession;
+          _chatSessions[index] = updatedSession;
         }
       }
 
