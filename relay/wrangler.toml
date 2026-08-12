@@ -1,0 +1,13 @@
+name = "nurseassist-telemetry-relay"
+main = "src/index.js"
+compatibility_date = "2024-02-23"
+
+# Secrets needed (set via wrangler secret put):
+# APP_SECRET - A shared secret that the Flutter app uses in the Authorization header.
+# GITHUB_TOKEN - A GitHub PAT with write access to the repository to push telemetry files.
+# REPO_OWNER - The GitHub repository owner (e.g. laljith-gamer)
+# REPO_NAME - The GitHub repository name (e.g. NurseAssist_AI)
+
+[vars]
+REPO_OWNER = "laljith-gamer"
+REPO_NAME = "NurseAssist_AI"

@@ -1,0 +1,51 @@
+name: Merge Telemetry Intake
+
+on:
+  push:
+    branches:
+      - telemetry-intake
+
+jobs:
+  merge-and-archive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge telemetry-intake into main
+        run: |
+          # Fetch the intake branch
+          git fetch origin telemetry-intake
+          
+          # Merge favoring intake changes, but only for telemetry_drop/
+          # A simple merge should work since telemetry-intake only has new files added by the Worker
+          git merge origin/telemetry-intake --no-edit -m "Merge incoming telemetry events from device"
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Archive old telemetry
+        run: |
+          python ml_pipeline/scripts/archive_telemetry.py
+          
+      - name: Commit and push archives
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git add ml_pipeline/telemetry_drop/ ml_pipeline/archived_logs/
+            git commit -m "Archive telemetry older than 90 days"
+          fi
+          
+          # Push the merge commit and any archiving commits
+          git push origin main

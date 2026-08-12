@@ -6,12 +6,14 @@ class SettingsProvider with ChangeNotifier {
   static const _keyDarkMode = 'is_dark_mode';
   static const _keyTelemetrySharing = 'telemetry_sharing_enabled';
   static const _keyConsentDialogShown = 'telemetry_consent_shown';
+  static const _keyLastTelemetrySync = 'last_telemetry_sync';
 
   String _backendUrl = 'https://nurseassist-ai-1.onrender.com';
   bool _isDarkMode = true; // Default to dark mode for premium look
   bool _telemetrySharingEnabled = false;
   bool _consentDialogShown = false;
   int _queuedTelemetryCount = 0;
+  int _lastTelemetrySyncTime = 0;
 
   String get backendUrl => _backendUrl;
 
@@ -32,6 +34,7 @@ class SettingsProvider with ChangeNotifier {
   bool get telemetrySharingEnabled => _telemetrySharingEnabled;
   bool get consentDialogShown => _consentDialogShown;
   int get queuedTelemetryCount => _queuedTelemetryCount;
+  int get lastTelemetrySyncTime => _lastTelemetrySyncTime;
 
   /// Load persisted settings from SharedPreferences. Call once at startup.
   Future<void> loadFromPrefs() async {
@@ -42,6 +45,7 @@ class SettingsProvider with ChangeNotifier {
         prefs.getBool(_keyTelemetrySharing) ?? false;
     _consentDialogShown =
         prefs.getBool(_keyConsentDialogShown) ?? false;
+    _lastTelemetrySyncTime = prefs.getInt(_keyLastTelemetrySync) ?? 0;
     notifyListeners();
   }
 
@@ -79,12 +83,19 @@ class SettingsProvider with ChangeNotifier {
     }
   }
 
+  void setLastTelemetrySyncTime(int timestamp) {
+    _lastTelemetrySyncTime = timestamp;
+    _persist(_keyLastTelemetrySync, timestamp);
+  }
+
   Future<void> _persist(String key, dynamic value) async {
     final prefs = await SharedPreferences.getInstance();
     if (value is bool) {
       await prefs.setBool(key, value);
     } else if (value is String) {
       await prefs.setString(key, value);
+    } else if (value is int) {
+      await prefs.setInt(key, value);
     }
   }
 }

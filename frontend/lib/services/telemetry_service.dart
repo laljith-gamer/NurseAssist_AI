@@ -1,6 +1,7 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'local_db_service.dart';
 import '../providers/settings_provider.dart';
@@ -21,8 +22,7 @@ class TranscriptRedactor {
 
   /// Common name-prefix patterns (Mr., Mrs., Dr., Pt., Patient:)
   static final _namePrefixPattern = RegExp(
-    r'\b(?:mr\.?|mrs\.?|ms\.?|dr\.?|pt\.?|patient:?)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?',
-    caseSensitive: false,
+    r'(?i:\b(?:mr\.?|mrs\.?|ms\.?|dr\.?|pt\.?|patient:?)\s+)[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?',
   );
 
   /// Redact all recognized PII patterns. Optionally strip a known patient name.
@@ -58,12 +58,64 @@ class TelemetryService {
   final SettingsProvider _settings;
 
   static const int _maxQueueSize = 500;
+  static const String _relayUrl = String.fromEnvironment(
+    'TELEMETRY_RELAY_URL',
+    defaultValue: 'https://telemetry-relay.example.workers.dev/intake',
+  );
+  static const String _appSecret = String.fromEnvironment(
+    'TELEMETRY_APP_SECRET',
+    defaultValue: '',
+  );
 
   TelemetryService({
     required LocalDbService db,
     required SettingsProvider settings,
   })  : _db = db,
         _settings = settings;
+
+  /// Try syncing to relay (Task 3). Checks WiFi, limits batch to 50, and 
+  /// throttles to once per 4 hours.
+  Future<void> syncTelemetry() async {
+    if (!_settings.telemetrySharingEnabled) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final lastSync = _settings.lastTelemetrySyncTime;
+
+    // Throttle to once per 4 hours
+    if (now - lastSync < 4 * 60 * 60 * 1000) return;
+
+    // Check WiFi (prevent mobile data usage)
+    final connectivityResult = await Connectivity().checkConnectivity();
+    if (!connectivityResult.contains(ConnectivityResult.wifi)) return;
+
+    final events = await getUnsyncedEvents(limit: 50);
+    if (events.isEmpty) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse(_relayUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_appSecret',
+        },
+        body: jsonEncode({
+          'events': events,
+          'app_version': '1.0.0',
+        }),
+      );
+
+      // Relay returns 200 or 202 on success
+      if (response.statusCode == 200 || response.statusCode == 202) {
+        final syncedIds = events.map((e) => e['id'] as int).toList();
+        await markSynced(syncedIds);
+        _settings.setLastTelemetrySyncTime(now);
+      } else {
+        debugPrint('TelemetryService: relay returned ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('TelemetryService: failed to sync to relay: $e');
+    }
+  }
 
   /// Queue a telemetry event if sharing is enabled. The transcript is redacted
   /// before storage — raw text never enters the queue.

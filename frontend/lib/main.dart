@@ -63,8 +63,38 @@ void main() async {
   );
 }
 
-class NurseAssistApp extends StatelessWidget {
+class NurseAssistApp extends StatefulWidget {
   const NurseAssistApp({super.key});
+
+  @override
+  State<NurseAssistApp> createState() => _NurseAssistAppState();
+}
+
+class _NurseAssistAppState extends State<NurseAssistApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Trigger initial sync on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<TelemetryService>().syncTelemetry();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      context.read<TelemetryService>().syncTelemetry();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
