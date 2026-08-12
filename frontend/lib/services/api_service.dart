@@ -324,6 +324,9 @@ class ApiService {
   Future<void> updateChatSessionTitle(String id, String title) =>
       _db.updateChatSessionTitle(id, title);
 
+  Future<void> deleteChatSession(String sessionId) =>
+      _db.deleteChatSession(sessionId);
+
   Future<List<Map<String, dynamic>>> getChatHistory(
     String patientId, {
     String? sessionId,
@@ -351,4 +354,8 @@ class ApiService {
     });
     return true;
   }
+
+  Future<bool> backupDatabase() => _db.backupDatabase();
+
+  Future<bool> restoreDatabase() => _db.restoreDatabase();
 }

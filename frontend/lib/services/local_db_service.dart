@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
@@ -21,6 +22,47 @@ class LocalDbService {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
+  }
+
+  Future<bool> backupDatabase() async {
+    if (kIsWeb) return false;
+    try {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final dbFile = File(join(documentsDirectory.path, 'nurseassist_offline.db'));
+      if (!await dbFile.exists()) return false;
+      
+      final backupFile = File(join(documentsDirectory.path, 'nurseassist_backup.db'));
+      await dbFile.copy(backupFile.path);
+      return true;
+    } catch (e) {
+      debugPrint('Backup error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> restoreDatabase() async {
+    if (kIsWeb) return false;
+    try {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final backupFile = File(join(documentsDirectory.path, 'nurseassist_backup.db'));
+      if (!await backupFile.exists()) return false;
+      
+      final dbFile = File(join(documentsDirectory.path, 'nurseassist_offline.db'));
+      
+      // Close existing database before restoring
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+      
+      await backupFile.copy(dbFile.path);
+      // Re-initialize after restore
+      await database; 
+      return true;
+    } catch (e) {
+      debugPrint('Restore error: $e');
+      return false;
+    }
   }
 
   Future<Database> _initDatabase() async {
@@ -413,6 +455,22 @@ class LocalDbService {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> deleteChatSession(String sessionId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'chat_messages',
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+      await txn.delete(
+        'chat_sessions',
+        where: 'id = ?',
+        whereArgs: [sessionId],
+      );
+    });
   }
 
   Future<void> saveChatMessage({

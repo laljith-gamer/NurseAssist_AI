@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'chat_history_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -386,100 +387,19 @@ class _ChatInterfaceState extends State<ChatInterface> {
     BuildContext context,
     PatientProvider provider,
   ) {
-    return showModalBottomSheet<void>(
+    return showGeneralDialog(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: SizedBox(
-          height: 360,
-          child: Column(
-            children: [
-              ListTile(
-                title: const Text(
-                  'Chat history',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                trailing: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)], // Vibrant cyan to blue
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () async {
-                            Navigator.pop(sheetContext);
-                            await provider.startNewChat();
-                            if (mounted) _scrollToBottom();
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
-                                SizedBox(width: 6),
-                                Text(
-                                  'New Chat',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: provider.chatSessions.length,
-                  itemBuilder: (context, index) {
-                    final session = provider.chatSessions[index];
-                    final selected =
-                        session.id == provider.activeChatSession?.id;
-                    return ListTile(
-                      leading: Icon(
-                        selected
-                            ? Icons.chat_bubble
-                            : Icons.chat_bubble_outline,
-                      ),
-                      title: Text(session.title),
-                      subtitle: Text(
-                        '${session.createdAt.day}/${session.createdAt.month}/${session.createdAt.year}',
-                      ),
-                      selected: selected,
-                      onTap: () async {
-                        Navigator.pop(sheetContext);
-                        await provider.selectChatSession(session);
-                        if (mounted) _scrollToBottom();
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return ChatHistoryDrawer(
+          onChatSelected: () {
+            if (mounted) _scrollToBottom();
+          },
+        );
+      },
     );
   }
 

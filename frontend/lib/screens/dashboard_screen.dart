@@ -9,6 +9,7 @@ import '../widgets/charts/vital_signs_delta_chart.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
 import 'model_download_screen.dart';
+import '../services/api_service.dart';
 import 'dart:ui';
 
 class DashboardScreen extends StatefulWidget {
@@ -131,6 +132,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Data Management',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final api = context.read<ApiService>();
+                      final success = await api.backupDatabase();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Database backed up locally.' : 'Backup failed.')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.backup_outlined, size: 18),
+                    label: const Text('Backup'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final api = context.read<ApiService>();
+                      final success = await api.restoreDatabase();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(success ? 'Database restored. Please restart the app.' : 'Restore failed.')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.restore, size: 18),
+                    label: const Text('Restore'),
+                  ),
+                ],
               ),
             ],
           ),

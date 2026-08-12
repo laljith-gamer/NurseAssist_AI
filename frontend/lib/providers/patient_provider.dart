@@ -213,6 +213,32 @@ class PatientProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> deleteChatSession(ChatSession session) async {
+    final patient = _selectedPatient;
+    if (patient == null || _isResponding) return;
+
+    await _apiService.deleteChatSession(session.id);
+    _chatSessions.removeWhere((s) => s.id == session.id);
+
+    if (_activeChatSession?.id == session.id) {
+      if (_chatSessions.isNotEmpty) {
+        await selectChatSession(_chatSessions.first);
+      } else {
+        _activeChatSession = null;
+        _messages.clear();
+        await startNewChat();
+      }
+    } else {
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> getPatientMemoryRaw() async {
+    final patient = _selectedPatient;
+    if (patient == null) return {};
+    return await _apiService.getPatientMemory(patient.id);
+  }
+
   ChatMessage _messageFromRow(Map<String, dynamic> row) {
     final createdAt = row['created_at'];
     final timestamp = createdAt is num
