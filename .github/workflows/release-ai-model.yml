@@ -21,9 +21,11 @@ jobs:
 
     steps:
       - name: Download AI Model
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           echo "Downloading AI model from ${{ env.MODEL_URL }}..."
-          curl -L -o ${{ env.MODEL_FILENAME }} "${{ env.MODEL_URL }}"
+          curl -L -H "Authorization: Bearer ${{ env.HF_TOKEN }}" -o ${{ env.MODEL_FILENAME }} "${{ env.MODEL_URL }}"
           echo "Download complete. File size:"
           ls -lh ${{ env.MODEL_FILENAME }}
 
