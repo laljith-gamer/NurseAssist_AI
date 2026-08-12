@@ -3,8 +3,8 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 8
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: Implemented comprehensive test coverage for telemetry pipeline (Task 6). Added Dart unit tests for PII redaction (`TranscriptRedactor`), Python tests for telemetry archiving, and a Node test script for the Cloudflare Worker API/Auth logic.
-- next_action: Follow up with frontend UI redesign and dependency upgrades (Milestone M6).
+- last_action: Implemented premium UI redesign and dependency upgrades (Milestone M6). Upgraded `permission_handler`, integrated `flutter_animate` for smooth micro-animations, applied glassmorphic aesthetics to cards/dialogs, updated typography tracking, and refined gradient backgrounds.
+- next_action: Build and install a release APK (Milestone M7).
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked

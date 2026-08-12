@@ -178,17 +178,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  stops: const [0.0, 0.5, 1.0],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
                   colors: isDark
                       ? [
-                          const Color(0xFF0B0F19),
-                          const Color(0xFF0F172A),
-                          const Color(0xFF1E293B)
+                          const Color(0xFF0F172A), // Dark slate
+                          const Color(0xFF1E293B), // Slightly lighter
+                          const Color(0xFF0B1221), // Deep space
+                          const Color(0xFF06B6D4).withValues(alpha: 0.1), // Hint of cyan at bottom right
                         ]
                       : [
                           const Color(0xFFF8FAFC),
                           const Color(0xFFF1F5F9),
-                          const Color(0xFFE2E8F0)
+                          const Color(0xFFE2E8F0),
+                          const Color(0xFF3B82F6).withValues(alpha: 0.05), // Hint of blue
                         ],
                 ),
               ),
@@ -197,7 +199,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (isDesktop)
                     ClipRRect(
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30), // Increased blur for premium glass feel
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 32,
@@ -205,8 +207,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF0F172A).withValues(alpha: 0.6)
-                                : Colors.white.withValues(alpha: 0.7),
+                                ? const Color(0xFF0F172A).withValues(alpha: 0.5) // More transparent for more glass effect
+                                : Colors.white.withValues(alpha: 0.6),
                             border: Border(
                               bottom: BorderSide(
                                 color: isDark

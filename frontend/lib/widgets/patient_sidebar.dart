@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/patient_provider.dart';
 
 class PatientSidebar extends StatelessWidget {
@@ -76,7 +77,10 @@ class PatientSidebar extends StatelessWidget {
                               Navigator.pop(context);
                             }
                           },
-                        );
+                        )
+                            .animate(delay: Duration(milliseconds: 50 * index))
+                            .fadeIn(duration: 300.ms)
+                            .slideX(begin: -0.1, end: 0, duration: 300.ms, curve: Curves.easeOut);
                       },
                     ),
               ),

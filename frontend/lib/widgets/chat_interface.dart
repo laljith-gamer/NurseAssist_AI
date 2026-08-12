@@ -8,6 +8,8 @@ import '../providers/settings_provider.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
 import '../services/telemetry_service.dart';
+import '../models/types.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class ChatInterface extends StatefulWidget {
   const ChatInterface({super.key});
@@ -212,7 +214,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   ),
               ],
             ),
-          ),
+          ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2, end: 0, duration: 300.ms, curve: Curves.easeOut),
         );
       },
     );
@@ -294,7 +296,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _buildChatSessionBar(PatientProvider provider) {
@@ -685,7 +687,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   'we can use that feedback to improve future suggestions.\n',
                 ),
                 Text(
-                  'What's collected:',
+                  "What's collected:",
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 Text(
@@ -695,7 +697,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   'names are removed before anything leaves the device)\n',
                 ),
                 Text(
-                  'What's NOT collected:',
+                  "What's NOT collected:",
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
                 Text(
