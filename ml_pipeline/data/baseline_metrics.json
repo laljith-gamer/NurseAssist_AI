@@ -1,29 +1,42 @@
 {
   "held_out_test": {
-    "micro_f1": 0.6098,
-    "macro_f1": 0.5492,
-    "samples_f1": 0.5333
+    "micro_f1": 0.6381,
+    "macro_f1": 0.5722,
+    "samples_f1": 0.6087
   },
   "validation": {
-    "micro_f1": 0.612,
-    "macro_f1": 0.5793,
-    "samples_f1": 0.5187
+    "micro_f1": 0.6534,
+    "macro_f1": 0.5681,
+    "samples_f1": 0.6494
   },
   "selected_labels": [
     "Alert and oriented",
-    "Breath sounds",
+    "Ambulating",
+    "Anxious",
     "Chest pain",
     "Cognitive status",
+    "Emesis color",
+    "Fall risk assessment",
+    "Fall risk identification",
+    "Gastrointestinal symptoms",
     "Hypertension",
     "Mobility",
     "Nausea",
     "Oxygen delivery device",
-    "Respiratory Distress"
+    "Oxygen saturation",
+    "Pain severity",
+    "Pitting edema",
+    "Respiratory Distress",
+    "Respiratory interventions",
+    "Sleeping",
+    "Urinary symptoms",
+    "Urine odor",
+    "Vomiting"
   ],
   "training_features": {
     "tfidf_dims": 256,
     "bioclinicalbert": true,
     "pca_components": 256
   },
-  "source_model_version": "nurse-nlp-v34"
+  "source_model_version": "nurse-nlp-v35"
 }
