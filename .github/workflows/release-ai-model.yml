@@ -9,7 +9,7 @@ on:
         default: 'v1.0.0-model'
 
 env:
-  MODEL_URL: "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task"
+  MODEL_URL: "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task?download=true"
   MODEL_FILENAME: "Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task"
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
       - name: Download AI Model
         run: |
           echo "Downloading AI model from ${{ env.MODEL_URL }}..."
-          curl -L -o ${{ env.MODEL_FILENAME }} ${{ env.MODEL_URL }}
+          curl -L -o ${{ env.MODEL_FILENAME }} "${{ env.MODEL_URL }}"
           echo "Download complete. File size:"
           ls -lh ${{ env.MODEL_FILENAME }}
 
