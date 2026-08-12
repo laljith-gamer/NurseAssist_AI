@@ -38,5 +38,5 @@
     "bioclinicalbert": true,
     "pca_components": 256
   },
-  "source_model_version": "nurse-nlp-v35"
+  "source_model_version": "nurse-nlp-v36"
 }
