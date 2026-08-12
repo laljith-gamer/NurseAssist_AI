@@ -96,3 +96,4 @@ os.makedirs(settings.DATA_DIR, exist_ok=True)
 os.makedirs(settings.VECTOR_STORE_PATH, exist_ok=True)
 
 # Trigger GitHub Actions
+# Another trigger
