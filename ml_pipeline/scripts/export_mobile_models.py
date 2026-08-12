@@ -19,14 +19,15 @@ import sklearn
 import numpy as np
 from sklearn.metrics import f1_score
 
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+sys.path.append(str(Path(__file__).resolve().parent))
+
+from config import settings
 try:
     from clinical_dataset import load_mtsamples_dataset
 except ImportError:
     load_mtsamples_dataset = None
 from synur_dataset import load_all_splits
-
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from config import settings
 
 
 def calculate_sha256(path: Path) -> str:
