@@ -336,7 +336,7 @@ class LocalDbService {
       'vital_readings',
       where: 'patient_id = ?',
       whereArgs: [patientId],
-      orderBy: 'recorded_at DESC',
+      orderBy: 'recorded_at DESC, id DESC',
       limit: limit,
     );
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
@@ -372,7 +372,7 @@ class LocalDbService {
       'medication_records',
       where: 'patient_id = ?',
       whereArgs: [patientId],
-      orderBy: 'recorded_at DESC',
+      orderBy: 'recorded_at DESC, id DESC',
       limit: limit,
     );
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
@@ -406,7 +406,7 @@ class LocalDbService {
       'nursing_notes',
       where: 'patient_id = ?',
       whereArgs: [patientId],
-      orderBy: 'recorded_at DESC',
+      orderBy: 'recorded_at DESC, id DESC',
       limit: limit,
     );
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();

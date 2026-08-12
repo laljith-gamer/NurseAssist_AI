@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -18,65 +19,112 @@ class VitalSignsDeltaChart extends StatelessWidget {
 
         final deltas = metrics.deltas;
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16.0),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            Colors.white.withValues(alpha: 0.1),
+                            Colors.white.withValues(alpha: 0.03),
+                          ]
+                        : [
+                            Colors.white.withValues(alpha: 0.8),
+                            Colors.white.withValues(alpha: 0.4),
+                          ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.white.withValues(alpha: 0.5),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.monitor_heart,
+                          color: isDark ? Colors.white : Colors.blue[800],
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Current Vitals',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    if (metrics.current['systolic'] != null &&
+                        metrics.current['diastolic'] != null)
+                      _buildVitalRow(
+                        'Blood Pressure',
+                        '${_format(metrics.current['systolic'])}/${_format(metrics.current['diastolic'])} mmHg',
+                        deltas['bp_systolic']?.trend ?? 'stable',
+                        isDark,
+                      ),
+                    if (metrics.current['heart_rate'] != null)
+                      _buildVitalRow(
+                        'Heart Rate',
+                        '${_format(metrics.current['heart_rate'])} ${metrics.current['heart_rate_unit'] ?? 'bpm'}',
+                        deltas['heart_rate']?.trend ?? 'stable',
+                        isDark,
+                      ),
+                    if (metrics.current['temperature'] != null)
+                      _buildVitalRow(
+                        'Temperature',
+                        '${_format(metrics.current['temperature'])} ${metrics.current['temperature_unit'] ?? '°C'}',
+                        deltas['temperature']?.trend ?? 'stable',
+                        isDark,
+                      ),
+                    if (metrics.current['spo2'] != null)
+                      _buildVitalRow(
+                        'SpO₂',
+                        '${_format(metrics.current['spo2'])}${metrics.current['spo2_unit'] ?? '%'}',
+                        deltas['spo2']?.trend ?? 'stable',
+                        isDark,
+                      ),
+                    if (metrics.current['respiratory_rate'] != null)
+                      _buildVitalRow(
+                        'Respiratory Rate',
+                        '${_format(metrics.current['respiratory_rate'])} ${metrics.current['respiratory_rate_unit'] ?? '/min'}',
+                        deltas['respiratory_rate']?.trend ?? 'stable',
+                        isDark,
+                      ),
+                  ],
+                ),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Current Vitals & Delta',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              if (metrics.current['systolic'] != null &&
-                  metrics.current['diastolic'] != null)
-                _buildVitalRow(
-                  'Blood Pressure',
-                  '${_format(metrics.current['systolic'])}/${_format(metrics.current['diastolic'])} mmHg',
-                  deltas['bp_systolic']?.trend ?? 'stable',
-                ),
-              if (metrics.current['heart_rate'] != null)
-                _buildVitalRow(
-                  'Heart Rate',
-                  '${_format(metrics.current['heart_rate'])} ${metrics.current['heart_rate_unit'] ?? 'bpm'}',
-                  deltas['heart_rate']?.trend ?? 'stable',
-                ),
-              if (metrics.current['temperature'] != null)
-                _buildVitalRow(
-                  'Temperature',
-                  '${_format(metrics.current['temperature'])} ${metrics.current['temperature_unit'] ?? '°C'}',
-                  deltas['temperature']?.trend ?? 'stable',
-                ),
-              if (metrics.current['spo2'] != null)
-                _buildVitalRow(
-                  'SpO₂',
-                  '${_format(metrics.current['spo2'])}${metrics.current['spo2_unit'] ?? '%'}',
-                  deltas['spo2']?.trend ?? 'stable',
-                ),
-              if (metrics.current['respiratory_rate'] != null)
-                _buildVitalRow(
-                  'Respiratory Rate',
-                  '${_format(metrics.current['respiratory_rate'])} ${metrics.current['respiratory_rate_unit'] ?? '/min'}',
-                  deltas['respiratory_rate']?.trend ?? 'stable',
-                ),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildVitalRow(String name, String value, String trend) {
+  Widget _buildVitalRow(String name, String value, String trend, bool isDark) {
     final (trendIcon, trendColor) = switch (trend) {
       'increasing' || 'rapidly_increasing' => (Icons.arrow_upward, Colors.red),
       'decreasing' ||
@@ -92,20 +140,30 @@ class VitalSignsDeltaChart extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white70 : Colors.black54,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Row(
             children: [
-              Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                value,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
               const SizedBox(width: 8),
               if (isHeartRate)
                 PulseAnimation(child: iconWidget)

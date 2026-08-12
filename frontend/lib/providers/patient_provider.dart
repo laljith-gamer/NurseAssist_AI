@@ -440,6 +440,7 @@ class PatientProvider with ChangeNotifier {
     final metrics = await _apiService.getVitalsDelta(patientId);
     if (_selectedPatient?.id == patientId) {
       _currentMetrics = DeltaMetrics.fromJson(metrics);
+      notifyListeners();
     }
   }
 

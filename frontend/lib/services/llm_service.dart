@@ -52,7 +52,7 @@ class LlmService extends ChangeNotifier {
         directory: appDir.path,
         baseDirectory: BaseDirectory.root, // Since we pass absolute path to directory
         updates: Updates.statusAndProgress,
-        retries: 20,
+        retries: 7,
         allowPause: true,
       );
 
