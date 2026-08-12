@@ -1,13 +1,13 @@
 {
   "held_out_test": {
     "micro_f1": 0.6098,
-    "macro_f1": 0.5500,
-    "samples_f1": 0.5800
+    "macro_f1": 0.5492,
+    "samples_f1": 0.5333
   },
   "validation": {
-    "micro_f1": 0.6534,
-    "macro_f1": 0.5681,
-    "samples_f1": 0.6494
+    "micro_f1": 0.6116,
+    "macro_f1": 0.5789,
+    "samples_f1": 0.5182
   },
   "selected_labels": [
     "Alert and oriented",
@@ -17,13 +17,13 @@
     "Hypertension",
     "Mobility",
     "Nausea",
-    "Respiratory Distress",
-    "Respiratory interventions"
+    "Oxygen delivery device",
+    "Respiratory Distress"
   ],
   "training_features": {
     "tfidf_dims": 256,
-    "bioclinicalbert": false,
+    "bioclinicalbert": true,
     "pca_components": 256
   },
-  "source_model_version": "nurse-nlp-v21"
+  "source_model_version": "nurse-nlp-v29"
 }
