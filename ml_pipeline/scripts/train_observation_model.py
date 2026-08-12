@@ -306,28 +306,33 @@ def train_model() -> None:
     print("\n=== BioClinicalBERT Feature Extraction ===")
     used_bert = False
     bert_pca = None
-    try:
-        bert_embedder = BioClinicalBertEmbedder(
-            model_name=settings.BIOCLINICALBERT_MODEL,
-            max_length=settings.BIOCLINICALBERT_MAX_LENGTH,
-            batch_size=settings.BIOCLINICALBERT_BATCH_SIZE,
-            cache_dir=settings.BIOCLINICALBERT_CACHE_DIR,
-        )
-        
-        train_texts = [example.transcript for example in train_examples]
-        dev_texts = [example.transcript for example in dev_examples]
+    if settings.USE_BIOCLINICALBERT:
+        try:
+            bert_embedder = BioClinicalBertEmbedder(
+                model_name=settings.BIOCLINICALBERT_MODEL,
+                max_length=settings.BIOCLINICALBERT_MAX_LENGTH,
+                batch_size=settings.BIOCLINICALBERT_BATCH_SIZE,
+                cache_dir=settings.BIOCLINICALBERT_CACHE_DIR,
+            )
+            
+            train_texts = [example.transcript for example in train_examples]
+            dev_texts = [example.transcript for example in dev_examples]
 
-        train_bert, selector_pca = _compute_bert_features(
-            bert_embedder, train_texts, fit_pca=True,
-        )
-        dev_bert, _ = _compute_bert_features(
-            bert_embedder, dev_texts, pca=selector_pca,
-        )
-        used_bert = True
-        bert_pca = selector_pca
-    except Exception as e:
-        print(f"BioClinicalBERT is unavailable due to an error: {e}")
-        print("Falling back to TF-IDF only.")
+            train_bert, selector_pca = _compute_bert_features(
+                bert_embedder, train_texts, fit_pca=True,
+            )
+            dev_bert, _ = _compute_bert_features(
+                bert_embedder, dev_texts, pca=selector_pca,
+            )
+            used_bert = True
+            bert_pca = selector_pca
+        except Exception as e:
+            print(f"BioClinicalBERT is unavailable due to an error: {e}")
+            print("Falling back to TF-IDF only.")
+            train_bert = None
+            dev_bert = None
+    else:
+        print("BioClinicalBERT is disabled. Using TF-IDF only.")
         train_bert = None
         dev_bert = None
 

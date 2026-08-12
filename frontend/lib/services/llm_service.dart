@@ -14,7 +14,7 @@ class LlmService extends ChangeNotifier {
   // 2.71 GB.
   static const String _modelFileName = 'gemma-2-2b-it-int4.task';
   static const String _modelUrl =
-      'https://huggingface.co/buckets/lalvictory/Gemma2-2B-IT-bucket/resolve/$_modelFileName';
+      'https://huggingface.co/lalvictory/Gemma2-2B-IT-bucket/resolve/main/$_modelFileName';
 
   static const String _prefKeyModelInstalled = 'llm_model_installed_mini';
 

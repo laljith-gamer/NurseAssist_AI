@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     BIOCLINICALBERT_MAX_LENGTH: int = 512
     BIOCLINICALBERT_BATCH_SIZE: int = 32
     BIOCLINICALBERT_CACHE_DIR: Path = BASE_DIR / "data" / ".cache" / "bioclinicalbert"
-    USE_BIOCLINICALBERT: bool = True
+    USE_BIOCLINICALBERT: bool = False
     
     BP_NORMAL_SYSTOLIC: tuple = (90, 120)
     BP_NORMAL_DIASTOLIC: tuple = (60, 80)
