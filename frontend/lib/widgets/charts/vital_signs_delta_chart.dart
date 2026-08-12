@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/patient_provider.dart';
+import 'pulse_animation.dart';
 
 class VitalSignsDeltaChart extends StatelessWidget {
   const VitalSignsDeltaChart({super.key});
@@ -83,6 +84,13 @@ class VitalSignsDeltaChart extends StatelessWidget {
       _ => (Icons.arrow_forward, Colors.grey),
     };
 
+    final isHeartRate = name == 'Heart Rate';
+    final iconWidget = Icon(
+      isHeartRate ? Icons.favorite : trendIcon,
+      color: isHeartRate ? Colors.red : trendColor,
+      size: 16,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -99,7 +107,10 @@ class VitalSignsDeltaChart extends StatelessWidget {
             children: [
               Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
-              Icon(trendIcon, color: trendColor, size: 16),
+              if (isHeartRate)
+                PulseAnimation(child: iconWidget)
+              else
+                iconWidget,
             ],
           ),
         ],

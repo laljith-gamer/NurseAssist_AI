@@ -358,7 +358,16 @@ class ModelManager extends ChangeNotifier {
       throw const FormatException('Invalid exported classifier');
     }
 
-    if (outW.length != classes.length || outB.length != classes.length || idf.length != inputDim) {
+    if (outW.length != classes.length || outB.length != classes.length) {
+      throw const FormatException('Classifier dimensions do not match');
+    }
+
+    int expectedIdfLength = inputDim;
+    if (model['bert_projection'] is Map) {
+      expectedIdfLength -= (model['bert_projection']['reduced_dim'] as num).toInt();
+    }
+    
+    if (idf.length != expectedIdfLength) {
       throw const FormatException('Classifier dimensions do not match');
     }
 

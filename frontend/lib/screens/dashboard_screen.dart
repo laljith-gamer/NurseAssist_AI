@@ -5,6 +5,7 @@ import '../widgets/patient_sidebar.dart';
 import '../widgets/chat_interface.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/clinical_change_banner.dart';
+import '../widgets/charts/vital_history_charts.dart';
 import '../widgets/charts/vital_signs_delta_chart.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
@@ -324,7 +325,7 @@ class _DashboardContent extends StatelessWidget {
                 child: Column(
                   children: const [
                     VitalSignsDeltaChart(),
-                    // Additional charts can go here
+                    VitalHistoryCharts(),
                   ],
                 ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideX(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
               ),
@@ -359,7 +360,12 @@ class _DashboardContent extends StatelessWidget {
                           SizedBox(height: 8),
                           Expanded(
                             child: SingleChildScrollView(
-                              child: VitalSignsDeltaChart(),
+                              child: Column(
+                                children: [
+                                  VitalSignsDeltaChart(),
+                                  VitalHistoryCharts(),
+                                ],
+                              ),
                             ),
                           ),
                         ],

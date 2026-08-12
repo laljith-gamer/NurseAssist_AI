@@ -51,6 +51,7 @@ dependencies:
   flutter_gemma_mediapipe: ^1.0.0
   shared_preferences: ^2.5.2
   flutter_animate: ^4.5.2
+  background_downloader: ^9.5.7
 
 dev_dependencies:
   flutter_test:

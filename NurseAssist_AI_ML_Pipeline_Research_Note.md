@@ -7,7 +7,7 @@ Scope: `ml_pipeline/` (Python training + CI/CD) and `lib/` (Flutter mobile app),
 
 ## 1. What this system is
 
-NurseAssist AI is an **offline-first clinical assistant app for nurses**, built in Flutter. Its core interaction is a chat interface backed by a quantized on-device LLM (`gemma-2-2b-it-int4`, ~2.7 GB, downloaded separately from Hugging Face because GitHub Release assets cap at 2 GB). Talking to a 2B-parameter LLM for every keystroke is slow, so the app front-loads a **fast, deterministic/statistical layer** in front of it:
+NurseAssist AI is an **offline-first clinical assistant app for nurses**, built in Flutter. Its core interaction is a chat interface backed by a quantized on-device LLM (`Gemma3-1B-IT`, ~1 GB, downloaded from GitHub Releases in the background using native download managers). Talking to a 1B-parameter LLM for every keystroke is slow, so the app front-loads a **fast, deterministic/statistical layer** in front of it:
 
 1. A regex-based **intent classifier** and **entity extractor** (`nlp/intent_classifier.py`, `nlp/entity_extractor.py`) — catches obvious commands ("record BP 120/80") in well under 100 ms, no ML involved.
 2. A small **clinical observation model** — the subject of this note — which reads a nurse's free-text note and *suggests* structured observation labels ("Hypertension", "Chest pain", "Alert and oriented" …) as context for the LLM. It never writes to a chart by itself; the code repeatedly enforces "advisory only."
@@ -101,13 +101,13 @@ Independently re-implements char‑wb n-gram tokenization, TF‑IDF weighting, a
 
 Ordinary code review surfaces a few things worth flagging — these aren't stylistic nitpicks, they're places where the system's actual behavior diverges from what the code around it implies.
 
-### 4.1 — Mobile install step validates the wrong schema (breaking)
+### 4.1 — Mobile install step validates the wrong schema *(Resolved)*
 
 `export_mobile_models.py` emits `observations.json` with `"type": "compact_clinical_mlp"` and the payload nested under an `"mlp"` key (`layer1_weight`, `layer2_weight`, `output_weight`, …). `local_nlp_service.dart` — the code that actually *scores text* on-device — correctly expects exactly that shape.
 
-But `model_manager.dart`'s `_validateExportedModel`, which runs **during install, before that file is ever trusted**, checks for `model['type'] == 'multi_label_sgd_classifier'` and top-level `coef` / `intercept` fields — the shape of an older linear-model export format that predates the current MLP. Every field it checks for is absent from what the pipeline now produces.
+Previously, `model_manager.dart`'s `_validateExportedModel` checked for an older schema (`multi_label_sgd_classifier`), which caused all modern model installations to fail.
 
-**Consequence:** `_validateExportedModel` throws on every real release, `_downloadAndInstallLatest` hits its catch block, and the install is aborted (with automatic rollback to whatever was previously installed, per §3.7 step 5 — so at least this fails safe rather than corrupting state). Nothing in CI would catch this: `verify_mobile_export.py` only checks the Python-side re-implementation against the pickle, and no test in `tests/` touches `model_manager.dart` at all. As it stands, a freshly published release is installable in theory but not in practice.
+**Resolution:** This has now been fixed! `_validateExportedModel` now accurately verifies the `compact_clinical_mlp` schema and dimension checks, allowing new model updates to ship and install successfully.
 
 ### 4.2 — Field telemetry is ingested but never trained on
 
@@ -170,7 +170,7 @@ The same three composition rules (`Hypertension`+`Tachycardia` → `Hemodynamic 
 
 ## 7. Suggested next steps
 
-1. **Fix `_validateExportedModel` in `model_manager.dart`** to check for `compact_clinical_mlp` / the `mlp` sub-object instead of the retired SGD schema — this is currently the single blocker on shipping any model update at all.
+1. ~~**Fix `_validateExportedModel` in `model_manager.dart`** to check for `compact_clinical_mlp` / the `mlp` sub-object instead of the retired SGD schema — this is currently the single blocker on shipping any model update at all.~~ *(Completed)*
 2. **Wire `telemetry_examples.pkl` into `train_observation_model.py`** (or remove the `ingest_telemetry.py` step and the `check-telemetry` gate from `train-models.yml` if continuous learning from field data isn't ready yet) so the weekly workflow's behavior matches its stated purpose.
 3. **Install `torch`/`scipy` in `validate-pr.yml` too** (even if only for a lighter-weight check), so a PR is validated against the same feature configuration that will actually train on merge.
 4. Add unit tests around `train_observation_model.py`'s label-selection logic and `export_mobile_models.py`'s weight-transpose/export shape, so a regression there surfaces in seconds, not after a full pipeline run.

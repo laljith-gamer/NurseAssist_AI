@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
-import 'package:http/http.dart' as http;
+
+import 'package:background_downloader/background_downloader.dart';
 import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
 
@@ -45,34 +46,36 @@ class LlmService extends ChangeNotifier {
     final tempFile = File(path.join(appDir.path, _modelFileName));
 
     try {
-      final request = http.Request('GET', Uri.parse(_modelUrl));
-      final response = await http.Client().send(request);
-      
-      if (response.statusCode != 200) {
-        throw HttpException('Failed to download model (HTTP \${response.statusCode})');
-      }
+      final task = DownloadTask(
+        url: _modelUrl,
+        filename: _modelFileName,
+        directory: appDir.path,
+        baseDirectory: BaseDirectory.root, // Since we pass absolute path to directory
+        updates: Updates.statusAndProgress,
+        retries: 20,
+        allowPause: true,
+      );
 
-      final contentLength = response.contentLength ?? 1024 * 1024 * 1000;
-      int bytesDownloaded = 0;
-      int lastReportTime = 0;
-      
-      final sink = tempFile.openWrite();
-      
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        bytesDownloaded += chunk.length;
-        
-        final now = DateTime.now().millisecondsSinceEpoch;
-        if (now - lastReportTime > 500) {
-          final percent = (bytesDownloaded / contentLength * 100).toStringAsFixed(1);
-          _statusMessage = 'Downloading AI model... $percent%';
-          notifyListeners();
-          lastReportTime = now;
+      final result = await FileDownloader().download(
+        task,
+        onProgress: (progress) {
+          if (progress >= 0.0 && progress <= 1.0) {
+            final percent = (progress * 100).toStringAsFixed(1);
+            _statusMessage = 'Downloading AI model... $percent%';
+            notifyListeners();
+          }
+        },
+        onStatus: (status) {
+          if (status == TaskStatus.running) {
+             _statusMessage = 'Downloading AI model...';
+             notifyListeners();
+          }
         }
+      );
+
+      if (result.status != TaskStatus.complete) {
+        throw HttpException('Failed to download model. Status: ${result.status}');
       }
-      
-      await sink.flush();
-      await sink.close();
 
       _statusMessage = 'Installing AI model...';
       notifyListeners();
