@@ -321,6 +321,9 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getChatSessions(String patientId) =>
       _db.getChatSessions(patientId);
 
+  Future<void> updateChatSessionTitle(String id, String title) =>
+      _db.updateChatSessionTitle(id, title);
+
   Future<List<Map<String, dynamic>>> getChatHistory(
     String patientId, {
     String? sessionId,

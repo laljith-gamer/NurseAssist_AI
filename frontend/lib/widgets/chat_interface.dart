@@ -324,15 +324,58 @@ class _ChatInterfaceState extends State<ChatInterface> {
                 ? null
                 : () => _showChatHistory(context, provider),
           ),
-          IconButton(
-            tooltip: 'New chat',
-            icon: const Icon(Icons.edit_square),
-            onPressed: provider.isResponding
-                ? null
-                : () async {
-                    await provider.startNewChat();
-                    if (mounted) _scrollToBottom();
-                  },
+          // Premium Glassy iPhone-style New Chat button
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: provider.isResponding
+                        ? null
+                        : () async {
+                            await provider.startNewChat();
+                            if (mounted) _scrollToBottom();
+                          },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'New Chat',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -356,14 +399,53 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   'Chat history',
                   style: TextStyle(fontWeight: FontWeight.w700),
                 ),
-                trailing: FilledButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(sheetContext);
-                    await provider.startNewChat();
-                    if (mounted) _scrollToBottom();
-                  },
-                  icon: const Icon(Icons.add_comment_outlined),
-                  label: const Text('New chat'),
+                trailing: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)], // Vibrant cyan to blue
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () async {
+                            Navigator.pop(sheetContext);
+                            await provider.startNewChat();
+                            if (mounted) _scrollToBottom();
+                          },
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
+                                SizedBox(width: 6),
+                                Text(
+                                  'New Chat',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const Divider(height: 1),

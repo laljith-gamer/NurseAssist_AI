@@ -405,6 +405,16 @@ class LocalDbService {
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
+  Future<void> updateChatSessionTitle(String id, String title) async {
+    final db = await database;
+    await db.update(
+      'chat_sessions',
+      {'title': title},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   Future<void> saveChatMessage({
     required String id,
     required String patientId,

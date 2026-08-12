@@ -169,12 +169,16 @@ class PatientProvider with ChangeNotifier {
   Future<void> startNewChat() async {
     final patient = _selectedPatient;
     if (patient == null || _isResponding) return;
-    final now = DateTime.now();
+    
+    // Prevent creating multiple empty new chats
+    if (_messages.isEmpty && _activeChatSession != null) {
+      return;
+    }
+
     final session = ChatSession.fromJson(
       await _apiService.createChatSession(
         patient.id,
-        title:
-            'Chat ${now.day}/${now.month} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+        title: 'New chat',
       ),
     );
     if (_selectedPatient?.id != patient.id) return;
@@ -253,6 +257,21 @@ class PatientProvider with ChangeNotifier {
         content: userMessage.content,
         createdAt: userMessage.timestamp,
       );
+
+      // Auto-assign title for a new chat
+      if (_messages.length == 1) {
+        String newTitle = message.trim();
+        if (newTitle.length > 20) {
+          newTitle = '${newTitle.substring(0, 20)}...';
+        }
+        await _apiService.updateChatSessionTitle(chatSession.id, newTitle);
+        chatSession.title = newTitle;
+        // Update the session list so the sidebar redraws
+        final index = _chatSessions.indexWhere((s) => s.id == chatSession.id);
+        if (index != -1) {
+          _chatSessions[index] = chatSession;
+        }
+      }
 
       // Gemma is the primary interpreter. The smaller model contributes only
       // data-driven nursing context; it cannot create a command or a value.
