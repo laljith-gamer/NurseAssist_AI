@@ -1,10 +1,10 @@
 # CURRENT
 - active_loop: ml-pipeline-optimization
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
-- iteration: 8
+- iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: Built release APK successfully (Milestone M7). The app is ready for deployment.
-- next_action: All milestones complete. Await further instructions.
+- last_action: "Updated frontend to download the Gemma 3 1B AI model on-demand from GitHub Releases instead of bundling it, keeping the APK lightweight. Created a GitHub action to deploy the model to GitHub Releases."
+- next_action: Build a release APK (M7) and hand it over to the user for device deployment and final testing.
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked

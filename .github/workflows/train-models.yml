@@ -82,6 +82,7 @@ jobs:
       - name: Train real-data nursing observation model
         env:
           PYTHONHASHSEED: "0"
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           echo "SYNUR MODEL TRAINING: STARTED"
           python ml_pipeline/scripts/ingest_telemetry.py

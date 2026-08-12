@@ -1,28 +1,24 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
+import 'package:http/http.dart' as http;
 import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
-/// Downloads an optional on-device LLM once, then runs fully offline.
+/// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
-  // The model is hosted directly in the project's public Hugging Face bucket.
-  // GitHub Release assets are limited to under 2 GiB, while this task model is
-  // 2.71 GB.
-  static const String _modelFileName = 'gemma-2-2b-it-int4.task';
   static const String _modelUrl =
-      'https://huggingface.co/lalvictory/Gemma2-2B-IT-bucket/resolve/main/$_modelFileName';
+      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0-model/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
+  static const String _modelFileName =
+      'Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
 
-  static const String _prefKeyModelInstalled = 'llm_model_installed_mini';
-
-  bool _isModelInstalled = false;
-  bool _isDownloading = false;
   bool _isInitializing = false;
   bool _isReady = false;
-  double _downloadProgress = 0.0;
   String _statusMessage = 'Checking...';
   String? _errorMessage;
   InferenceModel? _model;
@@ -30,101 +26,74 @@ class LlmService extends ChangeNotifier {
   bool _isGenerating = false;
   Future<void>? _initializationFuture;
 
-  bool get isModelInstalled => _isModelInstalled;
-  bool get isDownloading => _isDownloading;
   bool get isInitializing => _isInitializing;
   bool get isReady => _isReady;
-  double get downloadProgress => _downloadProgress;
   String get statusMessage => _statusMessage;
   String? get errorMessage => _errorMessage;
 
-  /// Check if model is already downloaded
-  Future<bool> checkModelInstalled() async {
-    if (kIsWeb) {
-      _isModelInstalled = false;
-      return false;
-    }
+  /// Ensure the model file is downloaded to app storage and installed.
+  Future<void> _ensureModelInstalled() async {
+    if (kIsWeb) return;
+
+    final isInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
+    if (isInstalled) return;
+
+    _statusMessage = 'Downloading AI model (~1 GB)...';
+    notifyListeners();
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final tempFile = File(path.join(appDir.path, _modelFileName));
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final bool hasUpgraded = prefs.getBool('upgraded_litertlm_v7') ?? false;
-
-      if (!hasUpgraded) {
-        // Remove previous model variants. The current Gemma 2 task is fetched
-        // directly from the public bucket and has a different filename.
-        try {
-          await FlutterGemma.uninstallModel('Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task');
-          await FlutterGemma.uninstallModel('gemma3-270m-it-q8.litertlm');
-          await FlutterGemma.uninstallModel('gemma-4-E2B-it-gpu.litertlm');
-          await FlutterGemma.uninstallModel('gemma-4-E2B-it.litertlm');
-        } catch (error) {
-          debugPrint('Previous model cleanup skipped: $error');
-        }
-        await prefs.setBool('upgraded_litertlm_v7', true);
+      final request = http.Request('GET', Uri.parse(_modelUrl));
+      final response = await http.Client().send(request);
+      
+      if (response.statusCode != 200) {
+        throw HttpException('Failed to download model (HTTP \${response.statusCode})');
       }
 
-      _isModelInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
-    } catch (e) {
-      // Fall back to shared prefs check
-      final prefs = await SharedPreferences.getInstance();
-      _isModelInstalled = prefs.getBool(_prefKeyModelInstalled) ?? false;
-    }
-    notifyListeners();
-    return _isModelInstalled;
-  }
+      final contentLength = response.contentLength ?? 1024 * 1024 * 1000;
+      int bytesDownloaded = 0;
+      int lastReportTime = 0;
+      
+      final sink = tempFile.openWrite();
+      
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        bytesDownloaded += chunk.length;
+        
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (now - lastReportTime > 500) {
+          final percent = (bytesDownloaded / contentLength * 100).toStringAsFixed(1);
+          _statusMessage = 'Downloading AI model... $percent%';
+          notifyListeners();
+          lastReportTime = now;
+        }
+      }
+      
+      await sink.flush();
+      await sink.close();
 
-  /// Download the optional task model directly from the public model bucket.
-  Future<bool> downloadModel() async {
-    if (_isDownloading) return false;
-
-    _isDownloading = true;
-    _downloadProgress = 0.0;
-    _statusMessage = 'Preparing download...';
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      _statusMessage = 'Downloading optional AI model...';
+      _statusMessage = 'Installing AI model...';
       notifyListeners();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
-      ).fromNetwork(_modelUrl).withProgress((progress) {
-        _downloadProgress = progress / 100.0;
-        _statusMessage =
-            'Downloading AI model... ${progress.toStringAsFixed(0)}%';
-        notifyListeners();
-      }).install();
-
-      _statusMessage = 'Model installed successfully!';
-      _isModelInstalled = true;
-      _isDownloading = false;
-
-      // Persist flag
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefKeyModelInstalled, true);
-
-      notifyListeners();
-      // The download route may already have been dismissed. The service owns
-      // startup so a completed download always becomes usable in this app
-      // session, regardless of which screen the nurse is viewing.
-      unawaited(Future<void>.delayed(Duration.zero, initializeEngine));
-      return true;
+      ).fromFile(tempFile.path).install();
     } catch (e) {
-      _errorMessage = 'Download failed: ${e.toString()}';
-      _statusMessage = 'Download failed';
-      _isDownloading = false;
-      _downloadProgress = 0.0;
-      notifyListeners();
-      debugPrint('LLM download error: $e');
-      return false;
+      if (await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+      }
+      rethrow;
     }
   }
 
   /// Initialize the LLM engine for inference
   Future<void> initializeEngine() async {
-    if (!_isModelInstalled || _isReady) return;
+    if (_isReady) return;
 
     // The native task-model allocation is expensive. Reuse the in-flight
     // initialization rather than starting another allocation from a route
@@ -144,16 +113,17 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // The Gemma 2 task crashes on some OpenCL/GPU drivers while allocating
-      // its key/value cache (including Android emulators). CPU is slower but
-      // gives a reliable on-device initialization path.
+      await _ensureModelInstalled();
+
+      // CPU is slower but gives a reliable on-device initialization path,
+      // especially on Android emulators where GPU/OpenCL can crash.
       final preferCpu = !kIsWeb;
 
       _model = await FlutterGemma.getActiveModel(
         preferredBackend: preferCpu
             ? PreferredBackend.cpu
             : PreferredBackend.gpu,
-        maxTokens: 2048,
+        maxTokens: 1280,
       );
 
       _chat = await _model!.createChat(
@@ -168,7 +138,7 @@ class LlmService extends ChangeNotifier {
 
       _isReady = true;
       _statusMessage = 'AI Ready';
-      debugPrint('LLM engine initialized successfully.');
+      debugPrint('LLM engine initialized successfully (Gemma 3 1B IT).');
     } catch (e) {
       _errorMessage = 'Engine init failed: ${e.toString()}';
       _isReady = false;
@@ -223,7 +193,7 @@ not repeat your instructions or the user's prompt.''';
   /// Generate a response from the LLM using streaming
   Stream<String> generateResponseStream(String prompt) async* {
     if (!_isReady) {
-      yield 'AI model not loaded. Please download the model first.';
+      yield 'AI model is still loading. Please wait a moment.';
       return;
     }
 
@@ -257,7 +227,7 @@ not repeat your instructions or the user's prompt.''';
   /// Generate a complete response (non-streaming)
   Future<String> generateResponse(String prompt) async {
     if (!_isReady) {
-      return 'AI model not loaded.';
+      return 'AI model is still loading.';
     }
 
     if (_isGenerating) {

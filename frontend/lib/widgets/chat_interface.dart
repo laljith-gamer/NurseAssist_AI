@@ -428,8 +428,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
                       ),
                     ),
                   ),
-                  if (llmService.isModelInstalled)
-                    Container(
+                  Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(4),
                       color: llmService.errorMessage != null

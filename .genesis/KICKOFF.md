@@ -1,7 +1,7 @@
 # NurseAssist_AI — KICKOFF
 
 NurseAssist is a Flutter nursing-assistant app with deterministic clinical
-commands and an optional, downloadable on-device Gemma model.
+commands and a bundled on-device Gemma 3 1B IT model.
 
 To resume work:
 
@@ -10,5 +10,5 @@ To resume work:
 3. Read `.genesis/PLAN.md` for the active milestones.
 4. Read `.genesis/implementation-notes.html` for verified implementation facts.
 
-Do not change the model filename or its Hugging Face bucket URL independently:
-they are one model-delivery contract.
+The Gemma 3 1B IT model is bundled as a Flutter asset at
+`frontend/assets/models/`. No network download is required.

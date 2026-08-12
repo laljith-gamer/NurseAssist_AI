@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemma 3 1B WebGPU Demo</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg-color: #0f172a;
+            --chat-bg: #1e293b;
+            --text: #f8fafc;
+            --user-msg: #3b82f6;
+            --ai-msg: #334155;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background-color: var(--chat-bg);
+            padding: 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem;
+            border-radius: 12px;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: var(--user-msg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-message {
+            align-self: flex-start;
+            background-color: var(--ai-msg);
+            border-bottom-left-radius: 4px;
+        }
+
+        .input-container {
+            background-color: var(--chat-bg);
+            padding: 1rem 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            border-top: 1px solid #334155;
+        }
+
+        .input-box {
+            flex-grow: 1;
+            background-color: var(--bg-color);
+            border: 1px solid #475569;
+            color: var(--text);
+            padding: 1rem;
+            border-radius: 999px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-box:focus {
+            border-color: var(--primary);
+        }
+
+        .send-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
+            border-radius: 999px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .send-btn:hover {
+            background-color: #4338ca;
+        }
+
+        .send-btn:active {
+            transform: scale(0.95);
+        }
+
+        .send-btn:disabled {
+            background-color: #475569;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-top: 0.5rem;
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+            vertical-align: text-bottom;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Gemma 3 1B LiteRT WebGPU</h1>
+        <div class="status" id="status-text">Initializing MediaPipe WebGPU Engine...</div>
+    </div>
+
+    <div class="chat-container" id="chat">
+        <div class="message ai-message">
+            Hi! I'm Gemma 3 1B running entirely in your browser using WebGPU. How can I help you today?
+        </div>
+    </div>
+
+    <div class="input-container">
+        <input type="text" id="prompt-input" class="input-box" placeholder="Ask Gemma something..." disabled>
+        <button id="send-btn" class="send-btn" disabled>Send</button>
+    </div>
+
+    <!-- MediaPipe Tasks GenAI module via ES Modules -->
+    <script type="module">
+        import { FilesetResolver, LlmInference } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14-rc.1/genai.js";
+
+        const statusText = document.getElementById('status-text');
+        const sendBtn = document.getElementById('send-btn');
+        const promptInput = document.getElementById('prompt-input');
+        const chatContainer = document.getElementById('chat');
+
+        let llmInference;
+        let isGenerating = false;
+
+        async function initModel() {
+            try {
+                // Initialize MediaPipe LLM Inference
+                const genaiFileset = await FilesetResolver.forGenAiTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.14-rc.1/wasm"
+                );
+
+                statusText.innerHTML = "<span class='spinner'></span> Downloading Gemma 3 1B task file (~1GB). Please wait...";
+                
+                // Directly use the task file from the Litert-community HuggingFace Hub using CORS.
+                // Note: If the repo is gated, this might fail unless authenticated.
+                const modelAssetPath = "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task";
+                
+                llmInference = await LlmInference.createFromOptions(genaiFileset, {
+                    baseOptions: {
+                        modelAssetPath: modelAssetPath
+                    },
+                    maxTokens: 1280,
+                    topK: 40,
+                    temperature: 0.8,
+                    randomSeed: 101
+                });
+
+                statusText.innerHTML = "✅ Model loaded and ready! Running on WebGPU.";
+                promptInput.disabled = false;
+                sendBtn.disabled = false;
+                promptInput.focus();
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerHTML = "❌ Error loading model: " + error.message;
+            }
+        }
+
+        function appendMessage(text, isUser = false) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+            msgDiv.textContent = text;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return msgDiv;
+        }
+
+        async function generateResponse() {
+            const prompt = promptInput.value.trim();
+            if (!prompt || isGenerating || !llmInference) return;
+
+            promptInput.value = '';
+            appendMessage(prompt, true);
+            
+            isGenerating = true;
+            sendBtn.disabled = true;
+            promptInput.disabled = true;
+            statusText.innerText = "Gemma is thinking...";
+
+            const aiMessageDiv = appendMessage("");
+
+            try {
+                // Using standard generateResponse
+                const response = await llmInference.generateResponse(prompt);
+                aiMessageDiv.textContent = response;
+            } catch (error) {
+                console.error(error);
+                aiMessageDiv.textContent = "Error: " + error.message;
+            }
+
+            isGenerating = false;
+            sendBtn.disabled = false;
+            promptInput.disabled = false;
+            promptInput.focus();
+            statusText.innerHTML = "✅ Model loaded and ready! Running on WebGPU.";
+        }
+
+        sendBtn.addEventListener('click', generateResponse);
+        promptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') generateResponse();
+        });
+
+        // Start initialization
+        initModel();
+    </script>
+</body>
+</html>

@@ -8,9 +8,9 @@ import '../widgets/clinical_change_banner.dart';
 import '../widgets/charts/vital_signs_delta_chart.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
-import 'model_download_screen.dart';
 import '../services/api_service.dart';
 import 'dart:ui';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -61,29 +61,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
               const SizedBox(height: 16),
               Consumer<LlmService>(
                 builder: (context, llm, _) {
-                  if (llm.isModelInstalled) {
-                    return Text(
-                      llm.isReady
-                          ? 'Optional LLM: ready'
-                          : llm.isInitializing
-                          ? 'Optional LLM: starting in the background...'
-                          : llm.statusMessage,
-                      style: const TextStyle(fontSize: 12),
-                    );
+                  final String llmStatus;
+                  final Color statusColor;
+                  if (llm.isReady) {
+                    llmStatus = 'Gemma 3 1B: ready';
+                    statusColor = Colors.green;
+                  } else if (llm.isInitializing) {
+                    llmStatus = 'Gemma 3 1B: loading...';
+                    statusColor = Colors.orange;
+                  } else if (llm.errorMessage != null) {
+                    llmStatus = 'Gemma 3 1B: ${llm.errorMessage}';
+                    statusColor = Colors.red;
+                  } else {
+                    llmStatus = llm.statusMessage;
+                    statusColor = Colors.grey;
                   }
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const ModelDownloadScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.download),
-                      label: const Text('Download optional LLM'),
-                    ),
+                  return Text(
+                    llmStatus,
+                    style: TextStyle(fontSize: 12, color: statusColor),
                   );
                 },
               ),
@@ -321,7 +316,7 @@ class _DashboardContent extends StatelessWidget {
                     ClinicalChangeBanner(),
                     Expanded(child: ChatInterface()),
                   ],
-                ),
+                ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -331,7 +326,7 @@ class _DashboardContent extends StatelessWidget {
                     VitalSignsDeltaChart(),
                     // Additional charts can go here
                   ],
-                ),
+                ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideX(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
               ),
             ],
           );
@@ -357,7 +352,7 @@ class _DashboardContent extends StatelessWidget {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      const ChatInterface(),
+                      const ChatInterface().animate().fadeIn(duration: 300.ms),
                       Column(
                         children: const [
                           ClinicalChangeBanner(),
@@ -368,8 +363,8 @@ class _DashboardContent extends StatelessWidget {
                             ),
                           ),
                         ],
-                      ),
-                      _ScoreTabContent(),
+                      ).animate().fadeIn(duration: 300.ms),
+                      _ScoreTabContent().animate().fadeIn(duration: 300.ms),
                     ],
                   ),
                 ),

@@ -36,7 +36,7 @@ dependencies:
   web_socket_channel: ^3.0.0
   flutter_markdown_plus: ^1.0.0
   speech_to_text: ^7.0.0
-  permission_handler: ^11.4.0
+  permission_handler: ^13.0.1
   provider: ^6.1.5+1
   google_fonts: ^8.1.0
   sqflite: ^2.4.2
@@ -74,7 +74,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Exported NLP models are installed atomically from GitHub Releases. The
+  # assets:
+    # Exported NLP models are installed atomically from GitHub Releases. The
   # clinical command parser works without them, so the app remains usable on a
   # first offline launch instead of declaring missing build-time assets.
 

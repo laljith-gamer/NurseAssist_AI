@@ -10,8 +10,8 @@ The app features a professional **Clinical Glass** UI, providing a modern, frict
 
 NurseAssist AI combines a sophisticated local frontend with an evolving, offline-first ML pipeline.
 
-### 1. The Core AI Interpreter (Gemma 2)
-The app uses an optional on-device **Gemma 2 2B IT Q8** model (2.71 GB). This model interprets natural nursing language (e.g., *"Record BP 120/80"*) into a compact, structured proposal. No clinical decisions or diagnoses are made; it strictly structures dictation for charting.
+### 1. The Core AI Interpreter (Gemma 3 1B)
+The app bundles an on-device **Gemma 3 1B IT Q8** model (~1 GB) as a Flutter asset. This model interprets natural nursing language (e.g., *"Record BP 120/80"*) into a compact, structured proposal. No clinical decisions or diagnoses are made; it strictly structures dictation for charting. No download is required — the model ships inside the APK.
 
 ### 2. The Nursing Observation Sidecar
 A smaller, data-backed nursing-observation model runs alongside the interpreter to provide contextual validation. It is trained from [Microsoft SYNUR](https://huggingface.co/datasets/microsoft/SYNUR), a public CDLA-Permissive-2.0 dataset of synthetic expert-nurse dictations.

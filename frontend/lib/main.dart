@@ -24,12 +24,8 @@ void main() async {
   final modelManager = ModelManager(onModelUpdated: localNlpService.loadModels);
   await localNlpService.loadModels();
 
-  // Check if LLM model is already installed
-  final llmInstalled = await llmService.checkModelInstalled();
-  if (llmInstalled) {
-    // Initialize the LLM engine in background
-    llmService.initializeEngine();
-  }
+  // Initialize the bundled Gemma 3 1B IT engine in background
+  llmService.initializeEngine();
 
   final settingsProvider = SettingsProvider();
   await settingsProvider.loadFromPrefs();
