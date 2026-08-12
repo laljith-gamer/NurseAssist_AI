@@ -5,9 +5,9 @@
     "samples_f1": 0.5333
   },
   "validation": {
-    "micro_f1": 0.6116,
-    "macro_f1": 0.5789,
-    "samples_f1": 0.5182
+    "micro_f1": 0.612,
+    "macro_f1": 0.5793,
+    "samples_f1": 0.5187
   },
   "selected_labels": [
     "Alert and oriented",
@@ -25,5 +25,5 @@
     "bioclinicalbert": true,
     "pca_components": 256
   },
-  "source_model_version": "nurse-nlp-v32"
+  "source_model_version": "nurse-nlp-v33"
 }
