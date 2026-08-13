@@ -9,8 +9,8 @@ on:
         default: 'v1.0.0-model'
 
 env:
-  MODEL_URL: "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4-web.task?download=true"
-  MODEL_FILENAME: "Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task"
+  MODEL_URL: "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true"
+  MODEL_FILENAME: "gemma3-1b-it-int4.task"
 
 permissions:
   contents: write # Required to create a GitHub Release

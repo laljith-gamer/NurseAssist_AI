@@ -14,9 +14,9 @@ import 'local_nlp_service.dart';
 /// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
-      'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/v1.0.0-model/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
+      'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true';
   static const String _modelFileName =
-      'Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
+      'gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
@@ -39,18 +39,23 @@ class LlmService extends ChangeNotifier {
     final isInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
     if (isInstalled) return;
 
-    _statusMessage = 'Downloading AI model (~1 GB)...';
+    _statusMessage = 'Downloading AI model (~550 MB)...';
     notifyListeners();
 
     final appDir = await getApplicationDocumentsDirectory();
     final tempFile = File(path.join(appDir.path, _modelFileName));
 
+    if (await tempFile.exists()) {
+      try {
+        await tempFile.delete();
+      } catch (_) {}
+    }
+
     try {
       final task = DownloadTask(
         url: _modelUrl,
         filename: _modelFileName,
-        directory: appDir.path,
-        baseDirectory: BaseDirectory.root, // Since we pass absolute path to directory
+        baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
         retries: 7,
         allowPause: true,
