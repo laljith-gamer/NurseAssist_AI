@@ -3,7 +3,7 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Fixed MediaPipe 'Unable to open zip archive' error by switching from the web-specific 'gemma3-1b-it-int4-web.task' to the native Android 'gemma3-1b-it-int4.task' model directly from Hugging Face. Fixed background_downloader path to use BaseDirectory.applicationDocuments and added auto-deletion of corrupted files."
+- last_action: "Removed the GitHub Action workflow for AI model releases since we are directly downloading the Android-compatible 'gemma3-1b-it-int4.task' model from Hugging Face."
 - next_action: "Wait for user to verify the downloading bug fix and build a release APK (M7)."
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
