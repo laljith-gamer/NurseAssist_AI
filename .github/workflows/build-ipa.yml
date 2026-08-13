@@ -28,6 +28,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Generate iOS config and patch Podfile
+        run: |
+          flutter build ios --config-only
+          sed -i '' 's/use_frameworks!/use_frameworks! :linkage => :static/' ios/Podfile
+
       - name: Build iOS App (unsigned)
         run: flutter build ios --release --no-codesign
 
