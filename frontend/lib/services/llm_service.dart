@@ -57,8 +57,8 @@ class LlmService extends ChangeNotifier {
         filename: _modelFileName,
         baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
-        retries: 7,
-        allowPause: true,
+        retries: 3,
+        allowPause: false,
       );
 
       final result = await FileDownloader().download(
