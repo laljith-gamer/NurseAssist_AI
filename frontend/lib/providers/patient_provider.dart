@@ -58,6 +58,7 @@ class PatientProvider with ChangeNotifier {
   final List<ChatMessage> _messages = [];
   final List<ChatSession> _chatSessions = [];
   ChatSession? _activeChatSession;
+  List<Map<String, dynamic>> _vitalHistory = [];
   ClinicalRecordProposal? _pendingProposal;
   bool _isLoading = false;
   bool _isResponding = false;
@@ -70,6 +71,7 @@ class PatientProvider with ChangeNotifier {
   ChatSession? get activeChatSession => _activeChatSession;
   bool get isLoading => _isLoading;
   bool get isResponding => _isResponding;
+  List<Map<String, dynamic>> get vitalHistory => List.unmodifiable(_vitalHistory);
   ClinicalRecordProposal? get pendingProposal => _pendingProposal;
   ApiService get apiService => _apiService;
 
@@ -134,6 +136,7 @@ class PatientProvider with ChangeNotifier {
       final results = await Future.wait([
         _apiService.getVitalsDelta(patientId),
         _apiService.getChatSessions(patientId),
+        _apiService.getVitals(patientId),
       ]);
       // A user can select another patient while reads are in flight.
       if (_selectedPatient?.id != patientId) return;
@@ -141,6 +144,12 @@ class PatientProvider with ChangeNotifier {
       _currentMetrics = DeltaMetrics.fromJson(
         Map<String, dynamic>.from(results[0] as Map),
       );
+      
+      final history = (results[2] as List).cast<Map<String, dynamic>>();
+      history.sort((a, b) => DateTime.parse(a['recorded_at'])
+          .compareTo(DateTime.parse(b['recorded_at'])));
+      _vitalHistory = history;
+
       final sessions = (results[1] as List<Map<String, dynamic>>)
           .map(ChatSession.fromJson)
           .toList();
@@ -437,9 +446,16 @@ class PatientProvider with ChangeNotifier {
   }
 
   Future<void> _refreshMetrics(String patientId) async {
-    final metrics = await _apiService.getVitalsDelta(patientId);
+    final results = await Future.wait([
+      _apiService.getVitalsDelta(patientId),
+      _apiService.getVitals(patientId),
+    ]);
     if (_selectedPatient?.id == patientId) {
-      _currentMetrics = DeltaMetrics.fromJson(metrics);
+      _currentMetrics = DeltaMetrics.fromJson(results[0] as Map<String, dynamic>);
+      final history = (results[1] as List).cast<Map<String, dynamic>>();
+      history.sort((a, b) => DateTime.parse(a['recorded_at'])
+          .compareTo(DateTime.parse(b['recorded_at'])));
+      _vitalHistory = history;
       notifyListeners();
     }
   }
