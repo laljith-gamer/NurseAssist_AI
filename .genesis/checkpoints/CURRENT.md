@@ -3,8 +3,8 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Restored the GitHub Action workflow because Gemma 3 is a gated model on HuggingFace and requires a token to download, which caused a 401 Unauthorized HttpException. The app will now download 'gemma3-1b-it-int4.task' via the GitHub Release proxy."
-- next_action: "Wait for user to verify the downloading bug fix and build a release APK (M7)."
+- last_action: "Created a GitHub Actions workflow (`build-ipa.yml`) to build an unsigned IPA for the Flutter app and store it as an artifact."
+- next_action: "Wait for user to verify the downloading bug fix, build a release APK (M7), and test the new iOS IPA workflow (M8)."
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked

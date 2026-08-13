@@ -11,6 +11,7 @@
 | M5 | Keep chats, nursing observations, and AI context strictly patient-scoped. | Switch between two patients; verify New chat, History, notes, and model context never cross patients. | Implemented; needs device verification |
 | M6 | Improve UI aesthetics to a professional standard and upgrade all Flutter dependencies to recent versions. | Visual review of glassmorphism/typography and `flutter pub outdated` shows no major stragglers. | Completed |
 | M7 | Build and install a release APK. | `flutter build apk --release` from `frontend`. | Pending |
+| M8 | Create GitHub Actions workflow to build and store iOS IPA. | Verify `ios-ipa` artifact in GitHub Actions. | Implemented |
 
 ## Current decision
 
