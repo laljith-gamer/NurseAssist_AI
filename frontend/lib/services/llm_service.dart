@@ -72,13 +72,6 @@ class LlmService extends ChangeNotifier {
         } catch (_) {}
       }
       rethrow;
-    } finally {
-      // Clean up the temporary file to save storage space
-      if (await tempFile.exists()) {
-        try {
-          await tempFile.delete();
-        } catch (_) {}
-      }
     }
   }
 
