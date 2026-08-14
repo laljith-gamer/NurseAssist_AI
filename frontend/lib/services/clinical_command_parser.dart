@@ -113,8 +113,8 @@ class ClinicalCommandParser {
     }
     
     if (data == null || data['v'] != 1) {
-      debugPrint('ClinicalCommandParser: Failed to parse valid JSON from AI payload.');
-      return null;
+      debugPrint('ClinicalCommandParser: Failed to parse valid JSON from AI payload. Attempting regex fallback extraction...');
+      return _fallbackExtractVitals(raw);
     }
 
     final recordedAt = data['timestamp'] != null 
@@ -557,5 +557,71 @@ class ClinicalCommandParser {
       route: route,
       status: status,
     );
+  }
+
+  /// Powerful regex fallback to rip vitals directly out of unstructured text 
+  /// if the small offline LLM fails to output valid JSON.
+  static ClinicalCommand? _fallbackExtractVitals(String raw) {
+    final vitals = <ParsedVital>[];
+    
+    // Blood Pressure: e.g. "BP is 120/80" or "120 over 80" or "120 / 80"
+    final bpRegex = RegExp(r'\b(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b', caseSensitive: false);
+    final bpMatch = bpRegex.firstMatch(raw);
+    if (bpMatch != null) {
+      final sys = double.tryParse(bpMatch.group(1)!);
+      final dia = double.tryParse(bpMatch.group(2)!);
+      if (sys != null && dia != null) {
+        _addIfInRange(vitals, 'systolic', sys, 'mmHg', 40, 260);
+        _addIfInRange(vitals, 'diastolic', dia, 'mmHg', 20, 180);
+      }
+    }
+
+    // Heart Rate: e.g. "HR 75" or "heart rate is 80" or "85 bpm"
+    final hrRegex = RegExp(r'(?:hr|heart\s*rate)\s*(?:is|of)?\s*(\d{2,3})|(\d{2,3})\s*bpm', caseSensitive: false);
+    final hrMatch = hrRegex.firstMatch(raw);
+    if (hrMatch != null) {
+      final hrStr = hrMatch.group(1) ?? hrMatch.group(2);
+      if (hrStr != null) {
+        final hr = double.tryParse(hrStr);
+        if (hr != null) _addIfInRange(vitals, 'heart_rate', hr, 'bpm', 20, 260);
+      }
+    }
+
+    // SpO2: e.g. "O2 98%" or "spo2 of 99" or "95%"
+    final spo2Regex = RegExp(r'(?:spo2|o2|oxygen)\s*(?:is|of)?\s*(\d{2,3})(?:\s*%)?|(\d{2,3})\s*%', caseSensitive: false);
+    final spo2Match = spo2Regex.firstMatch(raw);
+    if (spo2Match != null) {
+      final spo2Str = spo2Match.group(1) ?? spo2Match.group(2);
+      if (spo2Str != null) {
+        final spo2 = double.tryParse(spo2Str);
+        if (spo2 != null) _addIfInRange(vitals, 'spo2', spo2, '%', 50, 100);
+      }
+    }
+
+    // Temperature: e.g. "temp 98.6" or "37 C"
+    final tempRegex = RegExp(r'(?:temp|temperature)\s*(?:is|of)?\s*(\d{2,3}(?:\.\d)?)\s*(c|f)?', caseSensitive: false);
+    final tempMatch = tempRegex.firstMatch(raw);
+    if (tempMatch != null) {
+      final tempStr = tempMatch.group(1);
+      final unitStr = tempMatch.group(2)?.toLowerCase();
+      if (tempStr != null) {
+        final temp = double.tryParse(tempStr);
+        if (temp != null) {
+          final unit = unitStr == 'c' ? 'c' : 'f';
+          _addIfInRange(vitals, 'temperature', temp, unit, unit == 'c' ? 30 : 85, unit == 'c' ? 45 : 110);
+        }
+      }
+    }
+    
+    if (vitals.isNotEmpty) {
+      debugPrint('ClinicalCommandParser: Successfully rescued ${vitals.length} vitals via regex fallback!');
+      return ClinicalCommand(
+        action: ClinicalAction.recordVitals,
+        vitals: vitals,
+        recordedAt: DateTime.now(),
+      );
+    }
+    
+    return null;
   }
 }

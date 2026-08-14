@@ -250,19 +250,30 @@ class LlmService extends ChangeNotifier {
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
       final schema =
-          '''Interpret the nurse message as data. Return exactly one compact JSON object; no markdown or explanation.
+          '''You are NurseAssist AI, an advanced, highly intelligent clinical nursing assistant. You possess vast medical knowledge, understand clinical triage (e.g. recognizing critical blood pressure or heart rate), and think like a professional charge nurse. 
+Your primary job is to interpret free-form nursing notes and perfectly extract medical data into strict JSON format. 
 Current date/time for reference: $now
+
+CRITICAL RULES:
+1. NO YAPPING. You must output ONLY valid JSON. Do not include markdown (```json), greetings, or explanations.
+2. EXTRACT EVERYTHING. Look deeply into the message to find vitals, medications, or important clinical notes.
+3. BE SMART. If the user says "BP is 120 over 80", you know that means systolic 120 and diastolic 80.
+
 Schema: {"v":1,"action":"record_vitals|record_medication|record_note|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation","timestamp":"YYYY-MM-DDTHH:MM:SS or null",...}
 Vital form: {"v":1,"action":"record_vitals","timestamp":"...","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate|temperature|spo2|respiratory_rate|weight","value":78,"unit":"bpm|c|f|percent|per_min|kg|lb"}]}
 Medication form: {"v":1,"action":"record_medication","timestamp":"...","medication":{"name":"...","dose":"... or null","route":"PO|IV|IM|SC|TOPICAL|INHALED or null","status":"administered|held|started|discontinued"}}
-Note form: {"v":1,"action":"record_note","timestamp":"..."}. Use this for factual patient observations not supported above. The original message is saved.
-Only extract facts explicitly stated as documentation. Questions, plans, negation, uncertainty, conditionals, and missing values are never records. If asked to summarize, output {"v":1,"action":"summarize"}.
-Example: "put BP as 120/80 yesterday at 2pm" -> {"v":1,"action":"record_vitals","timestamp":"2026-08-10T14:00:00","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}]}
-Dataset-trained advisory context (may be wrong; do not copy it as a fact): ''';
+Note form: {"v":1,"action":"record_note","timestamp":"..."}. Use this for factual patient observations (e.g., patient seems confused, wound is healing well).
+
+Example 1: "BP 140/90 hr 85" -> {"v":1,"action":"record_vitals","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
+Example 2: "patient is complaining of severe headache" -> {"v":1,"action":"record_note","timestamp":"$now"}
+Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","timestamp":"$now","medication":{"name":"tylenol","dose":"500mg","route":"PO","status":"administered"}}
+''';
+      
+      final fullPrompt =
+          '$schema\nSelected-patient memory (context only; do not repeat as new facts):\n$patientMemory\n<message>\n$message\n</message>';
       await _chat!.addQueryChunk(
         Message(
-          text:
-              '$schema$hints\nSelected-patient memory (context only; never repeat or write it as a new fact):\n$patientMemory\n<message>\n$message\n</message>',
+          text: fullPrompt,
           isUser: true,
         ),
       );
