@@ -25,7 +25,9 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS App (unsigned)
-        run: flutter build ios --release --no-codesign
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: flutter build ios --release --no-codesign --dart-define=HF_TOKEN="$HF_TOKEN"
 
       - name: Package into IPA
         run: |

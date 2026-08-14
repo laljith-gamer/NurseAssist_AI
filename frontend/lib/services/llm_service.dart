@@ -55,6 +55,10 @@ class LlmService extends ChangeNotifier {
       final task = DownloadTask(
         url: _modelUrl,
         filename: _modelFileName,
+        headers: {
+          if (const String.fromEnvironment('HF_TOKEN').isNotEmpty)
+            'Authorization': 'Bearer ${const String.fromEnvironment('HF_TOKEN')}',
+        },
         baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
         retries: 3,
