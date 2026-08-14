@@ -221,61 +221,61 @@ class ApiService {
       case 'systolic':
         if (value >= 180 || value < 90) {
           alerts.add(
-            'Systolic BP ${_format(value)} mmHg is outside the configured critical range. Review per protocol.',
+            'Critical Systolic BP (${_format(value)} mmHg) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
-        if (value >= 140) return 'elevated';
-        return 'within configured range';
+        if (value >= 140) return 'Elevated';
+        return 'Normal';
       case 'diastolic':
         if (value >= 120 || value < 60) {
           alerts.add(
-            'Diastolic BP ${_format(value)} mmHg is outside the configured critical range. Review per protocol.',
+            'Critical Diastolic BP (${_format(value)} mmHg) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
-        if (value >= 90) return 'elevated';
-        return 'within configured range';
+        if (value >= 90) return 'Elevated';
+        return 'Normal';
       case 'heart_rate':
         if (value < 50 || value > 130) {
           alerts.add(
-            'Heart rate ${_format(value)} bpm is outside the configured critical range. Review per protocol.',
+            'Critical Heart Rate (${_format(value)} bpm) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
         return value < 60 || value > 100
-            ? 'outside configured range'
-            : 'within configured range';
+            ? 'Abnormal'
+            : 'Normal';
       case 'temperature':
         if (value >= 39.5 || value < 35) {
           alerts.add(
-            'Temperature ${value.toStringAsFixed(1)} °C is outside the configured critical range. Review per protocol.',
+            'Critical Temperature (${value.toStringAsFixed(1)} °C) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
-        return value >= 38 || value < 36
-            ? 'outside configured range'
-            : 'within configured range';
+        return value >= 38.0 || value < 36.0
+            ? 'Abnormal'
+            : 'Normal';
       case 'spo2':
         if (value < 90) {
           alerts.add(
-            'SpO₂ ${_format(value)}% is below the configured critical range. Review per protocol.',
+            'Critical SpO2 (${_format(value)}%) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
         return value < 95
-            ? 'outside configured range'
-            : 'within configured range';
+            ? 'Abnormal'
+            : 'Normal';
       case 'respiratory_rate':
-        if (value < 8 || value > 30) {
+        if (value > 30 || value < 8) {
           alerts.add(
-            'Respiratory rate ${_format(value)}/min is outside the configured critical range. Review per protocol.',
+            'Critical Respiratory Rate (${_format(value)}/min) detected. Please evaluate the patient immediately.',
           );
-          return 'critical';
+          return 'Critical';
         }
         return value < 12 || value > 20
-            ? 'outside configured range'
-            : 'within configured range';
+            ? 'Abnormal'
+            : 'Normal';
       default:
         return 'recorded';
     }

@@ -131,22 +131,12 @@ class ClinicalCommandParser {
           final vital = Map<String, dynamic>.from(item);
           final type = vital['type']?.toString();
           if (type == 'blood_pressure') {
-            _addIfInRange(
-              vitals,
-              'systolic',
-              _number(vital['systolic']),
-              'mmHg',
-              40,
-              260,
-            );
-            _addIfInRange(
-              vitals,
-              'diastolic',
-              _number(vital['diastolic']),
-              'mmHg',
-              20,
-              180,
-            );
+            final sys = _number(vital['systolic']);
+            final dia = _number(vital['diastolic']);
+            if (sys != null && dia != null) {
+              _addIfInRange(vitals, 'systolic', sys, 'mmHg', 40, 260);
+              _addIfInRange(vitals, 'diastolic', dia, 'mmHg', 20, 180);
+            }
           } else if (type == 'heart_rate') {
             _addIfInRange(
               vitals,
@@ -192,12 +182,10 @@ class ClinicalCommandParser {
               2,
               500,
             );
-          } else {
-            return null;
           }
         }
         return vitals.isEmpty
-            ? null
+            ? _fallbackExtractVitals(raw)
             : ClinicalCommand(
                 action: ClinicalAction.recordVitals,
                 vitals: vitals,
