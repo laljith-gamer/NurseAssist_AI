@@ -7,7 +7,7 @@
 | M1 | Replace synthetic NLP templates with reproducible nursing data and integrate BioClinicalBERT. | Train, hold out test split, export parity test, and quality gate pass (TF-IDF + BERT). | Completed pipeline validation, tests, and TF-IDF parity metrics |
 | M2 | Make on-device Gemma replies single-turn, concise, and safe. | Test several unrelated prompts in one session; no prompt/history echo or repetition. | Needs device verification |
 | M3 | Require nurse review before every AI-proposed chart write. | Stage a vital and medication proposal; confirm and discard each on device. | Implemented; needs device verification |
-| M4 | Fetch Gemma 3 1B IT directly from GitHub Release. | Clean install launches and initializes the model directly from GitHub Release. | Implemented |
+| M4 | Fetch Gemma 3 1B IT directly from Hugging Face. | Clean install launches and initializes the model directly from Hugging Face CDN. | Implemented |
 | M5 | Keep chats, nursing observations, and AI context strictly patient-scoped. | Switch between two patients; verify New chat, History, notes, and model context never cross patients. | Implemented; needs device verification |
 | M6 | Improve UI aesthetics to a professional standard and upgrade all Flutter dependencies to recent versions. | Visual review of glassmorphism/typography and `flutter pub outdated` shows no major stragglers. | Completed |
 | M7 | Build and install a release APK. | `flutter build apk --release` from `frontend`. | Pending |
@@ -15,7 +15,7 @@
 
 ## Current decision
 
-The Gemma 3 1B IT model (~550 MB) is downloaded on-demand directly from a GitHub Release on the first launch. Since Gemma 3 is a gated model on HuggingFace, we use a GitHub Actions workflow (authenticated via HF_TOKEN) to proxy the download to our public GitHub Release.
+The Gemma 3 1B IT model (~550 MB) is downloaded on-demand directly from Hugging Face's global CDN on the first launch for vastly improved speed compared to GitHub Releases.
 This keeps the core APK extremely lightweight (< 50MB) while providing the full offline 
 AI capability once initialized.
 

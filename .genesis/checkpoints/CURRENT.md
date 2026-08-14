@@ -3,7 +3,7 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Created a GitHub Actions workflow (`build-ipa.yml`) to build an unsigned IPA for the Flutter app and store it as an artifact."
+- last_action: "Updated the app to download the Gemma 3 model directly from Hugging Face's global CDN instead of GitHub Releases for faster download speeds."
 - next_action: "Wait for user to verify the downloading bug fix, build a release APK (M7), and test the new iOS IPA workflow (M8)."
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
