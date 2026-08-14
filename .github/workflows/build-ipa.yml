@@ -24,6 +24,13 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Download AI Model
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          mkdir -p assets/models
+          curl -L -H "Authorization: Bearer $HF_TOKEN" -o assets/models/gemma3-1b-it-int4.task "https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true"
+
       - name: Build iOS App (unsigned)
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

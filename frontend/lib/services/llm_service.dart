@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
-import 'package:background_downloader/background_downloader.dart';
 import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
 
@@ -32,14 +32,14 @@ class LlmService extends ChangeNotifier {
   String get statusMessage => _statusMessage;
   String? get errorMessage => _errorMessage;
 
-  /// Ensure the model file is downloaded to app storage and installed.
+  /// Ensure the model file is installed from bundled app assets.
   Future<void> _ensureModelInstalled() async {
     if (kIsWeb) return;
 
     final isInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
     if (isInstalled) return;
 
-    _statusMessage = 'Downloading AI model (~550 MB)...';
+    _statusMessage = 'Unpacking AI model from app bundle...';
     notifyListeners();
 
     final appDir = await getApplicationDocumentsDirectory();
@@ -51,67 +51,12 @@ class LlmService extends ChangeNotifier {
       } catch (_) {}
     }
 
-    final hfToken = const String.fromEnvironment('HF_TOKEN');
-    if (hfToken.isEmpty) {
-      _statusMessage = 'Error: HF_TOKEN is missing';
-      notifyListeners();
-      throw Exception('Please build with --dart-define=HF_TOKEN="your_token"');
-    }
-
     try {
-      final task = DownloadTask(
-        url: _modelUrl,
-        filename: _modelFileName,
-        headers: {
-          'Authorization': 'Bearer $hfToken',
-        },
-        baseDirectory: BaseDirectory.applicationDocuments,
-        updates: Updates.statusAndProgress,
-        retries: 3,
-        allowPause: false,
+      final byteData = await rootBundle.load('assets/models/$_modelFileName');
+      await tempFile.writeAsBytes(
+        byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+        flush: true,
       );
-
-      DateTime lastTime = DateTime.now();
-      double lastProgress = 0.0;
-      const double totalMb = 550.0; // Approximation
-
-      final result = await FileDownloader().download(
-        task,
-        onProgress: (progress) {
-          if (progress >= 0.0 && progress <= 1.0) {
-            final now = DateTime.now();
-            final delta = now.difference(lastTime).inMilliseconds;
-            if (delta > 500 || progress == 1.0) {
-              final diffProgress = progress - lastProgress;
-              final diffMb = diffProgress * totalMb;
-              final mbPerSec = diffMb / (delta / 1000);
-              
-              final currentMb = progress * totalMb;
-              
-              final percent = (progress * 100).toStringAsFixed(1);
-              final speedStr = mbPerSec.toStringAsFixed(2);
-              final currentMbStr = currentMb.toStringAsFixed(1);
-              final totalMbStr = totalMb.toStringAsFixed(1);
-              
-              _statusMessage = 'Downloading AI model... $percent% ($currentMbStr/$totalMbStr MB) - $speedStr MB/s';
-              notifyListeners();
-              
-              lastTime = now;
-              lastProgress = progress;
-            }
-          }
-        },
-        onStatus: (status) {
-          if (status == TaskStatus.running) {
-             _statusMessage = 'Downloading AI model...';
-             notifyListeners();
-          }
-        }
-      );
-
-      if (result.status != TaskStatus.complete) {
-        throw HttpException('Failed to download model. Status: ${result.status}');
-      }
 
       _statusMessage = 'Installing AI model...';
       notifyListeners();
@@ -127,6 +72,13 @@ class LlmService extends ChangeNotifier {
         } catch (_) {}
       }
       rethrow;
+    } finally {
+      // Clean up the temporary file to save storage space
+      if (await tempFile.exists()) {
+        try {
+          await tempFile.delete();
+        } catch (_) {}
+      }
     }
   }
 
