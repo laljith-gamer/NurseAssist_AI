@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 // Validates structured clinical actions before they can change patient data.
 // Natural-language interpretation is performed by the on-device LLM first;
