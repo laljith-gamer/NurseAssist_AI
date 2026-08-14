@@ -24,15 +24,25 @@ class LocalDbService {
     return _database!;
   }
 
+  Future<String> _getDbPath(String dbName) async {
+    if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) {
+      final databasesPath = await getDatabasesPath();
+      return join(databasesPath, dbName);
+    } else {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      return join(documentsDirectory.path, dbName);
+    }
+  }
+
   Future<bool> backupDatabase() async {
     if (kIsWeb) return false;
     try {
-      final documentsDirectory = await getApplicationDocumentsDirectory();
-      final dbFile = File(join(documentsDirectory.path, 'nurseassist_offline.db'));
+      final dbPath = await _getDbPath('nurseassist_offline.db');
+      final dbFile = File(dbPath);
       if (!await dbFile.exists()) return false;
       
-      final backupFile = File(join(documentsDirectory.path, 'nurseassist_backup.db'));
-      await dbFile.copy(backupFile.path);
+      final backupPath = await _getDbPath('nurseassist_backup.db');
+      await dbFile.copy(backupPath);
       return true;
     } catch (e) {
       debugPrint('Backup error: $e');
@@ -43,11 +53,12 @@ class LocalDbService {
   Future<bool> restoreDatabase() async {
     if (kIsWeb) return false;
     try {
-      final documentsDirectory = await getApplicationDocumentsDirectory();
-      final backupFile = File(join(documentsDirectory.path, 'nurseassist_backup.db'));
+      final backupPath = await _getDbPath('nurseassist_backup.db');
+      final backupFile = File(backupPath);
       if (!await backupFile.exists()) return false;
       
-      final dbFile = File(join(documentsDirectory.path, 'nurseassist_offline.db'));
+      final dbPath = await _getDbPath('nurseassist_offline.db');
+      final dbFile = File(dbPath);
       
       // Close existing database before restoring
       if (_database != null) {
@@ -82,9 +93,9 @@ class LocalDbService {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final path = await _getDbPath('nurseassist_offline.db');
     return openDatabase(
-      join(documentsDirectory.path, 'nurseassist_offline.db'),
+      path,
       version: _databaseVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,

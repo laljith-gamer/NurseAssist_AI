@@ -84,7 +84,17 @@ class ClinicalCommandParser {
   /// later presented to the nurse for explicit confirmation before any write.
   static ClinicalCommand? fromAiJson(String raw) {
     Map<String, dynamic>? data;
-    final trimmed = raw.trim();
+    
+    // Aggressively clean markdown JSON blocks
+    var trimmed = raw.trim();
+    if (trimmed.startsWith('```')) {
+      // Remove starting ```json or ```
+      trimmed = trimmed.replaceFirst(RegExp(r'^```(json)?\s*', caseSensitive: false), '');
+      // Remove trailing ```
+      trimmed = trimmed.replaceFirst(RegExp(r'\s*```$'), '');
+    }
+    trimmed = trimmed.trim();
+
     for (final candidate in [
       trimmed,
       if (trimmed.contains('{') && trimmed.contains('}'))
@@ -100,7 +110,11 @@ class ClinicalCommandParser {
         // Try the next JSON envelope.
       }
     }
-    if (data == null || data['v'] != 1) return null;
+    
+    if (data == null || data['v'] != 1) {
+      debugPrint('ClinicalCommandParser: Failed to parse valid JSON from AI payload.');
+      return null;
+    }
 
     final recordedAt = data['timestamp'] != null 
         ? DateTime.tryParse(data['timestamp'].toString()) 
