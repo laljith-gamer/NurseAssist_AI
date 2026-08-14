@@ -51,13 +51,19 @@ class LlmService extends ChangeNotifier {
       } catch (_) {}
     }
 
+    final hfToken = const String.fromEnvironment('HF_TOKEN');
+    if (hfToken.isEmpty) {
+      _statusMessage = 'Error: HF_TOKEN is missing';
+      notifyListeners();
+      throw Exception('Please build with --dart-define=HF_TOKEN="your_token"');
+    }
+
     try {
       final task = DownloadTask(
         url: _modelUrl,
         filename: _modelFileName,
         headers: {
-          if (const String.fromEnvironment('HF_TOKEN').isNotEmpty)
-            'Authorization': 'Bearer ${const String.fromEnvironment('HF_TOKEN')}',
+          'Authorization': 'Bearer $hfToken',
         },
         baseDirectory: BaseDirectory.applicationDocuments,
         updates: Updates.statusAndProgress,
@@ -65,13 +71,34 @@ class LlmService extends ChangeNotifier {
         allowPause: false,
       );
 
+      DateTime lastTime = DateTime.now();
+      double lastProgress = 0.0;
+      const double totalMb = 550.0; // Approximation
+
       final result = await FileDownloader().download(
         task,
         onProgress: (progress) {
           if (progress >= 0.0 && progress <= 1.0) {
-            final percent = (progress * 100).toStringAsFixed(1);
-            _statusMessage = 'Downloading AI model... $percent%';
-            notifyListeners();
+            final now = DateTime.now();
+            final delta = now.difference(lastTime).inMilliseconds;
+            if (delta > 500 || progress == 1.0) {
+              final diffProgress = progress - lastProgress;
+              final diffMb = diffProgress * totalMb;
+              final mbPerSec = diffMb / (delta / 1000);
+              
+              final currentMb = progress * totalMb;
+              
+              final percent = (progress * 100).toStringAsFixed(1);
+              final speedStr = mbPerSec.toStringAsFixed(2);
+              final currentMbStr = currentMb.toStringAsFixed(1);
+              final totalMbStr = totalMb.toStringAsFixed(1);
+              
+              _statusMessage = 'Downloading AI model... $percent% ($currentMbStr/$totalMbStr MB) - $speedStr MB/s';
+              notifyListeners();
+              
+              lastTime = now;
+              lastProgress = progress;
+            }
           }
         },
         onStatus: (status) {
