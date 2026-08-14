@@ -1,18 +1,14 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../providers/patient_provider.dart';
+import 'pulse_animation.dart';
 
-class VitalHistoryCharts extends StatefulWidget {
+class VitalHistoryCharts extends StatelessWidget {
   const VitalHistoryCharts({super.key});
-
-  @override
-  State<VitalHistoryCharts> createState() => _VitalHistoryChartsState();
-}
-
-class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
-  String _selectedMetric = 'heart_rate';
 
   @override
   Widget build(BuildContext context) {
@@ -23,76 +19,223 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
         }
 
         final data = provider.vitalHistory;
-        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final currentMetrics = provider.currentMetrics?.current ?? {};
 
-        return Container(
-          padding: const EdgeInsets.all(20),
-          margin: const EdgeInsets.only(top: 16),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isDark ? Colors.white10 : Colors.black12,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
-              ),
-            ],
+        final metricsConfig = [
+          _MetricConfig(
+            id: 'heart_rate',
+            title: 'Heart Rate',
+            unit: 'bpm',
+            icon: Icons.favorite,
+            color: Colors.redAccent,
+            isCritical: (val) => val < 50 || val > 100,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          _MetricConfig(
+            id: 'spo2',
+            title: 'SpO₂',
+            unit: '%',
+            icon: Icons.air,
+            color: Colors.lightBlue,
+            isCritical: (val) => val < 92,
+          ),
+          _MetricConfig(
+            id: 'respiratory_rate',
+            title: 'Respiratory Rate',
+            unit: '/min',
+            icon: Icons.waves,
+            color: Colors.teal,
+            isCritical: (val) => val < 12 || val > 20,
+          ),
+          _MetricConfig(
+            id: 'systolic',
+            title: 'Systolic BP',
+            unit: 'mmHg',
+            icon: Icons.monitor_heart_outlined,
+            color: Colors.deepPurpleAccent,
+            isCritical: (val) => val < 90 || val > 140,
+          ),
+          _MetricConfig(
+            id: 'diastolic',
+            title: 'Diastolic BP',
+            unit: 'mmHg',
+            icon: Icons.monitor_heart,
+            color: Colors.purple,
+            isCritical: (val) => val < 60 || val > 90,
+          ),
+          _MetricConfig(
+            id: 'temperature',
+            title: 'Temperature',
+            unit: '°C',
+            icon: Icons.thermostat,
+            color: Colors.orange,
+            isCritical: (val) => val < 36.0 || val > 38.0,
+          ),
+        ];
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          itemCount: metricsConfig.length,
+          itemBuilder: (context, index) {
+            final config = metricsConfig[index];
+            final currentValue = currentMetrics[config.id];
+            final dVal = currentValue is num
+                ? currentValue.toDouble()
+                : double.tryParse(currentValue?.toString() ?? '');
+            final isCrit = dVal != null ? config.isCritical(dVal) : false;
+
+            return _ChartCard(
+              config: config,
+              data: data,
+              currentValue: dVal,
+              isCritical: isCrit,
+            )
+                .animate(delay: Duration(milliseconds: 100 * index))
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutCubic);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MetricConfig {
+  final String id;
+  final String title;
+  final String unit;
+  final IconData icon;
+  final Color color;
+  final bool Function(double) isCritical;
+
+  _MetricConfig({
+    required this.id,
+    required this.title,
+    required this.unit,
+    required this.icon,
+    required this.color,
+    required this.isCritical,
+  });
+}
+
+class _ChartCard extends StatelessWidget {
+  final _MetricConfig config;
+  final List<Map<String, dynamic>> data;
+  final double? currentValue;
+  final bool isCritical;
+
+  const _ChartCard({
+    required this.config,
+    required this.data,
+    required this.currentValue,
+    required this.isCritical,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Widget cardContent = Container(
+      height: 240,
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isCritical
+              ? Colors.red.withValues(alpha: 0.6)
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+          width: isCritical ? 2.0 : 1.0,
+        ),
+        boxShadow: [
+          if (isCritical)
+            BoxShadow(
+              color: Colors.red.withValues(alpha: 0.2),
+              blurRadius: 20,
+              spreadRadius: 2,
+            )
+          else
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Historical Trends',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: isDark ? Colors.white10 : Colors.black.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(8),
+                      color: config.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedMetric,
-                        icon: const Icon(Icons.keyboard_arrow_down, size: 20),
-                        isDense: true,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'heart_rate', child: Text('Heart Rate')),
-                          DropdownMenuItem(value: 'systolic', child: Text('Systolic BP')),
-                          DropdownMenuItem(value: 'diastolic', child: Text('Diastolic BP')),
-                          DropdownMenuItem(value: 'spo2', child: Text('SpO2')),
-                          DropdownMenuItem(value: 'respiratory_rate', child: Text('Resp Rate')),
-                          DropdownMenuItem(value: 'weight', child: Text('Weight')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedMetric = val);
-                        },
-                      ),
-                    ),
+                    child: isCritical 
+                        ? PulseAnimation(child: Icon(config.icon, color: config.color, size: 20))
+                        : Icon(config.icon, color: config.color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    config.title,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
-              const SizedBox(height: 30),
-              SizedBox(
-                height: 250,
-                child: _buildChart(data, context, isDark),
-              ),
+              if (currentValue != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isCritical 
+                        ? Colors.red.withValues(alpha: 0.1) 
+                        : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        currentValue == currentValue!.roundToDouble()
+                            ? currentValue!.toStringAsFixed(0)
+                            : currentValue!.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: isCritical ? Colors.redAccent : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        config.unit,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 24),
+          Expanded(
+            child: _buildChart(data, context, isDark),
+          ),
+        ],
+      ),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: cardContent,
+      ),
     );
   }
 
@@ -113,7 +256,7 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
 
     int spotIndex = 0;
     for (int i = 0; i < rawData.length; i++) {
-      final val = rawData[i][_selectedMetric];
+      final val = rawData[i][config.id];
       if (val != null) {
         final dVal = (val as num).toDouble();
         if (dVal.isFinite && !dVal.isNaN) {
@@ -167,7 +310,6 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
       }
     }
 
-    // Safety checks for min/max to prevent fl_chart crashes
     if (minY == double.infinity || maxY == double.negativeInfinity || minY.isNaN || maxY.isNaN) {
       minY = 0;
       maxY = 100;
@@ -182,7 +324,7 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
       maxY += padding;
     }
 
-    final primaryColor = Theme.of(context).primaryColor;
+    final chartColor = isCritical ? Colors.redAccent : config.color;
 
     return LineChart(
       LineChartData(
@@ -195,11 +337,11 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
           touchTooltipData: LineTouchTooltipData(
             tooltipPadding: const EdgeInsets.all(8),
             tooltipMargin: 16,
-            getTooltipColor: (touchedSpot) => isDark ? Colors.white : Colors.black87,
+            getTooltipColor: (touchedSpot) => isDark ? const Color(0xFF334155) : Colors.white,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((LineBarSpot touchedSpot) {
                 final textStyle = TextStyle(
-                  color: isDark ? Colors.black : Colors.white,
+                  color: isDark ? Colors.white : Colors.black87,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 );
@@ -216,17 +358,17 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.35,
-            color: primaryColor,
-            barWidth: 4,
+            color: chartColor,
+            barWidth: 3,
             isStrokeCapRound: true,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 return FlDotCirclePainter(
-                  radius: 4,
-                  color: primaryColor,
+                  radius: 3.5,
+                  color: chartColor,
                   strokeWidth: 2,
-                  strokeColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  strokeColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                 );
               },
             ),
@@ -234,8 +376,8 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
               show: true,
               gradient: LinearGradient(
                 colors: [
-                  primaryColor.withOpacity(0.4),
-                  primaryColor.withOpacity(0.0),
+                  chartColor.withValues(alpha: 0.3),
+                  chartColor.withValues(alpha: 0.0),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -246,18 +388,18 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
             LineChartBarData(
               spots: predictionSpots,
               isCurved: false,
-              color: Colors.orangeAccent,
-              barWidth: 3,
+              color: Colors.orangeAccent.withValues(alpha: 0.7),
+              barWidth: 2,
               isStrokeCapRound: true,
-              dashArray: [8, 4],
+              dashArray: [6, 4],
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   return FlDotCirclePainter(
-                    radius: 3,
+                    radius: 2.5,
                     color: Colors.orangeAccent,
                     strokeWidth: 1.5,
-                    strokeColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    strokeColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                   );
                 },
               ),
@@ -270,13 +412,14 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 36,
               getTitlesWidget: (value, meta) {
                 return Text(
                   value.toInt().toString(),
                   style: TextStyle(
                     color: isDark ? Colors.white54 : Colors.black54,
-                    fontSize: 12,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.right,
                 );
@@ -287,18 +430,19 @@ class _VitalHistoryChartsState extends State<VitalHistoryCharts> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: ((maxY - minY) / 5).clamp(1.0, double.infinity),
+          horizontalInterval: ((maxY - minY) / 4).clamp(1.0, double.infinity),
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
               strokeWidth: 1,
+              dashArray: [4, 4],
             );
           },
         ),
         borderData: FlBorderData(show: false),
       ),
-      duration: const Duration(milliseconds: 300), // Smooth animation on data change
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOutCubic,
     );
   }
 }

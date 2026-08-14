@@ -6,7 +6,7 @@ import '../widgets/chat_interface.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/clinical_change_banner.dart';
 import '../widgets/charts/vital_history_charts.dart';
-import '../widgets/charts/vital_signs_delta_chart.dart';
+import '../widgets/patient_score_tab.dart';
 import '../services/model_manager.dart';
 import '../services/llm_service.dart';
 import '../services/api_service.dart';
@@ -37,143 +37,152 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Settings'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Consumer<SettingsProvider>(
-                builder: (context, settingsRef, _) => SwitchListTile(
-                  title: const Text('Dark Mode'),
-                  value: settingsRef.isDarkMode,
-                  onChanged: (val) {
-                    settingsRef.toggleTheme();
+          title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Consumer<SettingsProvider>(
+                  builder: (context, settingsRef, _) => SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Dark Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                    value: settingsRef.isDarkMode,
+                    onChanged: (val) {
+                      settingsRef.toggleTheme();
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'AI Model Management (Offline)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                const ModelManagementWidget(),
+                const SizedBox(height: 12),
+                Consumer<LlmService>(
+                  builder: (context, llm, _) {
+                    final String llmStatus;
+                    final Color statusColor;
+                    if (llm.isReady) {
+                      llmStatus = 'Gemma 3 1B: ready';
+                      statusColor = Colors.green;
+                    } else if (llm.isInitializing) {
+                      llmStatus = 'Gemma 3 1B: loading...';
+                      statusColor = Colors.orange;
+                    } else if (llm.errorMessage != null) {
+                      llmStatus = 'Gemma 3 1B: ${llm.errorMessage}';
+                      statusColor = Colors.red;
+                    } else {
+                      llmStatus = llm.statusMessage;
+                      statusColor = Colors.grey;
+                    }
+                    return Text(
+                      llmStatus,
+                      style: TextStyle(fontSize: 13, color: statusColor, fontWeight: FontWeight.w500),
+                    );
                   },
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              const Text(
-                'AI Model Management (Offline)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              const ModelManagementWidget(),
-              const SizedBox(height: 16),
-              Consumer<LlmService>(
-                builder: (context, llm, _) {
-                  final String llmStatus;
-                  final Color statusColor;
-                  if (llm.isReady) {
-                    llmStatus = 'Gemma 3 1B: ready';
-                    statusColor = Colors.green;
-                  } else if (llm.isInitializing) {
-                    llmStatus = 'Gemma 3 1B: loading...';
-                    statusColor = Colors.orange;
-                  } else if (llm.errorMessage != null) {
-                    llmStatus = 'Gemma 3 1B: ${llm.errorMessage}';
-                    statusColor = Colors.red;
-                  } else {
-                    llmStatus = llm.statusMessage;
-                    statusColor = Colors.grey;
-                  }
-                  return Text(
-                    llmStatus,
-                    style: TextStyle(fontSize: 12, color: statusColor),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              const Text(
-                'Suggestion Telemetry',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 4),
-              Consumer<SettingsProvider>(
-                builder: (context, settingsRef, _) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SwitchListTile(
-                      title: const Text('Share suggestion feedback'),
-                      subtitle: const Text(
-                        'Help improve observation suggestions by sharing '
-                        'de-identified label feedback.',
-                        style: TextStyle(fontSize: 12),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'Suggestion Telemetry',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Consumer<SettingsProvider>(
+                  builder: (context, settingsRef, _) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Share suggestion feedback', style: TextStyle(fontSize: 15)),
+                        subtitle: const Text(
+                          'Help improve observation suggestions by sharing de-identified label feedback.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        value: settingsRef.telemetrySharingEnabled,
+                        onChanged: (val) {
+                          settingsRef.setTelemetrySharingEnabled(val);
+                        },
                       ),
-                      value: settingsRef.telemetrySharingEnabled,
-                      onChanged: (val) {
-                        settingsRef.setTelemetrySharingEnabled(val);
-                      },
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Queued events: ${settingsRef.queuedTelemetryCount}',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                          TextButton.icon(
+                            onPressed: settingsRef.queuedTelemetryCount == 0
+                                ? null
+                                : () {
+                                    settingsRef.updateQueuedTelemetryCount(0);
+                                  },
+                            icon: const Icon(Icons.delete_outline, size: 16),
+                            label: const Text('Clear queued', style: TextStyle(fontSize: 13)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'Data Management',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final api = context.read<ApiService>();
+                          final success = await api.backupDatabase();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(success ? 'Database backed up locally.' : 'Backup failed.')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.backup_outlined, size: 18),
+                        label: const Text('Backup'),
+                      ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Queued events: ${settingsRef.queuedTelemetryCount}',
-                          style: const TextStyle(fontSize: 13),
-                        ),
-                        TextButton.icon(
-                          onPressed: settingsRef.queuedTelemetryCount == 0
-                              ? null
-                              : () {
-                                  // Will be wired to TelemetryService in Task 2
-                                  settingsRef.updateQueuedTelemetryCount(0);
-                                },
-                          icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('Clear queued', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final api = context.read<ApiService>();
+                          final success = await api.restoreDatabase();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(success ? 'Database restored. Please restart the app.' : 'Restore failed.')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.restore, size: 18),
+                        label: const Text('Restore'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const SizedBox(height: 8),
-              const Text(
-                'Data Management',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final api = context.read<ApiService>();
-                      final success = await api.backupDatabase();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(success ? 'Database backed up locally.' : 'Backup failed.')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.backup_outlined, size: 18),
-                    label: const Text('Backup'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final api = context.read<ApiService>();
-                      final success = await api.restoreDatabase();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(success ? 'Database restored. Please restart the app.' : 'Restore failed.')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.restore, size: 18),
-                    label: const Text('Restore'),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -324,8 +333,7 @@ class _DashboardContent extends StatelessWidget {
                 flex: 1,
                 child: Column(
                   children: const [
-                    VitalSignsDeltaChart(),
-                    VitalHistoryCharts(),
+                    Expanded(child: VitalHistoryCharts()),
                   ],
                 ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideX(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
               ),
@@ -359,18 +367,11 @@ class _DashboardContent extends StatelessWidget {
                           ClinicalChangeBanner(),
                           SizedBox(height: 8),
                           Expanded(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                children: [
-                                  VitalSignsDeltaChart(),
-                                  VitalHistoryCharts(),
-                                ],
-                              ),
-                            ),
+                            child: VitalHistoryCharts(),
                           ),
                         ],
                       ).animate().fadeIn(duration: 300.ms),
-                      _ScoreTabContent().animate().fadeIn(duration: 300.ms),
+                      const PatientScoreTab().animate().fadeIn(duration: 300.ms),
                     ],
                   ),
                 ),
@@ -383,39 +384,7 @@ class _DashboardContent extends StatelessWidget {
   }
 }
 
-class _ScoreTabContent extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<PatientProvider>(
-      builder: (context, provider, child) {
-        final status = provider.currentMetrics?.clinicalStatus;
-        if (status == null || status.isEmpty) {
-          return const Center(child: Text("No scoring data available."));
-        }
 
-        return ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            const Text(
-              "Clinical Status",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ...status.entries.map(
-              (e) => Card(
-                margin: const EdgeInsets.only(bottom: 8.0),
-                child: ListTile(
-                  title: Text(e.key.toUpperCase()),
-                  subtitle: Text(e.value),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
 
 class ModelManagementWidget extends StatelessWidget {
   const ModelManagementWidget({super.key});

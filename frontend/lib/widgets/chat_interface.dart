@@ -414,37 +414,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
               return Column(
                 children: [
                   _buildChatSessionBar(provider),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(8),
-                    color: _getModelStatusColor(modelManager.status),
-                    child: Text(
-                      _getModelStatusText(modelManager),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(4),
-                      color: llmService.errorMessage != null
-                          ? Colors.red
-                          : (llmService.isReady
-                                ? Colors.blue.shade800
-                                : Colors.orange),
-                      child: Text(
-                        llmService.errorMessage ?? llmService.statusMessage,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+
                   Expanded(child: _buildMessagesList(provider)),
                   if (provider.pendingProposal != null)
                     _buildProposalCard(provider),
@@ -453,94 +423,87 @@ class _ChatInterfaceState extends State<ChatInterface> {
             },
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Theme.of(
-              context,
-            ).scaffoldBackgroundColor.withValues(alpha: 0.9),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: SafeArea(
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Row(
               children: [
                 Container(
                   decoration: BoxDecoration(
                     color: _isListening
                         ? Colors.red.withValues(alpha: 0.1)
-                        : Colors.blue.withValues(alpha: 0.1),
+                        : (Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.05)),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
                     icon: Icon(
                       _isListening ? Icons.mic : Icons.mic_none,
-                      color: _isListening ? Colors.red : Colors.blue,
+                      color: _isListening 
+                          ? Colors.red 
+                          : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54),
                     ),
                     onPressed: _listen,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: TextField(
-                        controller: _controller,
-                        decoration: InputDecoration(
-                          hintText: 'e.g. "Record BP 120/80" or "Summarize"',
-                          filled: true,
-                          fillColor: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white.withValues(alpha: 0.1)
-                              : Colors.black.withValues(alpha: 0.05),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF1E293B)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.05),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            style: TextStyle(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black87,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. "Record BP 120/80"...',
+                              hintStyle: TextStyle(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white54
+                                    : Colors.black45,
+                              ),
+                              border: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
+                              ),
+                            ),
+                            onSubmitted: (_) => _sendMessage(),
                           ),
                         ),
-                        onSubmitted: (_) => _sendMessage(),
-                      ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4.0),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 20),
+                              onPressed: context.watch<PatientProvider>().isResponding
+                                  ? null
+                                  : _sendMessage,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-                    ),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: context.watch<PatientProvider>().isResponding
-                        ? null
-                        : _sendMessage,
                   ),
                 ),
               ],

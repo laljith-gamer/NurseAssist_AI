@@ -3,8 +3,8 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Updated `build-ipa.yml` to inject the `HF_TOKEN` from GitHub Secrets during the iOS IPA build."
-- next_action: "Wait for user to verify the downloading bug fix, build a release APK (M7), and test the new iOS IPA workflow (M8)."
+- last_action: "Overhauled the Vitals and Score tabs with a premium glassmorphic UI, added animated charts, and redesigned the chat interface input to a modern floating style."
+- next_action: "Wait for the user to review and confirm the UI corrections, then proceed to build a release APK (M7)."
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked
