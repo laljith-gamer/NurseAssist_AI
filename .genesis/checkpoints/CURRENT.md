@@ -3,7 +3,7 @@
 - target: fixed <100K parameter MLP with curated datasets and clinical reasoning
 - iteration: 9
 - last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Deleted the deprecated `release-ai-model.yml` GitHub Actions workflow since the AI model is now downloaded directly from Hugging Face."
+- last_action: "Updated `build-ipa.yml` to only run manually via `workflow_dispatch` instead of automatically on commits."
 - next_action: "Wait for user to verify the downloading bug fix, build a release APK (M7), and test the new iOS IPA workflow (M8)."
 - model: `compact_clinical_mlp` (Sklearn MLP, ~42K parameters)
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
