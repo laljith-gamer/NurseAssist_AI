@@ -21,56 +21,58 @@ class VitalHistoryCharts extends StatelessWidget {
         final data = provider.vitalHistory;
         final currentMetrics = provider.currentMetrics?.current ?? {};
 
-        final metricsConfig = [
-          _MetricConfig(
-            id: 'heart_rate',
-            title: 'Heart Rate',
-            unit: 'bpm',
-            icon: Icons.favorite,
-            color: Colors.redAccent,
-            isCritical: (val) => val < 50 || val > 100,
-          ),
-          _MetricConfig(
-            id: 'spo2',
-            title: 'SpO₂',
-            unit: '%',
-            icon: Icons.air,
-            color: Colors.lightBlue,
-            isCritical: (val) => val < 92,
-          ),
-          _MetricConfig(
-            id: 'respiratory_rate',
-            title: 'Respiratory Rate',
-            unit: '/min',
-            icon: Icons.waves,
-            color: Colors.teal,
-            isCritical: (val) => val < 12 || val > 20,
-          ),
-          _MetricConfig(
-            id: 'systolic',
-            title: 'Systolic BP',
-            unit: 'mmHg',
-            icon: Icons.monitor_heart_outlined,
-            color: Colors.deepPurpleAccent,
-            isCritical: (val) => val < 90 || val > 140,
-          ),
-          _MetricConfig(
-            id: 'diastolic',
-            title: 'Diastolic BP',
-            unit: 'mmHg',
-            icon: Icons.monitor_heart,
-            color: Colors.purple,
-            isCritical: (val) => val < 60 || val > 90,
-          ),
-          _MetricConfig(
-            id: 'temperature',
-            title: 'Temperature',
-            unit: '°C',
-            icon: Icons.thermostat,
-            color: Colors.orange,
-            isCritical: (val) => val < 36.0 || val > 38.0,
-          ),
-        ];
+        final uniqueTypes = data.map((d) => d['vital_type']?.toString()).whereType<String>().toSet();
+        
+        final metricsConfig = <_MetricConfig>[];
+        for (final type in uniqueTypes) {
+          switch (type) {
+            case 'heart_rate':
+              metricsConfig.add(_MetricConfig(
+                id: 'heart_rate', title: 'Heart Rate', unit: 'bpm', icon: Icons.favorite, color: Colors.redAccent, isCritical: (val) => val < 50 || val > 100,
+              ));
+              break;
+            case 'spo2':
+              metricsConfig.add(_MetricConfig(
+                id: 'spo2', title: 'SpO₂', unit: '%', icon: Icons.air, color: Colors.lightBlue, isCritical: (val) => val < 92,
+              ));
+              break;
+            case 'respiratory_rate':
+              metricsConfig.add(_MetricConfig(
+                id: 'respiratory_rate', title: 'Respiratory Rate', unit: '/min', icon: Icons.waves, color: Colors.teal, isCritical: (val) => val < 12 || val > 20,
+              ));
+              break;
+            case 'systolic':
+              metricsConfig.add(_MetricConfig(
+                id: 'systolic', title: 'Systolic BP', unit: 'mmHg', icon: Icons.monitor_heart_outlined, color: Colors.deepPurpleAccent, isCritical: (val) => val < 90 || val > 140,
+              ));
+              break;
+            case 'diastolic':
+              metricsConfig.add(_MetricConfig(
+                id: 'diastolic', title: 'Diastolic BP', unit: 'mmHg', icon: Icons.monitor_heart, color: Colors.purple, isCritical: (val) => val < 60 || val > 90,
+              ));
+              break;
+            case 'temperature':
+              metricsConfig.add(_MetricConfig(
+                id: 'temperature', title: 'Temperature', unit: '°C', icon: Icons.thermostat, color: Colors.orange, isCritical: (val) => val < 36.0 || val > 38.0,
+              ));
+              break;
+            default:
+              // Dynamically support ANY metric in the database!
+              final title = type.replaceAll('_', ' ').split(' ').map((s) => s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : '').join(' ');
+              metricsConfig.add(_MetricConfig(
+                id: type,
+                title: title,
+                unit: currentMetrics['${type}_unit']?.toString() ?? '',
+                icon: Icons.timeline,
+                color: Colors.blueGrey,
+                isCritical: (val) => false,
+              ));
+          }
+        }
+        
+        if (metricsConfig.isEmpty) {
+          return const Center(child: Text('No vitals recorded yet.'));
+        }
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(vertical: 16),

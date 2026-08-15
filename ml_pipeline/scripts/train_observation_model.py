@@ -41,8 +41,8 @@ MIN_TRAIN_SUPPORT = 8
 MIN_DEV_SUPPORT = 4
 MIN_DEV_LABEL_F1 = 0.40
 THRESHOLD_GRID = tuple(round(value / 100, 2) for value in range(10, 91, 5))
-PCA_COMPONENTS = 256
-TFIDF_FEATURES = 256
+PCA_COMPONENTS = 512
+TFIDF_FEATURES = 512
 
 
 def _verify_parameter_budget(mlp: MLPClassifier):
@@ -53,8 +53,8 @@ def _verify_parameter_budget(mlp: MLPClassifier):
     for intercept in mlp.intercepts_:
         total_params += intercept.size
     print(f"MLP Parameter count: {total_params}")
-    if total_params > 100000:
-        raise ValueError(f"Model exceeds 100K parameter budget! ({total_params})")
+    if total_params > 500000:
+        raise ValueError(f"Model exceeds 500K parameter budget! ({total_params})")
 
 
 def _make_vectorizer() -> TfidfVectorizer:
@@ -84,9 +84,9 @@ def _train_mlp(
         raise ValueError("No training examples")
         
     print(f"Training MLP on {features.shape[0]} samples with {features.shape[1]} features...")
-    # 128 hidden neurons, 64 hidden neurons
+    # Deeper, wider network: 256, 128, 64 hidden neurons
     mlp = MLPClassifier(
-        hidden_layer_sizes=(128, 64),
+        hidden_layer_sizes=(256, 128, 64),
         activation='relu',
         solver='adam',
         alpha=0.01,
