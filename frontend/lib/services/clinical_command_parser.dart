@@ -11,6 +11,7 @@ enum ClinicalAction {
   queryTrends,
   recordMedication,
   recordNote,
+  batchRecord,
   queryMedications,
   summarize,
   greeting,
@@ -67,15 +68,17 @@ class ClinicalCommand {
   const ClinicalCommand({
     required this.action,
     this.vitals = const [],
-    this.medication,
+    this.medications = const [],
     this.noteCategory,
+    this.noteText,
     this.recordedAt,
   });
 
   final ClinicalAction action;
   final List<ParsedVital> vitals;
-  final ParsedMedication? medication;
+  final List<ParsedMedication> medications;
   final String? noteCategory;
+  final String? noteText;
   final DateTime? recordedAt;
 }
 
@@ -193,27 +196,78 @@ class ClinicalCommandParser {
               );
       case 'record_medication':
         final rawMedication = data['medication'];
-        if (rawMedication is! Map) return null;
-        final medication = Map<String, dynamic>.from(rawMedication);
-        final name = medication['name']?.toString().trim() ?? '';
-        if (name.isEmpty) return null;
-        const statuses = {'administered', 'held', 'started', 'discontinued'};
-        final status = medication['status']?.toString();
-        if (!statuses.contains(status)) return null;
+        final med = data['medication'];
+        if (med is! Map) return null;
         return ClinicalCommand(
           action: ClinicalAction.recordMedication,
-          medication: ParsedMedication(
-            name: name,
-            dose: medication['dose']?.toString(),
-            route: medication['route']?.toString(),
-            status: status!,
-          ),
+          medications: [
+            ParsedMedication(
+              name: med['name']?.toString() ?? 'unknown',
+              dose: med['dose']?.toString(),
+              route: med['route']?.toString(),
+              status: med['status']?.toString() ?? 'administered',
+            ),
+          ],
           recordedAt: recordedAt,
         );
       case 'record_note':
         return ClinicalCommand(
           action: ClinicalAction.recordNote,
-          noteCategory: 'nursing_observation',
+          noteCategory: data['category']?.toString(),
+          noteText: data['note']?.toString(),
+          recordedAt: recordedAt,
+        );
+      case 'batch_record':
+        final vitals = <ParsedVital>[];
+        final rawVitals = data['vitals'];
+        if (rawVitals is List) {
+          for (final item in rawVitals) {
+            if (item is! Map) continue;
+            final vital = Map<String, dynamic>.from(item);
+            final type = vital['type']?.toString();
+            if (type == 'blood_pressure') {
+              final sys = _number(vital['systolic']);
+              final dia = _number(vital['diastolic']);
+              if (sys != null && dia != null) {
+                _addIfInRange(vitals, 'systolic', sys, 'mmHg', 40, 260);
+                _addIfInRange(vitals, 'diastolic', dia, 'mmHg', 20, 180);
+              }
+            } else if (type == 'heart_rate') {
+              _addIfInRange(vitals, 'heart_rate', _number(vital['value']), 'bpm', 20, 260);
+            } else if (type == 'temperature') {
+              _addIfInRange(vitals, 'temperature', _number(vital['value']), '°C', 25, 45);
+            } else if (type == 'spo2') {
+              _addIfInRange(vitals, 'spo2', _number(vital['value']), '%', 40, 100);
+            } else if (type == 'respiratory_rate') {
+              _addIfInRange(vitals, 'respiratory_rate', _number(vital['value']), '/min', 4, 80);
+            } else if (type == 'weight') {
+              _addIfInRange(vitals, 'weight', _number(vital['value']), 'kg', 2, 500);
+            }
+          }
+        }
+        
+        final medications = <ParsedMedication>[];
+        final rawMeds = data['medications'];
+        if (rawMeds is List) {
+          for (final item in rawMeds) {
+            if (item is! Map) continue;
+            final med = Map<String, dynamic>.from(item);
+            medications.add(
+              ParsedMedication(
+                name: med['name']?.toString() ?? 'unknown',
+                dose: med['dose']?.toString(),
+                route: med['route']?.toString(),
+                status: med['status']?.toString() ?? 'administered',
+              ),
+            );
+          }
+        }
+        
+        return ClinicalCommand(
+          action: ClinicalAction.batchRecord,
+          vitals: vitals,
+          medications: medications,
+          noteText: data['note']?.toString(),
           recordedAt: recordedAt,
         );
       case 'query_vitals':
@@ -327,7 +381,7 @@ class ClinicalCommandParser {
     if (medication != null) {
       return ClinicalCommand(
         action: ClinicalAction.recordMedication,
-        medication: medication,
+        medications: [medication],
       );
     }
     if (vitals.isNotEmpty) {

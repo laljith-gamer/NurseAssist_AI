@@ -259,13 +259,14 @@ CRITICAL RULES:
 2. EXTRACT EVERYTHING. Look deeply into the message to find vitals, medications, or important clinical notes.
 3. BE SMART. If the user says "BP is 120 over 80", you know that means systolic 120 and diastolic 80.
 
-Schema: {"v":1,"action":"record_vitals|record_medication|record_note|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation","timestamp":"YYYY-MM-DDTHH:MM:SS or null",...}
+Schema: {"v":1,"action":"record_vitals|record_medication|record_note|batch_record|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation","timestamp":"YYYY-MM-DDTHH:MM:SS or null",...}
 Vital form: {"v":1,"action":"record_vitals","timestamp":"...","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate|temperature|spo2|respiratory_rate|weight","value":78,"unit":"bpm|c|f|percent|per_min|kg|lb"}]}
 Medication form: {"v":1,"action":"record_medication","timestamp":"...","medication":{"name":"...","dose":"... or null","route":"PO|IV|IM|SC|TOPICAL|INHALED or null","status":"administered|held|started|discontinued"}}
-Note form: {"v":1,"action":"record_note","timestamp":"..."}. Use this for factual patient observations (e.g., patient seems confused, wound is healing well).
+Note form: {"v":1,"action":"record_note","timestamp":"...","note":"...","category":"nursing_observation"}
+Batch form: {"v":1,"action":"batch_record","timestamp":"...","vitals":[...],"medications":[...],"note":"..."}
 
 Example 1: "BP 140/90 hr 85" -> {"v":1,"action":"record_vitals","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
-Example 2: "patient is complaining of severe headache" -> {"v":1,"action":"record_note","timestamp":"$now"}
+Example 2: "BP 120/80 and I gave 500mg tylenol PO. Patient is resting." -> {"v":1,"action":"batch_record","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}],"medications":[{"name":"tylenol","dose":"500mg","route":"PO","status":"administered"}],"note":"Patient is resting."}
 Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","timestamp":"$now","medication":{"name":"tylenol","dose":"500mg","route":"PO","status":"administered"}}
 ''';
       
@@ -286,18 +287,26 @@ Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","times
       _isGenerating = false;
     }
   }
-
-  /// Build a short, single-turn bedside response prompt. The model is not
-  /// asked to diagnose or prescribe; factual record lookups stay local.
   String buildClinicalPrompt({
     required String patientName,
     required String userMessage,
     List<ClinicalObservation> observationHints = const [],
     String patientMemory = '',
+    ClinicalAction? action,
   }) {
     final hintText = observationHints.isEmpty
         ? 'none'
         : observationHints.map((hint) => hint.name).join(', ');
+
+    String instruction = 'Respond as a world-class note-taking assistant. Synthesize the input into a concise, professional nursing note or summary.';
+    
+    if (action == ClinicalAction.greeting) {
+      instruction = 'Politely and concisely greet the nurse. Do not list your features or explain what you can do unless explicitly asked. Just say hello.';
+    } else if (action == ClinicalAction.help) {
+      instruction = 'Briefly and concisely explain that you can record vitals, medications, and nursing observations, or query patient history.';
+    } else if (action == ClinicalAction.unknown) {
+      instruction = 'Respond naturally and concisely to the nurse\\'s conversational input.';
+    }
 
     return '''You are NurseAssist AI, a clinical nursing assistant running on-device.
 You are assisting with the currently selected patient: $patientName.
@@ -309,7 +318,7 @@ Nurse's input:
 $userMessage
 </message>
 
-Respond as a world-class note-taking assistant. Synthesize the input into a concise, professional nursing note or summary.
+$instruction
 Do not diagnose, prescribe, invent a record, or claim that anything was saved. If a request is unclear,
 ask one focused clarification. Do not use markdown.''';
   }

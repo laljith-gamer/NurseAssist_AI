@@ -33,6 +33,7 @@ class ModelManager extends ChangeNotifier {
   ModelStatus _status = ModelStatus.checking;
   String _currentVersion = 'Checking';
   String _downloadProgress = '';
+  Map<String, dynamic>? _pendingRelease;
 
   bool get isUpdating => _isUpdating;
   ModelStatus get status => _status;
@@ -40,6 +41,13 @@ class ModelManager extends ChangeNotifier {
   String get downloadProgress => _downloadProgress;
 
   final Future<void> Function()? onModelUpdated;
+  
+  Future<void> downloadUpdate() async {
+    if (_pendingRelease != null) {
+      await _downloadAndInstallLatest(_pendingRelease!);
+      _pendingRelease = null;
+    }
+  }
 
   ModelManager({this.onModelUpdated}) {
     _initStatus().then((_) => checkForUpdates());
@@ -147,10 +155,11 @@ class ModelManager extends ChangeNotifier {
         return;
       }
 
+      _pendingRelease = release;
       _status = ModelStatus.updateAvailable;
       _downloadProgress = 'Nursing-language update available';
       notifyListeners();
-      await _downloadAndInstallLatest(release);
+      // Wait for user permission to update.
     } catch (error) {
       debugPrint('Model update check failed: $error');
       _status = (await getLocalMetadata()) == null

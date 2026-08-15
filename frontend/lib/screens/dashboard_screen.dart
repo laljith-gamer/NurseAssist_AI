@@ -434,6 +434,11 @@ class ModelManagementWidget extends StatelessWidget {
                   onPressed: () => manager.checkForUpdates(),
                   child: const Text('Check GitHub for Update'),
                 ),
+                if (manager.status == ModelStatus.updateAvailable)
+                  ElevatedButton(
+                    onPressed: () => manager.downloadUpdate(),
+                    child: const Text('Download Update Now'),
+                  ),
               ],
             ),
             if (manager.status == ModelStatus.downloading)

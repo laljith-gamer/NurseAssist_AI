@@ -28,19 +28,28 @@ class ClinicalRecordProposal {
 
   String get summary {
     if (command.action == ClinicalAction.recordVitals) {
-      return command.vitals.map((vital) => vital.displayValue).join(', ');
+      return command.vitals.map((v) => v.displayValue).join(', ');
     }
     if (command.action == ClinicalAction.recordNote) {
-      return sourceText;
+      return command.noteText ?? sourceText;
     }
-    final medication = command.medication;
-    if (medication == null) return '';
-    return [
-      medication.name,
-      if (medication.dose != null) medication.dose!,
-      if (medication.route != null) medication.route!,
-      '(${medication.status})',
-    ].join(' ');
+    if (command.action == ClinicalAction.recordMedication) {
+      return command.medications.map((m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'.trim()).join(', ');
+    }
+    if (command.action == ClinicalAction.batchRecord) {
+      final parts = <String>[];
+      if (command.vitals.isNotEmpty) {
+        parts.add('Vitals: ' + command.vitals.map((v) => v.displayValue).join(', '));
+      }
+      if (command.medications.isNotEmpty) {
+        parts.add('Meds: ' + command.medications.map((m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'.trim()).join(', '));
+      }
+      if (command.noteText != null) {
+        parts.add('Note: ${command.noteText}');
+      }
+      return parts.join(' | ');
+    }
+    return '';
   }
 }
 
@@ -425,6 +434,8 @@ class PatientProvider with ChangeNotifier {
       case ClinicalAction.queryMedications:
         return _medicationsResponse(patient);
 
+      case ClinicalAction.greeting:
+      case ClinicalAction.help:
       case ClinicalAction.summarize:
       case ClinicalAction.unknown:
         return _optionalLlmResponse(
@@ -432,13 +443,8 @@ class PatientProvider with ChangeNotifier {
           message,
           observationHints,
           patientMemory,
+          command.action,
         );
-
-      case ClinicalAction.greeting:
-        return 'Hello. Select or admit a patient, then record vitals such as "BP 120/80, HR 78" or document a medication such as "Administered Zofran 4 mg PO".';
-
-      case ClinicalAction.help:
-        return 'I can prepare vital, medication, and nursing-observation entries; show records; show changes; and summarize this selected patient. Every entry is reviewed before saving.';
 
       case ClinicalAction.cancel:
         return 'No new record was created.';
@@ -521,15 +527,17 @@ class PatientProvider with ChangeNotifier {
           );
           break;
         case ClinicalAction.recordMedication:
-          await _apiService.recordMedication(
-            proposal.patientId,
-            name: proposal.command.medication!.name,
-            dose: proposal.command.medication!.dose,
-            route: proposal.command.medication!.route,
-            status: proposal.command.medication!.status,
-            sourceText: proposal.sourceText,
-            recordedAt: proposal.command.recordedAt,
-          );
+          for (final med in proposal.command.medications) {
+            await _apiService.recordMedication(
+              proposal.patientId,
+              name: med.name,
+              dose: med.dose,
+              route: med.route,
+              status: med.status,
+              sourceText: proposal.sourceText,
+              recordedAt: proposal.command.recordedAt,
+            );
+          }
           await _appendAssistantMessage(
             proposal.patientId,
             'Saved medication documentation for ${proposal.patientName}: ${proposal.summary}.',
@@ -547,6 +555,50 @@ class PatientProvider with ChangeNotifier {
           await _appendAssistantMessage(
             proposal.patientId,
             'Saved nursing observation for ${proposal.patientName}.',
+            sessionId: proposal.chatSessionId,
+          );
+          break;
+        case ClinicalAction.batchRecord:
+          if (proposal.command.vitals.isNotEmpty) {
+            await _apiService.recordVitals(
+              proposal.patientId,
+              proposal.command.vitals
+                  .map(
+                    (vital) => {
+                      'type': vital.type,
+                      'value': vital.value,
+                      'unit': vital.unit,
+                    },
+                  )
+                  .toList(),
+              sourceText: proposal.sourceText,
+              recordedAt: proposal.command.recordedAt,
+            );
+            await _refreshMetrics(proposal.patientId);
+          }
+          for (final med in proposal.command.medications) {
+            await _apiService.recordMedication(
+              proposal.patientId,
+              name: med.name,
+              dose: med.dose,
+              route: med.route,
+              status: med.status,
+              sourceText: proposal.sourceText,
+              recordedAt: proposal.command.recordedAt,
+            );
+          }
+          if (proposal.command.noteText != null && proposal.command.noteText!.isNotEmpty) {
+            await _apiService.recordNursingNote(
+              proposal.patientId,
+              content: proposal.command.noteText!,
+              sourceText: proposal.sourceText,
+              category: proposal.command.noteCategory ?? 'nursing_observation',
+              recordedAt: proposal.command.recordedAt,
+            );
+          }
+          await _appendAssistantMessage(
+            proposal.patientId,
+            'Saved batch records for ${proposal.patientName}: ${proposal.summary}.',
             sessionId: proposal.chatSessionId,
           );
           break;
@@ -690,6 +742,7 @@ class PatientProvider with ChangeNotifier {
     String message,
     List<ClinicalObservation> observationHints,
     String patientMemory,
+    ClinicalAction? action,
   ) async {
     final llm = _llmService;
     if (llm?.isReady != true) {
@@ -700,6 +753,7 @@ class PatientProvider with ChangeNotifier {
       userMessage: message,
       observationHints: observationHints,
       patientMemory: patientMemory,
+      action: action,
     );
     final response = await llm.generateResponse(prompt);
     return response.isEmpty
