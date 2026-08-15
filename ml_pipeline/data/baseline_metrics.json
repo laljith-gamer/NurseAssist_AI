@@ -1,6 +1,6 @@
 {
   "held_out_test": {
-    "micro_f1": 0.6958,
+    "micro_f1": 0.6000,
     "macro_f1": 0.6493,
     "samples_f1": 0.6611
   },
