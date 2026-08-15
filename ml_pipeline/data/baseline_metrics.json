@@ -1,13 +1,13 @@
 {
   "held_out_test": {
-    "micro_f1": 0.6000,
-    "macro_f1": 0.6493,
-    "samples_f1": 0.6611
+    "micro_f1": 0.6621,
+    "macro_f1": 0.617,
+    "samples_f1": 0.6708
   },
   "validation": {
-    "micro_f1": 0.6807,
-    "macro_f1": 0.5949,
-    "samples_f1": 0.662
+    "micro_f1": 0.7365,
+    "macro_f1": 0.6464,
+    "samples_f1": 0.7516
   },
   "selected_labels": [
     "Agitated",
@@ -18,16 +18,25 @@
     "Chest pain",
     "Cognitive status",
     "Fall risk assessment",
+    "Fall risk identification",
+    "Glasgow coma score - best motor response",
     "Hypertension",
     "Mobility",
     "Nausea",
     "No pain",
     "Oxygen delivery device",
+    "Oxygen flow rate",
+    "Oxygen flow rate unit",
     "Oxygen saturation",
+    "Pain severity",
+    "Patient safety",
     "Pitting edema",
     "Respiratory Distress",
     "Respiratory interventions",
+    "Severe pain",
     "Sleeping",
+    "Suprapubic tenderness",
+    "Tachycardia",
     "Urinary symptoms",
     "Urine odor",
     "Vomiting"
@@ -37,5 +46,5 @@
     "bioclinicalbert": true,
     "pca_components": 512
   },
-  "source_model_version": "local-architecture-upgrade"
+  "source_model_version": "nurse-nlp-v41"
 }
