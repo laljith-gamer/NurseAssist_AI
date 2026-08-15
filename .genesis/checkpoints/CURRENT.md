@@ -9,3 +9,5 @@
 - sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
 - tokens_used: not tracked
 - skills_loaded: []
+
+- notes: Created comprehensive project summary at docs/PROJECT_SUMMARY.md covering all three components (frontend, ML pipeline, relay), data flow, and current status.

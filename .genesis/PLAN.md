@@ -41,3 +41,7 @@ learning. A weekly GitHub Actions workflow checks a telemetry drop folder for
 implicit usage signals (AI proposals that nurses actually confirmed). If new
 usage data exists, it ingests it into the training dataset and retrains the
 model. If no new data exists, it skips training to save resources. We are currently implementing the telemetry feedback loop to safely collect de-identified feedback from the device and pipe it to the training workflow.
+
+## Recent Activity Log
+
+- 2026-08-15: Comprehensive project summary documented in docs/PROJECT_SUMMARY.md, covering all three components (frontend Flutter app, ML pipeline, relay), data flow, and current development status.

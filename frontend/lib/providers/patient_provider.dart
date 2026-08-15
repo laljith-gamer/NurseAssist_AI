@@ -155,11 +155,15 @@ class PatientProvider with ChangeNotifier {
       );
       
       final history = (results[2] as List).cast<Map<String, dynamic>>();
-      history.sort((a, b) => DateTime.parse(a['recorded_at'])
-          .compareTo(DateTime.parse(b['recorded_at'])));
+      history.sort((a, b) {
+        final timeA = a['recorded_at'] is int ? a['recorded_at'] as int : DateTime.parse(a['recorded_at'].toString()).millisecondsSinceEpoch;
+        final timeB = b['recorded_at'] is int ? b['recorded_at'] as int : DateTime.parse(b['recorded_at'].toString()).millisecondsSinceEpoch;
+        return timeA.compareTo(timeB);
+      });
       _vitalHistory = history;
 
-      final sessions = (results[1] as List<Map<String, dynamic>>)
+      final sessions = (results[1] as List)
+          .cast<Map<String, dynamic>>()
           .map(ChatSession.fromJson)
           .toList();
       if (sessions.isEmpty) {
@@ -467,10 +471,13 @@ class PatientProvider with ChangeNotifier {
       _apiService.getVitals(patientId),
     ]);
     if (_selectedPatient?.id == patientId) {
-      _currentMetrics = DeltaMetrics.fromJson(results[0] as Map<String, dynamic>);
+      _currentMetrics = DeltaMetrics.fromJson(Map<String, dynamic>.from(results[0] as Map));
       final history = (results[1] as List).cast<Map<String, dynamic>>();
-      history.sort((a, b) => DateTime.parse(a['recorded_at'])
-          .compareTo(DateTime.parse(b['recorded_at'])));
+      history.sort((a, b) {
+        final timeA = a['recorded_at'] is int ? a['recorded_at'] as int : DateTime.parse(a['recorded_at'].toString()).millisecondsSinceEpoch;
+        final timeB = b['recorded_at'] is int ? b['recorded_at'] as int : DateTime.parse(b['recorded_at'].toString()).millisecondsSinceEpoch;
+        return timeA.compareTo(timeB);
+      });
       _vitalHistory = history;
       notifyListeners();
     }
