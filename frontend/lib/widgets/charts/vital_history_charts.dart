@@ -256,14 +256,17 @@ class _ChartCard extends StatelessWidget {
 
     int spotIndex = 0;
     for (int i = 0; i < rawData.length; i++) {
-      final val = rawData[i][config.id];
-      if (val != null) {
-        final dVal = (val as num).toDouble();
-        if (dVal.isFinite && !dVal.isNaN) {
-          spots.add(FlSpot(spotIndex.toDouble(), dVal));
-          if (dVal < minY) minY = dVal;
-          if (dVal > maxY) maxY = dVal;
-          spotIndex++;
+      final row = rawData[i];
+      if (row['vital_type'] == config.id) {
+        final val = row['value'];
+        if (val != null) {
+          final dVal = (val as num).toDouble();
+          if (dVal.isFinite && !dVal.isNaN) {
+            spots.add(FlSpot(spotIndex.toDouble(), dVal));
+            if (dVal < minY) minY = dVal;
+            if (dVal > maxY) maxY = dVal;
+            spotIndex++;
+          }
         }
       }
     }
