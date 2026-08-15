@@ -1,11 +1,14 @@
-"""Train an advisory clinical-observation MLP model.
+"""Train an advisory clinical-observation MLP model with knowledge distillation.
 
-This module trains a compact Multi-Layer Perceptron (MLP) with a hard parameter
-budget (< 100K parameters) using scikit-learn. The model takes a concatenated vector
-of TF-IDF features and BioClinicalBERT embeddings (PCA-reduced) as input, and
-outputs multi-label probabilities for clinical observations.
+This module trains a compact Multi-Layer Perceptron (MLP) using scikit-learn.
+When BioClinicalBERT is available (CI), it uses knowledge distillation:
+  1. Train a TEACHER model on BERT+TF-IDF features (1024 dims)
+  2. Distill into a STUDENT model on TF-IDF-only features (512 dims)
+  3. Export the student for mobile inference
 
-The clinical reasoning module is applied post-prediction to enhance the output.
+When BioClinicalBERT is not available (local dev), trains directly on TF-IDF.
+This ensures perfect train/serve parity — the exported model always uses the
+same feature space as the Dart runtime.
 """
 
 from __future__ import annotations
@@ -44,6 +47,10 @@ THRESHOLD_GRID = tuple(round(value / 100, 2) for value in range(10, 91, 5))
 PCA_COMPONENTS = 512
 TFIDF_FEATURES = 512
 
+# Knowledge distillation hyperparameters
+DISTILL_TEMPERATURE = 2.0  # softmax temperature for teacher predictions
+DISTILL_ALPHA = 0.5        # blend ratio: 0=all teacher, 1=all hard labels
+
 
 def _verify_parameter_budget(mlp: MLPClassifier):
     # MLPClassifier stores weights in coefs_ (list of arrays) and biases in intercepts_ (list of arrays)
@@ -77,16 +84,16 @@ def _labels(examples: Iterable[SynurExample], selected: set[str]) -> list[list[i
 
 def _train_mlp(
     features: np.ndarray, 
-    targets: list[list[int]]
+    targets: list[list[int]],
+    hidden_sizes: tuple = (512, 256),
 ) -> MLPClassifier:
     
     if not targets:
         raise ValueError("No training examples")
         
     print(f"Training MLP on {features.shape[0]} samples with {features.shape[1]} features...")
-    # Wider network: 512, 256 hidden neurons (maintains 2 hidden layers for the Dart inference schema)
     mlp = MLPClassifier(
-        hidden_layer_sizes=(512, 256),
+        hidden_layer_sizes=hidden_sizes,
         activation='relu',
         solver='adam',
         alpha=0.01,
@@ -103,6 +110,46 @@ def _train_mlp(
     _verify_parameter_budget(mlp)
     
     return mlp
+
+
+def _distill_targets(
+    hard_targets: np.ndarray,
+    teacher_proba: np.ndarray,
+    alpha: float = DISTILL_ALPHA,
+    temperature: float = DISTILL_TEMPERATURE,
+) -> list[list[int]]:
+    """Create distilled training targets by blending hard labels with teacher predictions.
+    
+    Uses the teacher's soft predictions to augment the hard labels:
+    - Where the teacher is confident about a positive label that the hard label missed,
+      the distilled label may flip to positive (transferring BERT knowledge).
+    - Where the teacher disagrees with a positive hard label, the hard label is trusted
+      (ground truth takes precedence).
+    
+    Args:
+        hard_targets: Binary ground-truth labels (n_samples, n_classes)
+        teacher_proba: Teacher's predicted probabilities (n_samples, n_classes)
+        alpha: Blend ratio. 1.0 = use only hard labels, 0.0 = use only teacher.
+        temperature: Softmax temperature to soften teacher predictions.
+    
+    Returns:
+        Distilled binary targets for student training.
+    """
+    # Apply temperature scaling to make teacher predictions softer
+    # For sigmoid outputs: scale logits by 1/T before re-applying sigmoid
+    # teacher_proba values are already in [0,1], so we convert back to logits first
+    eps = 1e-7
+    teacher_logits = np.log((teacher_proba + eps) / (1 - teacher_proba + eps))
+    soft_proba = 1.0 / (1.0 + np.exp(-teacher_logits / temperature))
+    
+    # Blend: alpha * hard_labels + (1-alpha) * teacher_soft_predictions
+    blended = alpha * hard_targets.astype(float) + (1 - alpha) * soft_proba
+    
+    # Threshold to binary for MLPClassifier
+    # Use 0.4 as threshold — slightly above 0.5*alpha to favor teacher knowledge
+    distilled = (blended >= 0.4).astype(int)
+    
+    return distilled.tolist()
 
 
 def _probabilities(model: MLPClassifier, features: np.ndarray) -> list[list[float]]:
@@ -218,10 +265,11 @@ def _training_report(
     per_label_dev: dict[str, dict[str, float | int]],
     synthetic_count: int = 0,
     telemetry_count: int = 0,
+    used_distillation: bool = False,
 ) -> dict:
     return {
         "model_role": "advisory_clinical_observation_context",
-        "architecture": "Compact Clinical MLP (<100K params)",
+        "architecture": "Compact Clinical MLP (TF-IDF student via knowledge distillation)" if used_distillation else "Compact Clinical MLP (TF-IDF only)",
         "dataset": {
             "id": DATASET_ID,
             "synthetic_count": synthetic_count,
@@ -240,7 +288,8 @@ def _training_report(
         "held_out_test": test_metrics,
         "training_features": {
             "tfidf_dims": TFIDF_FEATURES,
-            "bioclinicalbert": True,
+            "bioclinicalbert": False,  # Student model always uses TF-IDF only
+            "distilled_from_bert": used_distillation,
             "pca_components": PCA_COMPONENTS,
         }
     }
@@ -302,10 +351,14 @@ def train_model() -> None:
         [example.transcript for example in dev_examples]
     )
 
-    # --- BioClinicalBERT ---
+    # --- BioClinicalBERT (for teacher model only) ---
     print("\n=== BioClinicalBERT Feature Extraction ===")
     used_bert = False
     bert_pca = None
+    bert_embedder = None
+    train_bert = None
+    dev_bert = None
+    
     if settings.USE_BIOCLINICALBERT:
         try:
             bert_embedder = BioClinicalBertEmbedder(
@@ -328,37 +381,47 @@ def train_model() -> None:
             bert_pca = selector_pca
         except Exception as e:
             print(f"BioClinicalBERT is unavailable due to an error: {e}")
-            print("Falling back to TF-IDF only.")
-            train_bert = None
-            dev_bert = None
+            print("Falling back to TF-IDF only (no distillation).")
     else:
         print("BioClinicalBERT is disabled. Using TF-IDF only.")
-        train_bert = None
-        dev_bert = None
 
-    # --- Combine and Train ---
-    train_features = _combine_features(train_tfidf, train_bert)
-    dev_features = _combine_features(dev_tfidf, dev_bert)
-
+    # --- Label Selection (use best available features) ---
     train_targets = _labels(train_examples, candidate_set)
     dev_targets = _labels(dev_examples, candidate_set)
     
-    print("\n=== Training Compact MLP ===")
-    mlp_model = _train_mlp(train_features, train_targets)
-    
-    dev_probabilities = _probabilities(mlp_model, dev_features)
-    threshold = _best_threshold(dev_targets, dev_probabilities)
-    selected_labels, per_label_dev = _select_labels(
-        candidate_labels,
-        dev_targets,
-        dev_probabilities,
-        threshold,
-    )
+    if used_bert:
+        # Use BERT+TF-IDF teacher for label selection (best quality)
+        teacher_train_features = _combine_features(train_tfidf, train_bert)
+        teacher_dev_features = _combine_features(dev_tfidf, dev_bert)
+        
+        print("\n=== Training TEACHER MLP (BERT+TF-IDF) for Label Selection ===")
+        teacher_mlp = _train_mlp(teacher_train_features, train_targets)
+        
+        teacher_dev_proba = _probabilities(teacher_mlp, teacher_dev_features)
+        threshold = _best_threshold(dev_targets, teacher_dev_proba)
+        selected_labels, per_label_dev = _select_labels(
+            candidate_labels, dev_targets, teacher_dev_proba, threshold,
+        )
+    else:
+        # TF-IDF only for label selection
+        tfidf_train_features = _combine_features(train_tfidf, None)
+        tfidf_dev_features = _combine_features(dev_tfidf, None)
+        
+        print("\n=== Training MLP (TF-IDF only) ===")
+        selector_mlp = _train_mlp(tfidf_train_features, train_targets)
+        
+        dev_probabilities = _probabilities(selector_mlp, tfidf_dev_features)
+        threshold = _best_threshold(dev_targets, dev_probabilities)
+        selected_labels, per_label_dev = _select_labels(
+            candidate_labels, dev_targets, dev_probabilities, threshold,
+        )
     
     selected_set = set(selected_labels)
     selected_indexes = [candidate_labels.index(label) for label in selected_labels]
-    
-    # Retrain on full combined train+dev with selected labels
+
+    # ====================================================================
+    # Final model training: ALWAYS produces a TF-IDF-only model for mobile
+    # ====================================================================
     final_examples = [*train_examples, *dev_examples]
     final_vectorizer = _make_vectorizer()
     final_tfidf = final_vectorizer.fit_transform(
@@ -367,59 +430,101 @@ def train_model() -> None:
     test_tfidf = final_vectorizer.transform(
         [example.transcript for example in test_examples]
     )
-
-    final_texts = [example.transcript for example in final_examples]
-    test_texts = [example.transcript for example in test_examples]
-
+    
+    final_tfidf_features = _combine_features(final_tfidf, None)  # TF-IDF only (512)
+    test_tfidf_features = _combine_features(test_tfidf, None)    # TF-IDF only (512)
+    
+    final_targets = _labels(final_examples, selected_set)
+    test_targets = _labels(test_examples, selected_set)
+    
+    used_distillation = False
+    
     if used_bert:
+        # === KNOWLEDGE DISTILLATION ===
+        print("\n=== Knowledge Distillation: Training TEACHER on final data ===")
+        
+        final_texts = [example.transcript for example in final_examples]
+        test_texts = [example.transcript for example in test_examples]
+        
         final_bert, final_pca = _compute_bert_features(
             bert_embedder, final_texts, fit_pca=True,
         )
         test_bert, _ = _compute_bert_features(
             bert_embedder, test_texts, pca=final_pca,
         )
+        
+        final_teacher_features = _combine_features(final_tfidf, final_bert)
+        test_teacher_features = _combine_features(test_tfidf, test_bert)
+        
+        # Train teacher on BERT+TF-IDF
+        teacher_final = _train_mlp(final_teacher_features, final_targets)
+        
+        # Get teacher's soft predictions for distillation
+        teacher_proba = np.array(teacher_final.predict_proba(final_teacher_features))
+        
+        # Create distilled targets
+        distilled_targets = _distill_targets(
+            np.array(final_targets), teacher_proba,
+            alpha=DISTILL_ALPHA, temperature=DISTILL_TEMPERATURE,
+        )
+        
+        # Train STUDENT on TF-IDF only with distilled targets
+        print("\n=== Training STUDENT MLP (TF-IDF only, distilled from BERT teacher) ===")
+        final_mlp = _train_mlp(final_tfidf_features, distilled_targets)
+        used_distillation = True
+        
+        # Evaluate student on TF-IDF test features
+        test_metrics = _metric_summary(
+            test_targets,
+            _binary(_probabilities(final_mlp, test_tfidf_features), threshold),
+        )
+        
+        # Also report teacher performance for comparison
+        teacher_test_metrics = _metric_summary(
+            test_targets,
+            _binary(_probabilities(teacher_final, test_teacher_features), threshold),
+        )
+        print(f"\nTeacher (BERT+TF-IDF) test metrics: {teacher_test_metrics}")
+        print(f"Student (TF-IDF distilled) test metrics: {test_metrics}")
+        
+        # Store teacher PCA for reference but don't export it for mobile
         bert_pca = final_pca
     else:
-        final_bert = None
-        test_bert = None
-        final_pca = None
-    
-    final_features = _combine_features(final_tfidf, final_bert)
-    test_features = _combine_features(test_tfidf, test_bert)
+        # === Direct TF-IDF training (no distillation) ===
+        print("\n=== Final Training on Train+Dev (TF-IDF only) ===")
+        final_mlp = _train_mlp(final_tfidf_features, final_targets)
+        
+        test_metrics = _metric_summary(
+            test_targets,
+            _binary(_probabilities(final_mlp, test_tfidf_features), threshold),
+        )
 
-    final_targets = _labels(final_examples, selected_set)
-    test_targets = _labels(test_examples, selected_set)
-    
-    print("\n=== Final Training on Train+Dev ===")
-    final_mlp = _train_mlp(final_features, final_targets)
-    
-    test_metrics = _metric_summary(
-        test_targets,
-        _binary(_probabilities(final_mlp, test_features), threshold),
-    )
-
-    # Save artifact
+    # Save artifact — ALWAYS a TF-IDF-only student model
     artifact = {
         "vectorizer": final_vectorizer,
         "mlp_model": final_mlp,
         "labels": selected_labels,
         "threshold": threshold,
-        "used_bert": used_bert,
-        "bert_pca": bert_pca,
+        "used_bert": False,      # Student model never uses BERT at inference
+        "bert_pca": None,        # No BERT PCA needed for mobile
+        "distilled": used_distillation,
     }
-    if used_bert and bert_pca is not None:
-        artifact["bert_model_name"] = settings.BIOCLINICALBERT_MODEL
-        artifact["bert_pca_components"] = bert_pca.n_components
 
     model_path = settings.DATA_DIR / "clinical_observation_model.pkl"
     report_path = settings.DATA_DIR / "clinical_observation_metrics.json"
     
     with model_path.open("wb") as file:
         pickle.dump(artifact, file)
-        
+    
+    # Dev metrics from student model on TF-IDF features
+    dev_tfidf_features = _combine_features(
+        selector_vectorizer.transform([e.transcript for e in dev_examples]), None
+    )
+    student_dev_proba = _probabilities(final_mlp, dev_tfidf_features)
+    dev_selected_targets = _labels(dev_examples, selected_set)
     dev_metrics = _metric_summary(
-        [[row[index] for index in selected_indexes] for row in dev_targets],
-        _binary([[row[index] for index in selected_indexes] for row in dev_probabilities], threshold)
+        dev_selected_targets,
+        _binary(student_dev_proba, threshold),
     )
     
     report = _training_report(
@@ -431,12 +536,17 @@ def train_model() -> None:
         per_label_dev=per_label_dev,
         synthetic_count=synthetic_count,
         telemetry_count=telemetry_count,
+        used_distillation=used_distillation,
     )
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print(f"\nSaved model: {model_path}")
     print(f"Validation metrics: {dev_metrics}")
     print(f"Held-out test metrics: {test_metrics}")
+    if used_distillation:
+        print("Model type: TF-IDF student (distilled from BERT+TF-IDF teacher)")
+    else:
+        print("Model type: TF-IDF only (no distillation)")
 
 if __name__ == "__main__":
     train_model()

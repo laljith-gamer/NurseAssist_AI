@@ -43,7 +43,6 @@ def evaluate_tfidf_parity(artifact: dict) -> dict:
     mlp_model = artifact["mlp_model"]
     labels = artifact["labels"]
     threshold = artifact["threshold"]
-    bert_pca = artifact.get("bert_pca")
 
     splits = load_all_splits()
     test_examples = list(splits["test"])
@@ -66,13 +65,7 @@ def evaluate_tfidf_parity(artifact: dict) -> dict:
             pass
 
     test_tfidf = vectorizer.transform([example.transcript for example in test_examples])
-    tfidf_dense = test_tfidf.toarray()
-
-    if artifact.get("used_bert") and bert_pca is not None:
-        zero_bert = np.zeros((len(test_examples), bert_pca.n_components), dtype=np.float32)
-        parity_features = np.hstack([tfidf_dense, zero_bert])
-    else:
-        parity_features = tfidf_dense
+    parity_features = test_tfidf.toarray()  # Student model uses TF-IDF only
 
     targets = [
         [int(label in example.observation_names) for label in labels]
@@ -97,14 +90,12 @@ def export_observation_model(model_path: Path, output_path: Path) -> str:
     mlp_model = artifact["mlp_model"]
     labels = artifact["labels"]
     threshold = artifact["threshold"]
-    bert_pca = artifact["bert_pca"]
 
     # Extract MLP weights from sklearn MLPClassifier
-    # mlp_model.coefs_ is a list of length n_layers - 1
-    # For a (128, 64) hidden layer MLP, length is 3.
-    # coefs_[0] shape: (n_features, 128)
-    # coefs_[1] shape: (128, 64)
-    # coefs_[2] shape: (64, n_classes)
+    # The student model always has 2 hidden layers (512, 256) with TF-IDF-only input.
+    # coefs_[0] shape: (512, 512)  -- TF-IDF input to hidden1
+    # coefs_[1] shape: (512, 256)  -- hidden1 to hidden2
+    # coefs_[2] shape: (256, n_classes) -- hidden2 to output
     
     # Dart expects transposed weights for its matrix-vector multiply 
     # (or we can just export as is and handle in Dart)
@@ -143,14 +134,7 @@ def export_observation_model(model_path: Path, output_path: Path) -> str:
         },
     }
     
-    if bert_pca is not None:
-        payload["bert_projection"] = {
-            "model_name": artifact.get("bert_model_name", "emilyalsentzer/Bio_ClinicalBERT"),
-            "pca_components": bert_pca.components_.tolist(),
-            "pca_mean": bert_pca.mean_.tolist(),
-            "embedding_dim": int(bert_pca.components_.shape[1]),
-            "reduced_dim": int(bert_pca.n_components),
-        }
+    # Student model is always TF-IDF only — no BERT projection needed
 
     output_path.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
     return calculate_sha256(output_path)

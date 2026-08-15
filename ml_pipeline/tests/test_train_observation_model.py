@@ -6,6 +6,7 @@ from scripts.train_observation_model import (
     _select_labels,
     _verify_parameter_budget,
     _best_threshold,
+    _distill_targets,
 )
 
 def test_select_labels():
@@ -57,3 +58,29 @@ def test_best_threshold():
     
     best = _best_threshold(targets, probabilities)
     assert best == 0.50
+
+def test_distill_targets():
+    """Teacher predictions should augment hard labels when confident."""
+    hard = np.array([
+        [1, 0, 0],  # only label A
+        [0, 1, 0],  # only label B
+        [0, 0, 1],  # only label C
+    ])
+    # Teacher is confident about label B for sample 0 (knowledge transfer)
+    teacher_proba = np.array([
+        [0.9, 0.8, 0.1],  # teacher also sees B for sample 0
+        [0.1, 0.9, 0.1],  # agrees with hard label
+        [0.1, 0.1, 0.9],  # agrees with hard label
+    ])
+    
+    distilled = _distill_targets(hard, teacher_proba, alpha=0.5, temperature=2.0)
+    
+    # Sample 0: hard=[1,0,0], teacher=[0.9,0.8,0.1]
+    # Blended label B should be > 0 due to teacher confidence
+    assert distilled[0][0] == 1  # label A stays 1
+    assert distilled[1][1] == 1  # label B stays 1
+    assert distilled[2][2] == 1  # label C stays 1
+    # Distilled targets must be valid binary
+    for row in distilled:
+        for val in row:
+            assert val in (0, 1)

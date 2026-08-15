@@ -1,13 +1,13 @@
 # CURRENT
-- active_loop: ml-pipeline-optimization
-- target: fixed <100K parameter MLP with curated datasets and clinical reasoning
-- iteration: 9
-- last_gate: ML pipeline unit tests pass and TF-IDF parity evaluation reported
-- last_action: "Scaled the frontend vitals chart to dynamically support any metric schema. Upgraded ML pipeline observation model parameters to <500K cap with deeper 256-128-64 layer structure and 512 TFIDF features, then retrained and exported."
-- next_action: "Wait for user confirmation, then proceed to build a release APK (M7)."
-- model: `compact_clinical_mlp` (Sklearn MLP, ~172K parameters)
-- sidecar_data: Microsoft SYNUR + Synthetic Nursing Templates
+- active_loop: ml-pipeline-overhaul
+- target: Knowledge-distilled TF-IDF student model with accurate clinical observations
+- iteration: 10
+- last_gate: User-reported false positive observation tags from screenshots
+- last_action: "Major ML pipeline overhaul: (1) Knowledge distillation to fix train/serve BERT skew, (2) Added 8 new clinical labels with negation detection, (3) Improved LLM prompt for narrative nursing text, (4) Enhanced fallback parser for conversational vitals/meds, (5) Friendly AI responses when LLM fails."
+- next_action: "Verify training completes, run export + parity check, update baseline, push to GitHub."
+- model: `compact_clinical_mlp` (Sklearn MLP, TF-IDF student distilled from BERT teacher)
+- sidecar_data: Microsoft SYNUR + MTSamples with negation-aware weak supervision
 - tokens_used: not tracked
 - skills_loaded: []
 
-- notes: ML upgrade resulted in a 172K parameter model with significantly deeper architecture. The frontend UI is now decoupled from hardcoded vitals lists.
+- notes: Root cause of wrong observation tags was train/serve feature skew (BERT+TF-IDF training vs TF-IDF-only inference). Knowledge distillation preserves BERT intelligence while ensuring perfect parity. New labels cover Headache, Weakness, Fever, Dehydration, Insomnia, Dizziness, Pain, Edema. Frontend now handles narrative nursing input and summarization requests.

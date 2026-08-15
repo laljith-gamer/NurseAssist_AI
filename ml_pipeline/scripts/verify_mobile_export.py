@@ -115,16 +115,10 @@ def _verify_export_parity() -> None:
     vectorizer = artifact["vectorizer"]
     
     for probe in probes:
-        # Compute expected probabilities using only TF-IDF features
-        tfidf_features = vectorizer.transform([probe]).toarray()[0]
+        # Student model uses TF-IDF only — no zero-padding needed
+        tfidf_features = vectorizer.transform([probe]).toarray()
         
-        # Pad with zeros for BERT features if they are expected by the MLP
-        input_dim = mlp_model.coefs_[0].shape[0]
-        full_features = np.zeros((1, input_dim))
-        tfidf_dim = min(len(tfidf_features), input_dim)
-        full_features[0, :tfidf_dim] = tfidf_features[:tfidf_dim]
-        
-        expected = mlp_model.predict_proba(full_features)[0].tolist()
+        expected = mlp_model.predict_proba(tfidf_features)[0].tolist()
         actual = predict_export_probabilities(probe, exported)
         
         for expected_value, actual_value in zip(expected, actual):

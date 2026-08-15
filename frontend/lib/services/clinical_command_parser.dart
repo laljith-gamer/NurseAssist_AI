@@ -338,7 +338,7 @@ class ClinicalCommandParser {
     caseSensitive: false,
   );
   static final RegExp _medicationActionPattern = RegExp(
-    r'\b(gave|given|administer(?:ed)?|hold|held|withheld|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?|dc)\b',
+    r'\b(gave|given|administer(?:ed)?|hold|held|withheld|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?|dc|took|taken|taking)\b',
     caseSensitive: false,
   );
 
@@ -404,8 +404,20 @@ class ClinicalCommandParser {
 
     if (RegExp(
       r'\b(?:summari[sz]e|summary|handoff|overview|snapshot)\b',
+    ).hasMatch(normalized) || RegExp(
+      r'\b(?:prepare|write|compile|generate|create|make)\s+(?:a\s+)?(?:nursing\s+)?(?:note|documentation|report|summary|write[\s-]*up)\b',
     ).hasMatch(normalized)) {
       return const ClinicalCommand(action: ClinicalAction.summarize);
+    }
+
+    if (RegExp(
+      r'\b(?:complains?\s+of|reports?|says?\s+(?:he|she|they)\s+(?:feels?|has?|is))\b',
+    ).hasMatch(normalized)) {
+      return ClinicalCommand(
+        action: ClinicalAction.recordNote,
+        noteCategory: 'nursing_observation',
+        noteText: text,
+      );
     }
     if (RegExp(
       r'\b(?:help|commands?|what can you do)\b',
@@ -534,7 +546,13 @@ class ClinicalCommandParser {
 
   static bool _hasRecordLanguage(String text) {
     return RegExp(
-      r'\b(?:record|log|document|enter|save|put|set|add|update|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?)\b',
+      r'\b(?:record|log|document|enter|save|put|set|add|update|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?|took|taken|taking)\b',
+      caseSensitive: false,
+    ).hasMatch(text) || RegExp(
+      r'\b(?:temperature|temp|pulse|heart\s*rate|hr|blood\s*pressure|bp|spo2|respiratory\s*rate|rr|oxygen\s*sat)\s+(?:is|of|at|was|reads?|showing)\s+\d',
+      caseSensitive: false,
+    ).hasMatch(text) || RegExp(
+      r'\b(?:took|taken|taking|gave|given|administer(?:ed)?)\s+(?:a\s+|one\s+|two\s+|\d+\s+)?(?:tablet|dose|pill|mg|ml)?\s*\w+',
       caseSensitive: false,
     ).hasMatch(text);
   }

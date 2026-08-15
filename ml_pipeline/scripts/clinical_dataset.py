@@ -3,6 +3,8 @@
 This module downloads the public MTSamples dataset (real, de-identified 
 medical transcriptions) from Hugging Face and uses weak-supervision 
 (Regex/Keyword mapping) to label it with nursing observations for ML training.
+
+Negation detection prevents false labels from phrases like "denies chest pain".
 """
 
 import re
@@ -24,27 +26,91 @@ class SynurExample:
             if isinstance(obs.get("name"), str) and obs["name"].strip()
         }
 
+# Negation detection: check if a match is preceded by negation cues
+_NEGATION_CUES = re.compile(
+    r'\b(denies|denied|deny|no\b|not\b|without|negative\s+for|absent|none|'
+    r'never|neither|nor\b|doesn.t|don.t|didn.t|hasn.t|wasn.t|isn.t|aren.t|'
+    r'free\s+of|ruled\s+out|r/o)\b',
+    re.IGNORECASE,
+)
+_NEGATION_WINDOW = 40  # characters to look back for negation
+
+
+def _is_negated(text: str, match_start: int) -> bool:
+    """Check if a regex match is preceded by negation within a character window."""
+    window_start = max(0, match_start - _NEGATION_WINDOW)
+    preceding = text[window_start:match_start]
+    return bool(_NEGATION_CUES.search(preceding))
+
+
 # Weak supervision rules mapping Regex patterns to Clinical Observations
-LABELING_RULES: List[Tuple[re.Pattern, str]] = [
-    (re.compile(r'\b(hypertension|bp\s*(is\s*)?(elevated|high)|\b1[4-9]\d/[9-9]\d)\b', re.IGNORECASE), "Hypertension"),
-    (re.compile(r'\b(hypoxia|spO2\s*(is\s*)?(low|drop|<90|8[0-9])|oxygen\s*desat)\b', re.IGNORECASE), "Hypoxia"),
-    (re.compile(r'\b(tachycardia|hr\s*(is\s*)?(elevated|high|>100))\b', re.IGNORECASE), "Tachycardia"),
-    (re.compile(r'\b(chest\s*pain|angina|cp)\b', re.IGNORECASE), "Chest pain"),
-    (re.compile(r'\b(nausea|vomiting|emesis)\b', re.IGNORECASE), "Nausea"),
-    (re.compile(r'\b(severe\s*pain|pain\s*(of\s*)?[7-9]/10|pain\s*(of\s*)?10/10)\b', re.IGNORECASE), "Severe pain"),
-    (re.compile(r'\b(denies\s*pain|no\s*pain|pain\s*(of\s*)?0/10|pain\s*free)\b', re.IGNORECASE), "No pain"),
-    (re.compile(r'\b(agitated|combative|restless)\b', re.IGNORECASE), "Agitated"),
-    (re.compile(r'\b(anxious|anxiety|nervous)\b', re.IGNORECASE), "Anxious"),
-    (re.compile(r'\b(alert\s*(and|&)\s*oriented|a&o|a\+o|oriented\s*x\s*3)\b', re.IGNORECASE), "Alert and oriented"),
-    (re.compile(r'\b(sleeping|asleep|resting\s*comfortably)\b', re.IGNORECASE), "Sleeping"),
-    (re.compile(r'\b(ambulating|ambulated|walking|gait\s*steady)\b', re.IGNORECASE), "Ambulating"),
-    (re.compile(r'\b(tolerating\s*diet|eating\s*well|po\s*intake\s*good)\b', re.IGNORECASE), "Tolerating diet"),
-    (re.compile(r'\b(dressing\s*(is\s*)?(clean|dry|intact)|cdi)\b', re.IGNORECASE), "Dressing CDI"),
-    (re.compile(r'\b(respirations\s*(are\s*)?(even|unlabored|normal)|breathing\s*normally)\b', re.IGNORECASE), "Normal respirations"),
-    (re.compile(r'\b(respiratory\s*distress|labored\s*breathing|sob|shortness\s*of\s*breath)\b', re.IGNORECASE), "Respiratory Distress"),
-    (re.compile(r'\b(foley\s*(is\s*)?(patent|draining)|catheter\s*draining)\b', re.IGNORECASE), "Foley patent"),
-    (re.compile(r'\b(voiding|urine\s*clear)\b', re.IGNORECASE), "Normal voiding"),
+# Each rule is: (pattern, label, negation_aware)
+# When negation_aware is True, the label is skipped if negation is detected
+LABELING_RULES: List[Tuple[re.Pattern, str, bool]] = [
+    # --- Cardiovascular ---
+    (re.compile(r'\b(hypertension|bp\s*(is\s*)?(elevated|high)|blood\s*pressure\s*(is\s*)?(elevated|high)|\b1[4-9]\d/[89]\d|\b1[4-9]\d/1[0-4]\d)\b', re.IGNORECASE), "Hypertension", True),
+    (re.compile(r'\b(tachycardia|hr\s*(is\s*)?(elevated|high|>100)|heart\s*rate\s*(is\s*)?(elevated|high))\b', re.IGNORECASE), "Tachycardia", True),
+    (re.compile(r'\bchest\s*pain\b', re.IGNORECASE), "Chest pain", True),
+    (re.compile(r'\bangina\b', re.IGNORECASE), "Chest pain", True),
+
+    # --- Respiratory ---
+    (re.compile(r'\b(hypoxia|oxygen\s*desat)', re.IGNORECASE), "Hypoxia", True),
+    (re.compile(r'\bspO2\s*(is\s*)?(low|drop|decreased|<\s*9[0-3]|8[0-9])', re.IGNORECASE), "Hypoxia", True),
+    (re.compile(r'\b(respiratory\s*distress|labored\s*breathing|shortness\s*of\s*breath|dyspnea)\b', re.IGNORECASE), "Respiratory Distress", True),
+    (re.compile(r'\bsob\b', re.IGNORECASE), "Respiratory Distress", True),
+    (re.compile(r'\b(respirations\s*(are\s*)?(even|unlabored|normal)|breathing\s*normally)\b', re.IGNORECASE), "Normal respirations", True),
+
+    # --- Pain ---
+    (re.compile(r'\b(severe\s*pain|pain\s*(of\s*)?[7-9]\s*/\s*10|pain\s*(of\s*)?10\s*/\s*10)\b', re.IGNORECASE), "Severe pain", True),
+    (re.compile(r'\b(denies\s*pain|no\s*pain|pain\s*(of\s*)?0\s*/\s*10|pain\s*free)\b', re.IGNORECASE), "No pain", False),  # negation IS the label
+    (re.compile(r'\bheadache\b', re.IGNORECASE), "Headache", True),
+    (re.compile(r'\b(head\s*pain|cephalgia|cephalalgia|migraine)\b', re.IGNORECASE), "Headache", True),
+    (re.compile(r'\b(pain\s*(of\s*)?\d\s*/\s*10|complains?\s*of\s*pain|painful)\b', re.IGNORECASE), "Pain", True),
+
+    # --- GI ---
+    (re.compile(r'\bnausea\b', re.IGNORECASE), "Nausea", True),
+    (re.compile(r'\bnauseous\b', re.IGNORECASE), "Nausea", True),
+    (re.compile(r'\b(vomiting|emesis|vomited)\b', re.IGNORECASE), "Vomiting", True),
+    (re.compile(r'\b(tolerating\s*diet|eating\s*well|po\s*intake\s*good)\b', re.IGNORECASE), "Tolerating diet", True),
+
+    # --- Neurological / Mental Status ---
+    (re.compile(r'\b(agitated|combative|restless)\b', re.IGNORECASE), "Agitated", True),
+    (re.compile(r'\b(anxious|anxiety|nervous)\b', re.IGNORECASE), "Anxious", True),
+    (re.compile(r'\b(alert\s*(and|&)\s*oriented|a&o|a\+o|oriented\s*x\s*[34])\b', re.IGNORECASE), "Alert and oriented", True),
+    (re.compile(r'\b(sleeping|asleep|resting\s*comfortably)\b', re.IGNORECASE), "Sleeping", True),
+    (re.compile(r'\b(confused|confusion|disoriented|altered\s*mental\s*status)\b', re.IGNORECASE), "Confusion", True),
+
+    # --- Mobility ---
+    (re.compile(r'\b(ambulating|ambulated|walking|gait\s*steady)\b', re.IGNORECASE), "Ambulating", True),
+
+    # --- Wounds / Lines ---
+    (re.compile(r'\b(dressing\s*(is\s*)?(clean|dry|intact))\b', re.IGNORECASE), "Dressing CDI", True),
+    (re.compile(r'\b(foley\s*(is\s*)?(patent|draining)|catheter\s*draining)\b', re.IGNORECASE), "Foley patent", True),
+    (re.compile(r'\b(voiding|urine\s*clear)\b', re.IGNORECASE), "Normal voiding", True),
+
+    # --- NEW: Fever / Temperature ---
+    (re.compile(r'\b(fever|febrile|pyrexia)\b', re.IGNORECASE), "Fever", True),
+    (re.compile(r'\b(elevated\s*temp|temp\s*(is\s*)?(elevated|high))\b', re.IGNORECASE), "Fever", True),
+    (re.compile(r'\btemp(?:erature)?\s*(?:is\s*|of\s*|:?\s*)3[89](?:\.\d)?\b', re.IGNORECASE), "Fever", True),
+    (re.compile(r'\btemp(?:erature)?\s*(?:is\s*|of\s*|:?\s*)4[0-2](?:\.\d)?\b', re.IGNORECASE), "Fever", True),
+
+    # --- NEW: Weakness / Fatigue ---
+    (re.compile(r'\b(weak|weakness|fatigue|fatigued|lethargic|lethargy|malaise)\b', re.IGNORECASE), "Weakness", True),
+
+    # --- NEW: Dehydration ---
+    (re.compile(r'\b(dehydrat(?:ed|ion)|poor\s*(?:fluid|oral)\s*intake|dry\s*mucous\s*membranes|poor\s*skin\s*turgor)\b', re.IGNORECASE), "Dehydration", True),
+
+    # --- NEW: Insomnia / Sleep disturbance ---
+    (re.compile(r'\b(insomnia|unable\s*to\s*sleep|poor\s*sleep|couldn.t\s*sleep|didn.t\s*sleep|difficulty\s*sleeping|sleep\s*disturbance)\b', re.IGNORECASE), "Insomnia", True),
+
+    # --- NEW: Dizziness ---
+    (re.compile(r'\b(dizzy|dizziness|lightheaded|light\s*headed|vertigo|orthostatic)\b', re.IGNORECASE), "Dizziness", True),
+
+    # --- NEW: Edema ---
+    (re.compile(r'\b(edema|swelling|swollen)\b', re.IGNORECASE), "Edema", True),
+    (re.compile(r'\b(pitting\s*edema)\b', re.IGNORECASE), "Edema", True),
 ]
+
 
 def load_mtsamples_dataset(max_records: int = 5000) -> List[SynurExample]:
     """Loads and labels real clinical transcriptions from MTSamples."""
@@ -71,10 +137,14 @@ def load_mtsamples_dataset(max_records: int = 5000) -> List[SynurExample]:
             skipped += 1
             continue
             
-        # Apply Regex Rules to find observation labels
+        # Apply Regex Rules with negation detection
         labels = set()
-        for pattern, label_name in LABELING_RULES:
-            if pattern.search(transcription):
+        for pattern, label_name, negation_aware in LABELING_RULES:
+            match = pattern.search(transcription)
+            if match:
+                # Skip if negation is detected before the match
+                if negation_aware and _is_negated(transcription, match.start()):
+                    continue
                 labels.add(label_name)
                 
         # Only keep records where we extracted at least one relevant observation

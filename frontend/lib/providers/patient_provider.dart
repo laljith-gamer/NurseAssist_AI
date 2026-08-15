@@ -483,8 +483,12 @@ class PatientProvider with ChangeNotifier {
             'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
 
       case ClinicalAction.unknown:
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I didn\'t quite catch that. You can ask me to record vitals, log medications, take notes, or summarize this patient.';
+        if (command.replyText?.isNotEmpty == true) return command.replyText!;
+        final hintNames = observationHints.map((h) => h.name).join(', ');
+        if (hintNames.isNotEmpty) {
+          return "I've noted some observations ($hintNames). Would you like me to document these as a nursing note for ${patient.name}?";
+        }
+        return "I hear you. Would you like me to record vitals, log a medication, or document an observation for ${patient.name}?";
     }
   }
 
