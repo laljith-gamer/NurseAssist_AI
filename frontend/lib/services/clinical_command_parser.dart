@@ -17,6 +17,7 @@ enum ClinicalAction {
   greeting,
   help,
   cancel,
+  conversation,
   unknown,
 }
 
@@ -72,6 +73,7 @@ class ClinicalCommand {
     this.noteCategory,
     this.noteText,
     this.recordedAt,
+    this.replyText,
   });
 
   final ClinicalAction action;
@@ -80,6 +82,8 @@ class ClinicalCommand {
   final String? noteCategory;
   final String? noteText;
   final DateTime? recordedAt;
+  /// The AI model's natural language response for the nurse to read.
+  final String? replyText;
 }
 
 class ClinicalCommandParser {
@@ -123,6 +127,7 @@ class ClinicalCommandParser {
     final recordedAt = data['timestamp'] != null 
         ? DateTime.tryParse(data['timestamp'].toString()) 
         : null;
+    final replyText = data['reply']?.toString();
 
     switch (data['action']?.toString()) {
       case 'record_vitals':
@@ -193,6 +198,7 @@ class ClinicalCommandParser {
                 action: ClinicalAction.recordVitals,
                 vitals: vitals,
                 recordedAt: recordedAt,
+                replyText: replyText,
               );
       case 'record_medication':
         final rawMedication = data['medication'];
@@ -209,6 +215,7 @@ class ClinicalCommandParser {
             ),
           ],
           recordedAt: recordedAt,
+          replyText: replyText,
         );
       case 'record_note':
         return ClinicalCommand(
@@ -216,6 +223,7 @@ class ClinicalCommandParser {
           noteCategory: data['category']?.toString(),
           noteText: data['note']?.toString(),
           recordedAt: recordedAt,
+          replyText: replyText,
         );
       case 'batch_record':
         final vitals = <ParsedVital>[];
@@ -269,21 +277,24 @@ class ClinicalCommandParser {
           medications: medications,
           noteText: data['note']?.toString(),
           recordedAt: recordedAt,
+          replyText: replyText,
         );
       case 'query_vitals':
-        return const ClinicalCommand(action: ClinicalAction.queryVitals);
+        return ClinicalCommand(action: ClinicalAction.queryVitals, replyText: replyText);
       case 'query_trends':
-        return const ClinicalCommand(action: ClinicalAction.queryTrends);
+        return ClinicalCommand(action: ClinicalAction.queryTrends, replyText: replyText);
       case 'query_medications':
-        return const ClinicalCommand(action: ClinicalAction.queryMedications);
+        return ClinicalCommand(action: ClinicalAction.queryMedications, replyText: replyText);
       case 'summarize':
-        return const ClinicalCommand(action: ClinicalAction.summarize);
+        return ClinicalCommand(action: ClinicalAction.summarize, replyText: replyText);
       case 'greeting':
-        return const ClinicalCommand(action: ClinicalAction.greeting);
+        return ClinicalCommand(action: ClinicalAction.greeting, replyText: replyText);
       case 'help':
-        return const ClinicalCommand(action: ClinicalAction.help);
+        return ClinicalCommand(action: ClinicalAction.help, replyText: replyText);
       case 'cancel':
-        return const ClinicalCommand(action: ClinicalAction.cancel);
+        return ClinicalCommand(action: ClinicalAction.cancel, replyText: replyText);
+      case 'conversation':
+        return ClinicalCommand(action: ClinicalAction.conversation, replyText: replyText);
       default:
         return null;
     }

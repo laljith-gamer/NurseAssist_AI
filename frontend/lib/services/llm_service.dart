@@ -111,10 +111,10 @@ class LlmService extends ChangeNotifier {
       );
 
       _chat = await _model!.createChat(
-        // Low-variance settings reduce malformed structured output and
-        // repetitive chat responses from the small on-device model.
+        // Slightly relaxed settings allow natural personality while keeping
+        // clinical output reliable. topK=3 is still very conservative.
         temperature: 0.2,
-        topK: 1,
+        topK: 3,
         topP: 0.8,
         tokenBuffer: 128,
       );
@@ -232,10 +232,10 @@ class LlmService extends ChangeNotifier {
     }
   }
 
-  /// Lets the model interpret free-form nursing language into a constrained
-  /// JSON action. The JSON is validated by [ClinicalCommandParser] and then
-  /// shown to the nurse for confirmation before a record can be saved. The
-  /// trained SYNUR context is advisory; it never becomes a chart value.
+  /// Interprets free-form nursing language into a structured JSON command.
+  /// The JSON always includes a `reply` field — the model's natural-language
+  /// response shown to the nurse. Clinical writes also include structured data
+  /// for validation. This is a SINGLE inference call.
   Future<ClinicalCommand?> interpretClinicalCommand(
     String message, {
     List<ClinicalObservation> observationHints = const [],
@@ -250,28 +250,36 @@ class LlmService extends ChangeNotifier {
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
       final schema =
-          '''You are NurseAssist AI, an advanced, highly intelligent clinical nursing assistant. You possess vast medical knowledge, understand clinical triage (e.g. recognizing critical blood pressure or heart rate), and think like a professional charge nurse. 
-Your primary job is to interpret free-form nursing notes and perfectly extract medical data into strict JSON format. 
-Current date/time for reference: $now
+          '''You are NurseAssist AI, a warm, professional, and highly intelligent clinical nursing assistant running on-device.
+You help nurses chart vitals, medications, and notes. You can also answer clinical questions, summarize patients, and have friendly conversations.
+Current date/time: $now
 
-CRITICAL RULES:
-1. NO YAPPING. You must output ONLY valid JSON. Do not include markdown (```json), greetings, or explanations.
-2. EXTRACT EVERYTHING. Look deeply into the message to find vitals, medications, or important clinical notes.
-3. BE SMART. If the user says "BP is 120 over 80", you know that means systolic 120 and diastolic 80.
+RULES:
+1. Output ONLY valid JSON. No markdown fences, no extra text.
+2. ALWAYS include a "reply" field with a friendly, concise, natural response for the nurse.
+3. For clinical data (vitals, meds, notes), ALSO include the structured fields.
+4. Be warm and professional. Use the patient context to give informed answers.
+5. For summaries, actually analyze the patient data and give a useful clinical overview.
+6. If the nurse just wants to chat or asks a question, use action "conversation".
 
-Schema: {"v":1,"action":"record_vitals|record_medication|record_note|batch_record|query_vitals|query_trends|query_medications|summarize|greeting|help|cancel|conversation","timestamp":"YYYY-MM-DDTHH:MM:SS or null",...}
-Vital form: {"v":1,"action":"record_vitals","timestamp":"...","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate|temperature|spo2|respiratory_rate|weight","value":78,"unit":"bpm|c|f|percent|per_min|kg|lb"}]}
-Medication form: {"v":1,"action":"record_medication","timestamp":"...","medication":{"name":"...","dose":"... or null","route":"PO|IV|IM|SC|TOPICAL|INHALED or null","status":"administered|held|started|discontinued"}}
-Note form: {"v":1,"action":"record_note","timestamp":"...","note":"...","category":"nursing_observation"}
-Batch form: {"v":1,"action":"batch_record","timestamp":"...","vitals":[...],"medications":[...],"note":"..."}
+JSON Schema:
+Clinical writes: {"v":1,"action":"record_vitals|record_medication|record_note|batch_record","reply":"Your friendly response","timestamp":"$now",...data fields...}
+Queries: {"v":1,"action":"query_vitals|query_trends|query_medications|summarize","reply":"Your informed answer using the patient context below"}
+Conversation: {"v":1,"action":"conversation|greeting|help|cancel","reply":"Your natural response"}
 
-Example 1: "BP 140/90 hr 85" -> {"v":1,"action":"record_vitals","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
-Example 2: "BP 120/80 and I gave 500mg tylenol PO. Patient is resting." -> {"v":1,"action":"batch_record","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80}],"medications":[{"name":"tylenol","dose":"500mg","route":"PO","status":"administered"}],"note":"Patient is resting."}
-Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","timestamp":"$now","medication":{"name":"tylenol","dose":"500mg","route":"PO","status":"administered"}}
+Vital form: "vitals":[{"type":"blood_pressure","systolic":120,"diastolic":80},{"type":"heart_rate|temperature|spo2|respiratory_rate|weight","value":N,"unit":"bpm|c|f|percent|per_min|kg|lb"}]
+Medication form: "medication":{"name":"...","dose":"...","route":"PO|IV|IM|SC|TOPICAL|INHALED","status":"administered|held|started|discontinued"}
+Note form: "note":"...","category":"nursing_observation"
+
+Examples:
+Nurse: "BP 140/90 hr 85" -> {"v":1,"action":"record_vitals","reply":"Got it — BP 140/90 and heart rate 85. I'll prepare that for your review.","timestamp":"$now","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
+Nurse: "hey" -> {"v":1,"action":"greeting","reply":"Hi there! How can I help you with charting today?"}
+Nurse: "summarize" -> {"v":1,"action":"summarize","reply":"Based on the recent records..."}
+Nurse: "how critical is a systolic of 180?" -> {"v":1,"action":"conversation","reply":"A systolic BP of 180 mmHg is considered a hypertensive urgency. It warrants prompt clinical attention and potential intervention."}
 ''';
-      
+
       final fullPrompt =
-          '$schema\nSelected-patient memory (context only; do not repeat as new facts):\n$patientMemory\n<message>\n$message\n</message>';
+          '$schema\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n<message>\n$message\n</message>';
       await _chat!.addQueryChunk(
         Message(
           text: fullPrompt,
@@ -287,39 +295,5 @@ Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","times
       _isGenerating = false;
     }
   }
-  String buildClinicalPrompt({
-    required String patientName,
-    required String userMessage,
-    List<ClinicalObservation> observationHints = const [],
-    String patientMemory = '',
-    ClinicalAction? action,
-  }) {
-    final hintText = observationHints.isEmpty
-        ? 'none'
-        : observationHints.map((hint) => hint.name).join(', ');
-
-    String instruction = 'Respond as a world-class note-taking assistant. Synthesize the input into a concise, professional nursing note or summary.';
-    
-    if (action == ClinicalAction.greeting) {
-      instruction = 'Politely and concisely greet the nurse. Do not list your features or explain what you can do unless explicitly asked. Just say hello.';
-    } else if (action == ClinicalAction.help) {
-      instruction = 'Briefly and concisely explain that you can record vitals, medications, and nursing observations, or query patient history.';
-    } else if (action == ClinicalAction.unknown) {
-      instruction = 'Respond naturally and concisely to the nurse\'s conversational input.';
-    }
-
-    return '''You are NurseAssist AI, a clinical nursing assistant running on-device.
-You are assisting with the currently selected patient: $patientName.
-Advisory nursing-observation context (not patient facts): $hintText
-Selected-patient memory (context only):
-$patientMemory
-Nurse's input:
-<message>
-$userMessage
-</message>
-
-$instruction
-Do not diagnose, prescribe, invent a record, or claim that anything was saved. If a request is unclear,
-ask one focused clarification. Do not use markdown.''';
-  }
 }
+

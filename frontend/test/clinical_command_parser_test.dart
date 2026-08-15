@@ -68,19 +68,19 @@ void main() {
       );
 
       expect(command.action, ClinicalAction.recordMedication);
-      expect(command.medication?.name, 'Zofran');
-      expect(command.medication?.dose, '4 mg');
-      expect(command.medication?.route, 'PO');
-      expect(command.medication?.status, 'administered');
+      expect(command.medications.first.name, 'Zofran');
+      expect(command.medications.first.dose, '4 mg');
+      expect(command.medications.first.route, 'PO');
+      expect(command.medications.first.status, 'administered');
     });
 
     test('handles dose-first medication wording', () {
       final command = ClinicalCommandParser.parse('Gave 4 mg Zofran IV');
 
       expect(command.action, ClinicalAction.recordMedication);
-      expect(command.medication?.name, 'Zofran');
-      expect(command.medication?.dose, '4 mg');
-      expect(command.medication?.route, 'IV');
+      expect(command.medications.first.name, 'Zofran');
+      expect(command.medications.first.dose, '4 mg');
+      expect(command.medications.first.route, 'IV');
     });
 
     test('routes medication questions to the local history', () {

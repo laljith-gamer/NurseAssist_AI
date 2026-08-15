@@ -407,12 +407,19 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return 'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return command.replyText ??
+            'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryVitals:
+        if (command.replyText != null && command.replyText!.isNotEmpty) {
+          return command.replyText!;
+        }
         return _vitalsResponse(patient);
 
       case ClinicalAction.queryTrends:
+        if (command.replyText != null && command.replyText!.isNotEmpty) {
+          return command.replyText!;
+        }
         return _trendsResponse(patient);
 
       case ClinicalAction.recordMedication:
@@ -423,7 +430,8 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return 'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return command.replyText ??
+            'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.recordNote:
         _stageProposal(
@@ -433,7 +441,8 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return 'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return command.replyText ??
+            'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.batchRecord:
         _stageProposal(
@@ -443,25 +452,39 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return 'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return command.replyText ??
+            'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryMedications:
+        if (command.replyText != null && command.replyText!.isNotEmpty) {
+          return command.replyText!;
+        }
         return _medicationsResponse(patient);
 
-      case ClinicalAction.greeting:
-      case ClinicalAction.help:
       case ClinicalAction.summarize:
-      case ClinicalAction.unknown:
-        return _optionalLlmResponse(
-          patient,
-          message,
-          observationHints,
-          patientMemory,
-          command.action,
-        );
+        if (command.replyText != null && command.replyText!.isNotEmpty) {
+          return command.replyText!;
+        }
+        return _buildFallbackSummary(patient);
+
+      case ClinicalAction.greeting:
+        return command.replyText ??
+            'Hello! I\'m NurseAssist, your clinical charting assistant. How can I help you today?';
+
+      case ClinicalAction.help:
+        return command.replyText ??
+            'I can help you record vitals, medications, and nursing notes. You can also ask me to summarize a patient or query their history.';
 
       case ClinicalAction.cancel:
-        return 'No new record was created.';
+        return command.replyText ?? 'No new record was created.';
+
+      case ClinicalAction.conversation:
+        return command.replyText ??
+            'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
+
+      case ClinicalAction.unknown:
+        return command.replyText ??
+            'I didn\'t quite catch that. You can ask me to record vitals, log medications, take notes, or summarize this patient.';
     }
   }
 
@@ -754,28 +777,26 @@ class PatientProvider with ChangeNotifier {
     return 'Medication history for ${patient.name}:\n${lines.join('\n')}\n\nThis app does not calculate medication due times.';
   }
 
-  Future<String> _optionalLlmResponse(
-    Patient patient,
-    String message,
-    List<ClinicalObservation> observationHints,
-    String patientMemory,
-    ClinicalAction? action,
-  ) async {
-    final llm = _llmService;
-    if (llm?.isReady != true) {
-      return 'I did not understand that as a record or query. Try "Help" to see supported local commands.';
+  Future<String> _buildFallbackSummary(Patient patient) async {
+    final memory = await _apiService.getPatientMemory(patient.id);
+    final lines = <String>[];
+    lines.add('Summary for ${patient.name}:');
+    final notes = memory['notes'] ?? const [];
+    if (notes.isNotEmpty) {
+      lines.add('Recent observations: ${notes.take(3).map((n) => n['content']).join('; ')}');
     }
-    final prompt = llm!.buildClinicalPrompt(
-      patientName: patient.name,
-      userMessage: message,
-      observationHints: observationHints,
-      patientMemory: patientMemory,
-      action: action,
-    );
-    final response = await llm.generateResponse(prompt);
-    return response.isEmpty
-        ? 'I could not form a reliable response. Try "Help" for supported local commands.'
-        : response;
+    final vitals = memory['vitals'] ?? const [];
+    if (vitals.isNotEmpty) {
+      lines.add('Latest vitals: ${vitals.take(5).map((v) => '${v['vital_type']} ${v['value']} ${v['unit']}').join(', ')}');
+    }
+    final meds = memory['medications'] ?? const [];
+    if (meds.isNotEmpty) {
+      lines.add('Recent medications: ${meds.take(3).map((m) => '${m['name']} ${m['status']}').join(', ')}');
+    }
+    if (lines.length == 1) {
+      lines.add('No clinical data recorded yet.');
+    }
+    return lines.join('\n');
   }
 
   String _formatPatientMemory(Map<String, List<Map<String, dynamic>>> memory) {
