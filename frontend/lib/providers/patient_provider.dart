@@ -407,7 +407,7 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryVitals:
@@ -430,7 +430,7 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.recordNote:
@@ -441,7 +441,7 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.batchRecord:
@@ -452,7 +452,7 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryMedications:
@@ -468,22 +468,22 @@ class PatientProvider with ChangeNotifier {
         return _buildFallbackSummary(patient);
 
       case ClinicalAction.greeting:
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'Hello! I\'m NurseAssist, your clinical charting assistant. How can I help you today?';
 
       case ClinicalAction.help:
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I can help you record vitals, medications, and nursing notes. You can also ask me to summarize a patient or query their history.';
 
       case ClinicalAction.cancel:
-        return command.replyText ?? 'No new record was created.';
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! : 'No new record was created.';
 
       case ClinicalAction.conversation:
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
 
       case ClinicalAction.unknown:
-        return command.replyText ??
+        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
             'I didn\'t quite catch that. You can ask me to record vitals, log medications, take notes, or summarize this patient.';
     }
   }

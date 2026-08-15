@@ -45,3 +45,4 @@ model. If no new data exists, it skips training to save resources. We are curren
 ## Recent Activity Log
 
 - 2026-08-15: Comprehensive project summary documented in docs/PROJECT_SUMMARY.md, covering all three components (frontend Flutter app, ML pipeline, relay), data flow, and current development status.
+- 2026-08-15: Overhauled the AI layer to allow the on-device Gemma 3 1B model to exhibit natural conversational intelligence instead of acting strictly as a rigid JSON extractor. Consolidated to a single-inference architecture combining structured JSON with friendly, contextual replies.
