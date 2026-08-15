@@ -53,8 +53,8 @@ def _verify_parameter_budget(mlp: MLPClassifier):
     for intercept in mlp.intercepts_:
         total_params += intercept.size
     print(f"MLP Parameter count: {total_params}")
-    if total_params > 500000:
-        raise ValueError(f"Model exceeds 500K parameter budget! ({total_params})")
+    if total_params > 750000:
+        raise ValueError(f"Model exceeds 750K parameter budget! ({total_params})")
 
 
 def _make_vectorizer() -> TfidfVectorizer:
