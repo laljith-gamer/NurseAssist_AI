@@ -84,9 +84,9 @@ def _train_mlp(
         raise ValueError("No training examples")
         
     print(f"Training MLP on {features.shape[0]} samples with {features.shape[1]} features...")
-    # Deeper, wider network: 256, 128, 64 hidden neurons
+    # Wider network: 512, 256 hidden neurons (maintains 2 hidden layers for the Dart inference schema)
     mlp = MLPClassifier(
-        hidden_layer_sizes=(256, 128, 64),
+        hidden_layer_sizes=(512, 256),
         activation='relu',
         solver='adam',
         alpha=0.01,
