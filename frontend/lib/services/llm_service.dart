@@ -305,7 +305,7 @@ Example 3: "gave 500mg tylenol PO" -> {"v":1,"action":"record_medication","times
     } else if (action == ClinicalAction.help) {
       instruction = 'Briefly and concisely explain that you can record vitals, medications, and nursing observations, or query patient history.';
     } else if (action == ClinicalAction.unknown) {
-      instruction = 'Respond naturally and concisely to the nurse\\'s conversational input.';
+      instruction = 'Respond naturally and concisely to the nurse\'s conversational input.';
     }
 
     return '''You are NurseAssist AI, a clinical nursing assistant running on-device.

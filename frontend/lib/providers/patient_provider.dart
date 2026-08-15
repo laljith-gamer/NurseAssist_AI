@@ -431,6 +431,16 @@ class PatientProvider with ChangeNotifier {
         );
         return 'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
 
+      case ClinicalAction.batchRecord:
+        _stageProposal(
+          patient: patient,
+          command: command,
+          sourceText: message,
+          interpreter: interpreter,
+          chatSessionId: chatSessionId,
+        );
+        return 'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+
       case ClinicalAction.queryMedications:
         return _medicationsResponse(patient);
 
