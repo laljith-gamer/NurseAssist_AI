@@ -14,8 +14,7 @@ import 'local_nlp_service.dart';
 class LlmService extends ChangeNotifier {
   static const String _modelUrl =
       'https://huggingface.co/MiCkSoftware/Gemma3-1B-IT-LiteRT/resolve/main/gemma3-1b-it-int4.task?download=true';
-  static const String _modelFileName =
-      'gemma3-1b-it-int4.task';
+  static const String _modelFileName = 'gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
@@ -56,8 +55,35 @@ class LlmService extends ChangeNotifier {
       if (response.statusCode != 200) {
         throw Exception('Failed to download model: ${response.statusCode}');
       }
-      
-      await response.pipe(tempFile.openWrite());
+      int totalBytes = response.contentLength;
+      int receivedBytes = 0;
+      int lastReportedPercent = -1;
+      int lastReportedTime = DateTime.now().millisecondsSinceEpoch;
+      final sink = tempFile.openWrite();
+
+      await for (var chunk in response) {
+        receivedBytes += chunk.length;
+        sink.add(chunk);
+
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final isTimeUpdate = now - lastReportedTime > 200;
+
+        if (totalBytes > 0) {
+          final percent = (receivedBytes / totalBytes * 100).toInt();
+          if (percent != lastReportedPercent || isTimeUpdate) {
+            lastReportedPercent = percent;
+            lastReportedTime = now;
+            _statusMessage = 'Downloading AI model... $percent%';
+            notifyListeners();
+          }
+        } else if (isTimeUpdate) {
+          lastReportedTime = now;
+          final mb = (receivedBytes / 1024 / 1024).toStringAsFixed(1);
+          _statusMessage = 'Downloading AI model... ${mb}MB';
+          notifyListeners();
+        }
+      }
+      await sink.close();
 
       _statusMessage = 'Installing AI model...';
       notifyListeners();
@@ -158,8 +184,6 @@ class LlmService extends ChangeNotifier {
     return cleaned;
   }
 
-
-
   Future<void> _prepareSingleTurn() async {
     if (_chat == null) throw StateError('Chat session not available.');
     // The prior implementation kept every unrelated patient interaction in a
@@ -224,12 +248,7 @@ Nurse: "Can you prepare a nursing documentation note based on what I've told you
 
       final fullPrompt =
           '$schema\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n<message>\n$message\n</message>';
-      await _chat!.addQueryChunk(
-        Message(
-          text: fullPrompt,
-          isUser: true,
-        ),
-      );
+      await _chat!.addQueryChunk(Message(text: fullPrompt, isUser: true));
       final raw = await _chat!.session.getResponse();
       return ClinicalCommandParser.fromAiJson(_sanitizeResponse(raw));
     } catch (error) {
@@ -240,4 +259,3 @@ Nurse: "Can you prepare a nursing documentation note based on what I've told you
     }
   }
 }
-
