@@ -20,10 +20,14 @@ class PatientSidebar extends StatelessWidget {
         return Container(
           width: 280,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.7),
+            color: isDark
+                ? const Color(0xFF0F172A).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.7),
             border: Border(
               right: BorderSide(
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -46,12 +50,18 @@ class PatientSidebar extends StatelessWidget {
                     ),
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: IconButton(
-                        icon: Icon(Icons.person_add, color: Theme.of(context).colorScheme.primary),
-                        onPressed: () => _showAddPatientDialog(context, provider),
+                        icon: Icon(
+                          Icons.person_add,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        onPressed: () =>
+                            _showAddPatientDialog(context, provider),
                         tooltip: 'Admit Patient',
                       ),
                     ),
@@ -59,30 +69,38 @@ class PatientSidebar extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: patients.isEmpty 
-                  ? const Center(child: Text("No patients found"))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: patients.length,
-                      itemBuilder: (context, index) {
-                        final patient = patients[index];
-                        final isSelected = provider.selectedPatient?.id == patient.id;
+                child: patients.isEmpty
+                    ? const Center(child: Text("No patients found"))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: patients.length,
+                        itemBuilder: (context, index) {
+                          final patient = patients[index];
+                          final isSelected =
+                              provider.selectedPatient?.id == patient.id;
 
-                        return _AnimatedPatientListItem(
-                          patient: patient,
-                          isSelected: isSelected,
-                          onTap: () {
-                            provider.selectPatient(patient);
-                            if (Scaffold.of(context).isDrawerOpen) {
-                              Navigator.pop(context);
-                            }
-                          },
-                        )
-                            .animate(delay: Duration(milliseconds: 50 * index))
-                            .fadeIn(duration: 300.ms)
-                            .slideX(begin: -0.1, end: 0, duration: 300.ms, curve: Curves.easeOut);
-                      },
-                    ),
+                          return _AnimatedPatientListItem(
+                                patient: patient,
+                                isSelected: isSelected,
+                                onTap: () {
+                                  provider.selectPatient(patient);
+                                  if (Scaffold.of(context).isDrawerOpen) {
+                                    Navigator.pop(context);
+                                  }
+                                },
+                              )
+                              .animate(
+                                delay: Duration(milliseconds: 50 * index),
+                              )
+                              .fadeIn(duration: 300.ms)
+                              .slideX(
+                                begin: -0.1,
+                                end: 0,
+                                duration: 300.ms,
+                                curve: Curves.easeOut,
+                              );
+                        },
+                      ),
               ),
             ],
           ),
@@ -136,9 +154,9 @@ class PatientSidebar extends StatelessWidget {
                   "mrn": "MRN-${DateTime.now().millisecondsSinceEpoch}",
                   "primary_diagnosis": "Pending",
                   "allergies": "None",
-                  "status": "Stable"
+                  "status": "Stable",
                 };
-                
+
                 final success = await provider.addPatient(patientData);
                 if (success && context.mounted) {
                   Navigator.pop(context);
@@ -165,7 +183,8 @@ class _AnimatedPatientListItem extends StatefulWidget {
   });
 
   @override
-  State<_AnimatedPatientListItem> createState() => _AnimatedPatientListItemState();
+  State<_AnimatedPatientListItem> createState() =>
+      _AnimatedPatientListItemState();
 }
 
 class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
@@ -174,7 +193,7 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -186,16 +205,20 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.only(bottom: 8),
           transform: Matrix4.diagonal3Values(
-            _isHovered ? 1.02 : 1.0, 
-            _isHovered ? 1.02 : 1.0, 
-            1.0
+            _isHovered ? 1.02 : 1.0,
+            _isHovered ? 1.02 : 1.0,
+            1.0,
           ),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1)
+                ? Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: isDark ? 0.2 : 0.1)
                 : (_isHovered
-                    ? (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03))
-                    : Colors.transparent),
+                      ? (isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.black.withValues(alpha: 0.03))
+                      : Colors.transparent),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: widget.isSelected
@@ -205,11 +228,16 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
             ),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             title: Text(
               widget.patient.name,
               style: TextStyle(
-                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.w600,
+                fontWeight: widget.isSelected
+                    ? FontWeight.bold
+                    : FontWeight.w600,
                 color: widget.isSelected
                     ? Theme.of(context).colorScheme.primary
                     : (isDark ? Colors.white : const Color(0xFF334155)),
@@ -225,7 +253,9 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
             leading: CircleAvatar(
               backgroundColor: widget.isSelected
                   ? Theme.of(context).colorScheme.primary
-                  : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  : (isDark
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFE2E8F0)),
               foregroundColor: widget.isSelected
                   ? Colors.white
                   : (isDark ? Colors.white : const Color(0xFF475569)),

@@ -7,7 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../providers/patient_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/model_manager.dart';
-import '../services/llm_service.dart';
+
 import '../services/telemetry_service.dart';
 import '../models/types.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -78,44 +78,6 @@ class _ChatInterfaceState extends State<ChatInterface> {
     }
   }
 
-  Color _getModelStatusColor(ModelStatus status) {
-    switch (status) {
-      case ModelStatus.offline:
-      case ModelStatus.ready:
-        return Colors.green.shade600;
-      case ModelStatus.checking:
-      case ModelStatus.updateAvailable:
-      case ModelStatus.downloading:
-      case ModelStatus.verifying:
-      case ModelStatus.installing:
-        return Colors.orange.shade600;
-      case ModelStatus.error:
-        return Colors.red.shade600;
-    }
-  }
-
-  String _getModelStatusText(ModelManager manager) {
-    String version = manager.currentVersion;
-    switch (manager.status) {
-      case ModelStatus.offline:
-        return "Nursing language model $version - Not installed";
-      case ModelStatus.ready:
-        return "Nursing language model $version - Ready";
-      case ModelStatus.checking:
-        return "Nursing language model $version - Checking for updates...";
-      case ModelStatus.updateAvailable:
-        return "Nursing language model $version - Update Available";
-      case ModelStatus.downloading:
-        return "Nursing language model $version - ${manager.downloadProgress}";
-      case ModelStatus.verifying:
-        return "Nursing language model $version - Verifying...";
-      case ModelStatus.installing:
-        return "Nursing language model $version - Installing...";
-      case ModelStatus.error:
-        return "Nursing language model $version - Update Error (Rolled back)";
-    }
-  }
-
   Widget _buildMessagesList(PatientProvider provider) {
     final messages = provider.messages;
     if (messages.isEmpty) {
@@ -132,90 +94,117 @@ class _ChatInterfaceState extends State<ChatInterface> {
         final isUser = msg.role == 'user';
         return Align(
           alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              crossAxisAlignment: isUser
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(24),
-                    topRight: const Radius.circular(24),
-                    bottomLeft: isUser
-                        ? const Radius.circular(24)
-                        : const Radius.circular(8),
-                    bottomRight: isUser
-                        ? const Radius.circular(8)
-                        : const Radius.circular(24),
-                  ),
-                  child: BackdropFilter(
-                    filter: isUser ? ImageFilter.blur(sigmaX: 0, sigmaY: 0) : ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: isUser
-                            ? const LinearGradient(
-                                colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)], // Vibrant cyan to blue
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              )
-                            : null,
-                        color: isUser 
-                            ? null 
-                            : (Theme.of(context).brightness == Brightness.dark 
-                                ? const Color(0xFF1E293B).withValues(alpha: 0.6) 
-                                : Colors.white.withValues(alpha: 0.8)),
-                        border: isUser 
-                            ? null 
-                            : Border.all(
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : Colors.black.withValues(alpha: 0.05),
-                                width: 1,
+          child:
+              Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: isUser
+                          ? CrossAxisAlignment.end
+                          : CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(24),
+                            topRight: const Radius.circular(24),
+                            bottomLeft: isUser
+                                ? const Radius.circular(24)
+                                : const Radius.circular(8),
+                            bottomRight: isUser
+                                ? const Radius.circular(8)
+                                : const Radius.circular(24),
+                          ),
+                          child: BackdropFilter(
+                            filter: isUser
+                                ? ImageFilter.blur(sigmaX: 0, sigmaY: 0)
+                                : ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
                               ),
-                      ),
-                      child: Text(
-                        msg.content,
-                        style: TextStyle(
-                          color: isUser
-                              ? Colors.white
-                              : Theme.of(context).textTheme.bodyLarge?.color,
-                          height: 1.5,
-                          fontSize: 15,
-                          letterSpacing: 0.2,
+                              decoration: BoxDecoration(
+                                gradient: isUser
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFF06B6D4),
+                                          Color(0xFF3B82F6),
+                                        ], // Vibrant cyan to blue
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : null,
+                                color: isUser
+                                    ? null
+                                    : (Theme.of(context).brightness ==
+                                              Brightness.dark
+                                          ? const Color(
+                                              0xFF1E293B,
+                                            ).withValues(alpha: 0.6)
+                                          : Colors.white.withValues(
+                                              alpha: 0.8,
+                                            )),
+                                border: isUser
+                                    ? null
+                                    : Border.all(
+                                        color:
+                                            Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.white.withValues(
+                                                alpha: 0.1,
+                                              )
+                                            : Colors.black.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                        width: 1,
+                                      ),
+                              ),
+                              child: Text(
+                                msg.content,
+                                style: TextStyle(
+                                  color: isUser
+                                      ? Colors.white
+                                      : Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color,
+                                  height: 1.5,
+                                  fontSize: 15,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (!isUser && msg.observationHints.isNotEmpty)
+                          _buildObservationChips(msg),
+                        if (!isUser) // Add 'Correct AI' button for assistant messages
+                          TextButton.icon(
+                            onPressed: () {
+                              String lastUserMsg = "Unknown context";
+                              for (int i = index - 1; i >= 0; i--) {
+                                if (messages[i].role == 'user') {
+                                  lastUserMsg = messages[i].content;
+                                  break;
+                                }
+                              }
+                              _showFeedbackDialog(context, lastUserMsg);
+                            },
+                            icon: const Icon(Icons.thumb_down, size: 14),
+                            label: const Text(
+                              "Correct AI",
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                      ],
                     ),
+                  )
+                  .animate()
+                  .fadeIn(duration: 300.ms)
+                  .slideY(
+                    begin: 0.2,
+                    end: 0,
+                    duration: 300.ms,
+                    curve: Curves.easeOut,
                   ),
-                ),
-                if (!isUser && msg.observationHints.isNotEmpty)
-                  _buildObservationChips(msg),
-                if (!isUser) // Add 'Correct AI' button for assistant messages
-                  TextButton.icon(
-                    onPressed: () {
-                      String lastUserMsg = "Unknown context";
-                      for (int i = index - 1; i >= 0; i--) {
-                        if (messages[i].role == 'user') {
-                          lastUserMsg = messages[i].content;
-                          break;
-                        }
-                      }
-                      _showFeedbackDialog(context, lastUserMsg);
-                    },
-                    icon: const Icon(Icons.thumb_down, size: 14),
-                    label: const Text(
-                      "Correct AI",
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-              ],
-            ),
-          ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.2, end: 0, duration: 300.ms, curve: Curves.easeOut),
         );
       },
     );
@@ -225,79 +214,84 @@ class _ChatInterfaceState extends State<ChatInterface> {
     final proposal = provider.pendingProposal!;
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.fact_check_outlined, color: colorScheme.primary),
-              const SizedBox(width: 8),
+              Row(
+                children: [
+                  Icon(Icons.fact_check_outlined, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Review before charting',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
-                'Review before charting',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+                'Patient: ${proposal.patientName}',
+                style: TextStyle(color: colorScheme.onPrimaryContainer),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                proposal.summary,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
                   color: colorScheme.onPrimaryContainer,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Patient: ${proposal.patientName}',
-            style: TextStyle(color: colorScheme.onPrimaryContainer),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            proposal.summary,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onPrimaryContainer,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Interpreted by ${proposal.interpreter}. Verify against the patient and source before saving.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: colorScheme.onPrimaryContainer,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: provider.isResponding
-                    ? null
-                    : () async {
-                        await provider.discardPendingProposal();
-                        if (mounted) _scrollToBottom();
-                      },
-                child: const Text('Discard'),
+              const SizedBox(height: 4),
+              Text(
+                'Interpreted by ${proposal.interpreter}. Verify against the patient and source before saving.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                ),
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: provider.isResponding
-                    ? null
-                    : () async {
-                        await provider.confirmPendingProposal();
-                        if (mounted) _scrollToBottom();
-                      },
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Confirm & Save'),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: provider.isResponding
+                        ? null
+                        : () async {
+                            await provider.discardPendingProposal();
+                            if (mounted) _scrollToBottom();
+                          },
+                    child: const Text('Discard'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: provider.isResponding
+                        ? null
+                        : () async {
+                            await provider.confirmPendingProposal();
+                            if (mounted) _scrollToBottom();
+                          },
+                    icon: const Icon(Icons.save_outlined),
+                    label: const Text('Confirm & Save'),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
+        )
+        .animate()
+        .fadeIn(duration: 400.ms)
+        .slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOut);
   }
 
   Widget _buildChatSessionBar(PatientProvider provider) {
@@ -352,7 +346,10 @@ class _ChatInterfaceState extends State<ChatInterface> {
                             if (mounted) _scrollToBottom();
                           },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -410,7 +407,6 @@ class _ChatInterfaceState extends State<ChatInterface> {
         Expanded(
           child: Consumer2<PatientProvider, ModelManager>(
             builder: (context, provider, modelManager, child) {
-              final llmService = context.watch<LlmService>();
               return Column(
                 children: [
                   _buildChatSessionBar(provider),
@@ -433,16 +429,18 @@ class _ChatInterfaceState extends State<ChatInterface> {
                     color: _isListening
                         ? Colors.red.withValues(alpha: 0.1)
                         : (Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white.withValues(alpha: 0.1)
-                            : Colors.black.withValues(alpha: 0.05)),
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : Colors.black.withValues(alpha: 0.05)),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
                     icon: Icon(
                       _isListening ? Icons.mic : Icons.mic_none,
-                      color: _isListening 
-                          ? Colors.red 
-                          : (Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black54),
+                      color: _isListening
+                          ? Colors.red
+                          : (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white70
+                                : Colors.black54),
                     ),
                     onPressed: _listen,
                   ),
@@ -467,14 +465,18 @@ class _ChatInterfaceState extends State<ChatInterface> {
                           child: TextField(
                             controller: _controller,
                             style: TextStyle(
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
                                   ? Colors.white
                                   : Colors.black87,
                             ),
                             decoration: InputDecoration(
                               hintText: 'e.g. "Record BP 120/80"...',
                               hintStyle: TextStyle(
-                                color: Theme.of(context).brightness == Brightness.dark
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? Colors.white54
                                     : Colors.black45,
                               ),
@@ -495,8 +497,13 @@ class _ChatInterfaceState extends State<ChatInterface> {
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
-                              icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 20),
-                              onPressed: context.watch<PatientProvider>().isResponding
+                              icon: const Icon(
+                                Icons.arrow_upward,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              onPressed:
+                                  context.watch<PatientProvider>().isResponding
                                   ? null
                                   : _sendMessage,
                             ),
@@ -553,19 +560,11 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   )
                 : const Icon(Icons.psychology_alt, size: 16),
             backgroundColor: acted
-                ? (accepted
-                    ? Colors.green.shade50
-                    : Colors.red.shade50)
+                ? (accepted ? Colors.green.shade50 : Colors.red.shade50)
                 : null,
-            deleteIcon: acted
-                ? null
-                : const Icon(Icons.close, size: 14),
-            onDeleted: acted
-                ? null
-                : () => _setLabelVerdict(msg, label, false),
-            onPressed: acted
-                ? null
-                : () => _setLabelVerdict(msg, label, true),
+            deleteIcon: acted ? null : const Icon(Icons.close, size: 14),
+            onDeleted: acted ? null : () => _setLabelVerdict(msg, label, false),
+            onPressed: acted ? null : () => _setLabelVerdict(msg, label, true),
             tooltip: acted
                 ? (accepted ? 'Accepted' : 'Dismissed')
                 : 'Tap to accept, ✕ to dismiss',
@@ -608,10 +607,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
     }
   }
 
-  void _queueTelemetryEvent(
-    ChatMessage msg,
-    Map<String, bool> verdicts,
-  ) {
+  void _queueTelemetryEvent(ChatMessage msg, Map<String, bool> verdicts) {
     final provider = context.read<PatientProvider>();
     final telemetry = context.read<TelemetryService>();
 
@@ -714,6 +710,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
       },
     );
   }
+
   void _showFeedbackDialog(BuildContext context, String lastUserMsg) {
     final typeController = TextEditingController(text: 'Intent');
     final labelController = TextEditingController();

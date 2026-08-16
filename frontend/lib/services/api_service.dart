@@ -243,9 +243,7 @@ class ApiService {
           );
           return 'Critical';
         }
-        return value < 60 || value > 100
-            ? 'Abnormal'
-            : 'Normal';
+        return value < 60 || value > 100 ? 'Abnormal' : 'Normal';
       case 'temperature':
         if (value >= 39.5 || value < 35) {
           alerts.add(
@@ -253,9 +251,7 @@ class ApiService {
           );
           return 'Critical';
         }
-        return value >= 38.0 || value < 36.0
-            ? 'Abnormal'
-            : 'Normal';
+        return value >= 38.0 || value < 36.0 ? 'Abnormal' : 'Normal';
       case 'spo2':
         if (value < 90) {
           alerts.add(
@@ -263,9 +259,7 @@ class ApiService {
           );
           return 'Critical';
         }
-        return value < 95
-            ? 'Abnormal'
-            : 'Normal';
+        return value < 95 ? 'Abnormal' : 'Normal';
       case 'respiratory_rate':
         if (value > 30 || value < 8) {
           alerts.add(
@@ -273,9 +267,7 @@ class ApiService {
           );
           return 'Critical';
         }
-        return value < 12 || value > 20
-            ? 'Abnormal'
-            : 'Normal';
+        return value < 12 || value > 20 ? 'Abnormal' : 'Normal';
       default:
         return 'recorded';
     }

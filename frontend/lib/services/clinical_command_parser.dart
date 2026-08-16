@@ -82,6 +82,7 @@ class ClinicalCommand {
   final String? noteCategory;
   final String? noteText;
   final DateTime? recordedAt;
+
   /// The AI model's natural language response for the nurse to read.
   final String? replyText;
 }
@@ -92,12 +93,15 @@ class ClinicalCommandParser {
   /// later presented to the nurse for explicit confirmation before any write.
   static ClinicalCommand? fromAiJson(String raw) {
     Map<String, dynamic>? data;
-    
+
     // Aggressively clean markdown JSON blocks
     var trimmed = raw.trim();
     if (trimmed.startsWith('```')) {
       // Remove starting ```json or ```
-      trimmed = trimmed.replaceFirst(RegExp(r'^```(json)?\s*', caseSensitive: false), '');
+      trimmed = trimmed.replaceFirst(
+        RegExp(r'^```(json)?\s*', caseSensitive: false),
+        '',
+      );
       // Remove trailing ```
       trimmed = trimmed.replaceFirst(RegExp(r'\s*```$'), '');
     }
@@ -118,12 +122,14 @@ class ClinicalCommandParser {
         // Try the next JSON envelope.
       }
     }
-    
+
     if (data == null || data['v'] != 1) {
-      debugPrint('ClinicalCommandParser: Failed to parse valid JSON from AI payload. Attempting regex fallback extraction...');
+      debugPrint(
+        'ClinicalCommandParser: Failed to parse valid JSON from AI payload. Attempting regex fallback extraction...',
+      );
       final fallbackCommand = _fallbackExtractVitals(raw);
       if (fallbackCommand != null) return fallbackCommand;
-      
+
       if (raw.isNotEmpty) {
         return ClinicalCommand(
           action: ClinicalAction.conversation,
@@ -133,8 +139,8 @@ class ClinicalCommandParser {
       return null;
     }
 
-    final recordedAt = data['timestamp'] != null 
-        ? DateTime.tryParse(data['timestamp'].toString()) 
+    final recordedAt = data['timestamp'] != null
+        ? DateTime.tryParse(data['timestamp'].toString())
         : null;
     final replyText = data['reply']?.toString();
 
@@ -169,15 +175,7 @@ class ClinicalCommandParser {
             if (value != null && unitStr.startsWith('f')) {
               value = (value - 32) * 5 / 9;
             }
-            _addIfInRange(
-              vitals,
-              'temperature',
-              value,
-              '°C',
-              25,
-              45,
-            );
-
+            _addIfInRange(vitals, 'temperature', value, '°C', 25, 45);
           } else if (type == 'spo2') {
             _addIfInRange(
               vitals,
@@ -199,17 +197,11 @@ class ClinicalCommandParser {
           } else if (type == 'weight') {
             var value = _number(vital['value']);
             final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
-            if (value != null && (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
+            if (value != null &&
+                (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
               value *= 0.453592;
             }
-            _addIfInRange(
-              vitals,
-              'weight',
-              value,
-              'kg',
-              2,
-              500,
-            );
+            _addIfInRange(vitals, 'weight', value, 'kg', 2, 500);
           }
         }
         return vitals.isEmpty
@@ -260,7 +252,14 @@ class ClinicalCommandParser {
                 _addIfInRange(vitals, 'diastolic', dia, 'mmHg', 20, 180);
               }
             } else if (type == 'heart_rate') {
-              _addIfInRange(vitals, 'heart_rate', _number(vital['value']), 'bpm', 20, 260);
+              _addIfInRange(
+                vitals,
+                'heart_rate',
+                _number(vital['value']),
+                'bpm',
+                20,
+                260,
+              );
             } else if (type == 'temperature') {
               var value = _number(vital['value']);
               final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
@@ -269,20 +268,35 @@ class ClinicalCommandParser {
               }
               _addIfInRange(vitals, 'temperature', value, '°C', 25, 45);
             } else if (type == 'spo2') {
-              _addIfInRange(vitals, 'spo2', _number(vital['value']), '%', 40, 100);
+              _addIfInRange(
+                vitals,
+                'spo2',
+                _number(vital['value']),
+                '%',
+                40,
+                100,
+              );
             } else if (type == 'respiratory_rate') {
-              _addIfInRange(vitals, 'respiratory_rate', _number(vital['value']), '/min', 4, 80);
+              _addIfInRange(
+                vitals,
+                'respiratory_rate',
+                _number(vital['value']),
+                '/min',
+                4,
+                80,
+              );
             } else if (type == 'weight') {
               var value = _number(vital['value']);
               final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
-              if (value != null && (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
+              if (value != null &&
+                  (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
                 value *= 0.453592;
               }
               _addIfInRange(vitals, 'weight', value, 'kg', 2, 500);
             }
           }
         }
-        
+
         final medications = <ParsedMedication>[];
         final rawMeds = data['medications'];
         if (rawMeds is List) {
@@ -299,7 +313,7 @@ class ClinicalCommandParser {
             );
           }
         }
-        
+
         return ClinicalCommand(
           action: ClinicalAction.batchRecord,
           vitals: vitals,
@@ -309,21 +323,45 @@ class ClinicalCommandParser {
           replyText: replyText,
         );
       case 'query_vitals':
-        return ClinicalCommand(action: ClinicalAction.queryVitals, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.queryVitals,
+          replyText: replyText,
+        );
       case 'query_trends':
-        return ClinicalCommand(action: ClinicalAction.queryTrends, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.queryTrends,
+          replyText: replyText,
+        );
       case 'query_medications':
-        return ClinicalCommand(action: ClinicalAction.queryMedications, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.queryMedications,
+          replyText: replyText,
+        );
       case 'summarize':
-        return ClinicalCommand(action: ClinicalAction.summarize, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.summarize,
+          replyText: replyText,
+        );
       case 'greeting':
-        return ClinicalCommand(action: ClinicalAction.greeting, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.greeting,
+          replyText: replyText,
+        );
       case 'help':
-        return ClinicalCommand(action: ClinicalAction.help, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.help,
+          replyText: replyText,
+        );
       case 'cancel':
-        return ClinicalCommand(action: ClinicalAction.cancel, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.cancel,
+          replyText: replyText,
+        );
       case 'conversation':
-        return ClinicalCommand(action: ClinicalAction.conversation, replyText: replyText);
+        return ClinicalCommand(
+          action: ClinicalAction.conversation,
+          replyText: replyText,
+        );
       default:
         return null;
     }
@@ -432,10 +470,11 @@ class ClinicalCommandParser {
     }
 
     if (RegExp(
-      r'\b(?:summari[sz]e|summary|handoff|overview|snapshot)\b',
-    ).hasMatch(normalized) || RegExp(
-      r'\b(?:prepare|write|compile|generate|create|make)\s+(?:a\s+)?(?:nursing\s+)?(?:note|documentation|report|summary|write[\s-]*up)\b',
-    ).hasMatch(normalized)) {
+          r'\b(?:summari[sz]e|summary|handoff|overview|snapshot)\b',
+        ).hasMatch(normalized) ||
+        RegExp(
+          r'\b(?:prepare|write|compile|generate|create|make)\s+(?:a\s+)?(?:nursing\s+)?(?:note|documentation|report|summary|write[\s-]*up)\b',
+        ).hasMatch(normalized)) {
       return const ClinicalCommand(action: ClinicalAction.summarize);
     }
 
@@ -575,15 +614,17 @@ class ClinicalCommandParser {
 
   static bool _hasRecordLanguage(String text) {
     return RegExp(
-      r'\b(?:record|log|document|enter|save|put|set|add|update|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?|took|taken|taking)\b',
-      caseSensitive: false,
-    ).hasMatch(text) || RegExp(
-      r'\b(?:temperature|temp|pulse|heart\s*rate|hr|blood\s*pressure|bp|spo2|respiratory\s*rate|rr|oxygen\s*sat)\s+(?:is|of|at|was|reads?|showing)\s+\d',
-      caseSensitive: false,
-    ).hasMatch(text) || RegExp(
-      r'\b(?:took|taken|taking|gave|given|administer(?:ed)?)\s+(?:a\s+|one\s+|two\s+|\d+\s+)?(?:tablet|dose|pill|mg|ml)?\s*\w+',
-      caseSensitive: false,
-    ).hasMatch(text);
+          r'\b(?:record|log|document|enter|save|put|set|add|update|administer(?:ed)?|gave|give|hold|withhold(?:ing|held)?|start(?:ed)?|stop(?:ped)?|discontinue(?:d)?|took|taken|taking)\b',
+          caseSensitive: false,
+        ).hasMatch(text) ||
+        RegExp(
+          r'\b(?:temperature|temp|pulse|heart\s*rate|hr|blood\s*pressure|bp|spo2|respiratory\s*rate|rr|oxygen\s*sat)\s+(?:is|of|at|was|reads?|showing)\s+\d',
+          caseSensitive: false,
+        ).hasMatch(text) ||
+        RegExp(
+          r'\b(?:took|taken|taking|gave|given|administer(?:ed)?)\s+(?:a\s+|one\s+|two\s+|\d+\s+)?(?:tablet|dose|pill|mg|ml)?\s*\w+',
+          caseSensitive: false,
+        ).hasMatch(text);
   }
 
   static ParsedMedication? _parseMedication(String text) {
@@ -659,13 +700,16 @@ class ClinicalCommandParser {
     );
   }
 
-  /// Powerful regex fallback to rip vitals directly out of unstructured text 
+  /// Powerful regex fallback to rip vitals directly out of unstructured text
   /// if the small offline LLM fails to output valid JSON.
   static ClinicalCommand? _fallbackExtractVitals(String raw) {
     final vitals = <ParsedVital>[];
-    
+
     // Blood Pressure: e.g. "BP is 120/80" or "120 over 80" or "120 / 80"
-    final bpRegex = RegExp(r'\b(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b', caseSensitive: false);
+    final bpRegex = RegExp(
+      r'\b(\d{2,3})\s*(?:/|over)\s*(\d{2,3})\b',
+      caseSensitive: false,
+    );
     final bpMatch = bpRegex.firstMatch(raw);
     if (bpMatch != null) {
       final sys = double.tryParse(bpMatch.group(1)!);
@@ -677,7 +721,10 @@ class ClinicalCommandParser {
     }
 
     // Heart Rate: e.g. "HR 75" or "heart rate is 80" or "85 bpm"
-    final hrRegex = RegExp(r'(?:hr|heart\s*rate)\s*(?:is|of)?\s*(\d{2,3})|(\d{2,3})\s*bpm', caseSensitive: false);
+    final hrRegex = RegExp(
+      r'(?:hr|heart\s*rate)\s*(?:is|of)?\s*(\d{2,3})|(\d{2,3})\s*bpm',
+      caseSensitive: false,
+    );
     final hrMatch = hrRegex.firstMatch(raw);
     if (hrMatch != null) {
       final hrStr = hrMatch.group(1) ?? hrMatch.group(2);
@@ -688,7 +735,10 @@ class ClinicalCommandParser {
     }
 
     // SpO2: e.g. "O2 98%" or "spo2 of 99" or "95%"
-    final spo2Regex = RegExp(r'(?:spo2|o2|oxygen)\s*(?:is|of)?\s*(\d{2,3})(?:\s*%)?|(\d{2,3})\s*%', caseSensitive: false);
+    final spo2Regex = RegExp(
+      r'(?:spo2|o2|oxygen)\s*(?:is|of)?\s*(\d{2,3})(?:\s*%)?|(\d{2,3})\s*%',
+      caseSensitive: false,
+    );
     final spo2Match = spo2Regex.firstMatch(raw);
     if (spo2Match != null) {
       final spo2Str = spo2Match.group(1) ?? spo2Match.group(2);
@@ -699,7 +749,10 @@ class ClinicalCommandParser {
     }
 
     // Temperature: e.g. "temp 98.6" or "37 C"
-    final tempRegex = RegExp(r'(?:temp|temperature)\s*(?:is|of)?\s*(\d{2,3}(?:\.\d)?)\s*(c|f)?', caseSensitive: false);
+    final tempRegex = RegExp(
+      r'(?:temp|temperature)\s*(?:is|of)?\s*(\d{2,3}(?:\.\d)?)\s*(c|f)?',
+      caseSensitive: false,
+    );
     final tempMatch = tempRegex.firstMatch(raw);
     if (tempMatch != null) {
       final tempStr = tempMatch.group(1);
@@ -708,20 +761,29 @@ class ClinicalCommandParser {
         final temp = double.tryParse(tempStr);
         if (temp != null) {
           final unit = unitStr == 'c' ? 'c' : 'f';
-          _addIfInRange(vitals, 'temperature', temp, unit, unit == 'c' ? 30 : 85, unit == 'c' ? 45 : 110);
+          _addIfInRange(
+            vitals,
+            'temperature',
+            temp,
+            unit,
+            unit == 'c' ? 30 : 85,
+            unit == 'c' ? 45 : 110,
+          );
         }
       }
     }
-    
+
     if (vitals.isNotEmpty) {
-      debugPrint('ClinicalCommandParser: Successfully rescued ${vitals.length} vitals via regex fallback!');
+      debugPrint(
+        'ClinicalCommandParser: Successfully rescued ${vitals.length} vitals via regex fallback!',
+      );
       return ClinicalCommand(
         action: ClinicalAction.recordVitals,
         vitals: vitals,
         recordedAt: DateTime.now(),
       );
     }
-    
+
     return null;
   }
 }

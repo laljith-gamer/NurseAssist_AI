@@ -25,7 +25,8 @@ class LocalDbService {
   }
 
   Future<String> _getDbPath(String dbName) async {
-    if (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android) {
       final databasesPath = await getDatabasesPath();
       return join(databasesPath, dbName);
     } else {
@@ -40,7 +41,7 @@ class LocalDbService {
       final dbPath = await _getDbPath('nurseassist_offline.db');
       final dbFile = File(dbPath);
       if (!await dbFile.exists()) return false;
-      
+
       final backupPath = await _getDbPath('nurseassist_backup.db');
       await dbFile.copy(backupPath);
       return true;
@@ -56,19 +57,19 @@ class LocalDbService {
       final backupPath = await _getDbPath('nurseassist_backup.db');
       final backupFile = File(backupPath);
       if (!await backupFile.exists()) return false;
-      
+
       final dbPath = await _getDbPath('nurseassist_offline.db');
       final dbFile = File(dbPath);
-      
+
       // Close existing database before restoring
       if (_database != null) {
         await _database!.close();
         _database = null;
       }
-      
+
       await backupFile.copy(dbFile.path);
       // Re-initialize after restore
-      await database; 
+      await database;
       return true;
     } catch (e) {
       debugPrint('Restore error: $e');

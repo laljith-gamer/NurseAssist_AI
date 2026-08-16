@@ -70,10 +70,10 @@ class TelemetryService {
   TelemetryService({
     required LocalDbService db,
     required SettingsProvider settings,
-  })  : _db = db,
-        _settings = settings;
+  }) : _db = db,
+       _settings = settings;
 
-  /// Try syncing to relay (Task 3). Checks WiFi, limits batch to 50, and 
+  /// Try syncing to relay (Task 3). Checks WiFi, limits batch to 50, and
   /// throttles to once per 4 hours.
   Future<void> syncTelemetry() async {
     if (!_settings.telemetrySharingEnabled) return;
@@ -98,10 +98,7 @@ class TelemetryService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $_appSecret',
         },
-        body: jsonEncode({
-          'events': events,
-          'app_version': '1.0.0',
-        }),
+        body: jsonEncode({'events': events, 'app_version': '1.0.0'}),
       );
 
       // Relay returns 200 or 202 on success

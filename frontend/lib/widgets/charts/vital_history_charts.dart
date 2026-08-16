@@ -21,55 +21,110 @@ class VitalHistoryCharts extends StatelessWidget {
         final data = provider.vitalHistory;
         final currentMetrics = provider.currentMetrics?.current ?? {};
 
-        final uniqueTypes = data.map((d) => d['vital_type']?.toString()).whereType<String>().toSet();
-        
+        final uniqueTypes = data
+            .map((d) => d['vital_type']?.toString())
+            .whereType<String>()
+            .toSet();
+
         final metricsConfig = <_MetricConfig>[];
         for (final type in uniqueTypes) {
           switch (type) {
             case 'heart_rate':
-              metricsConfig.add(_MetricConfig(
-                id: 'heart_rate', title: 'Heart Rate', unit: 'bpm', icon: Icons.favorite, color: Colors.redAccent, isCritical: (val) => val < 50 || val > 100,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'heart_rate',
+                  title: 'Heart Rate',
+                  unit: 'bpm',
+                  icon: Icons.favorite,
+                  color: Colors.redAccent,
+                  isCritical: (val) => val < 50 || val > 100,
+                ),
+              );
               break;
             case 'spo2':
-              metricsConfig.add(_MetricConfig(
-                id: 'spo2', title: 'SpO₂', unit: '%', icon: Icons.air, color: Colors.lightBlue, isCritical: (val) => val < 92,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'spo2',
+                  title: 'SpO₂',
+                  unit: '%',
+                  icon: Icons.air,
+                  color: Colors.lightBlue,
+                  isCritical: (val) => val < 92,
+                ),
+              );
               break;
             case 'respiratory_rate':
-              metricsConfig.add(_MetricConfig(
-                id: 'respiratory_rate', title: 'Respiratory Rate', unit: '/min', icon: Icons.waves, color: Colors.teal, isCritical: (val) => val < 12 || val > 20,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'respiratory_rate',
+                  title: 'Respiratory Rate',
+                  unit: '/min',
+                  icon: Icons.waves,
+                  color: Colors.teal,
+                  isCritical: (val) => val < 12 || val > 20,
+                ),
+              );
               break;
             case 'systolic':
-              metricsConfig.add(_MetricConfig(
-                id: 'systolic', title: 'Systolic BP', unit: 'mmHg', icon: Icons.monitor_heart_outlined, color: Colors.deepPurpleAccent, isCritical: (val) => val < 90 || val > 140,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'systolic',
+                  title: 'Systolic BP',
+                  unit: 'mmHg',
+                  icon: Icons.monitor_heart_outlined,
+                  color: Colors.deepPurpleAccent,
+                  isCritical: (val) => val < 90 || val > 140,
+                ),
+              );
               break;
             case 'diastolic':
-              metricsConfig.add(_MetricConfig(
-                id: 'diastolic', title: 'Diastolic BP', unit: 'mmHg', icon: Icons.monitor_heart, color: Colors.purple, isCritical: (val) => val < 60 || val > 90,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'diastolic',
+                  title: 'Diastolic BP',
+                  unit: 'mmHg',
+                  icon: Icons.monitor_heart,
+                  color: Colors.purple,
+                  isCritical: (val) => val < 60 || val > 90,
+                ),
+              );
               break;
             case 'temperature':
-              metricsConfig.add(_MetricConfig(
-                id: 'temperature', title: 'Temperature', unit: '°C', icon: Icons.thermostat, color: Colors.orange, isCritical: (val) => val < 36.0 || val > 38.0,
-              ));
+              metricsConfig.add(
+                _MetricConfig(
+                  id: 'temperature',
+                  title: 'Temperature',
+                  unit: '°C',
+                  icon: Icons.thermostat,
+                  color: Colors.orange,
+                  isCritical: (val) => val < 36.0 || val > 38.0,
+                ),
+              );
               break;
             default:
               // Dynamically support ANY metric in the database!
-              final title = type.replaceAll('_', ' ').split(' ').map((s) => s.isNotEmpty ? '${s[0].toUpperCase()}${s.substring(1)}' : '').join(' ');
-              metricsConfig.add(_MetricConfig(
-                id: type,
-                title: title,
-                unit: currentMetrics['${type}_unit']?.toString() ?? '',
-                icon: Icons.timeline,
-                color: Colors.blueGrey,
-                isCritical: (val) => false,
-              ));
+              final title = type
+                  .replaceAll('_', ' ')
+                  .split(' ')
+                  .map(
+                    (s) => s.isNotEmpty
+                        ? '${s[0].toUpperCase()}${s.substring(1)}'
+                        : '',
+                  )
+                  .join(' ');
+              metricsConfig.add(
+                _MetricConfig(
+                  id: type,
+                  title: title,
+                  unit: currentMetrics['${type}_unit']?.toString() ?? '',
+                  icon: Icons.timeline,
+                  color: Colors.blueGrey,
+                  isCritical: (val) => false,
+                ),
+              );
           }
         }
-        
+
         if (metricsConfig.isEmpty) {
           return const Center(child: Text('No vitals recorded yet.'));
         }
@@ -86,14 +141,19 @@ class VitalHistoryCharts extends StatelessWidget {
             final isCrit = dVal != null ? config.isCritical(dVal) : false;
 
             return _ChartCard(
-              config: config,
-              data: data,
-              currentValue: dVal,
-              isCritical: isCrit,
-            )
+                  config: config,
+                  data: data,
+                  currentValue: dVal,
+                  isCritical: isCrit,
+                )
                 .animate(delay: Duration(milliseconds: 100 * index))
                 .fadeIn(duration: 400.ms)
-                .slideY(begin: 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutCubic);
+                .slideY(
+                  begin: 0.1,
+                  end: 0,
+                  duration: 400.ms,
+                  curve: Curves.easeOutCubic,
+                );
           },
         );
       },
@@ -141,12 +201,16 @@ class _ChartCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.8),
+        color: isDark
+            ? const Color(0xFF1E293B).withValues(alpha: 0.7)
+            : Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isCritical
               ? Colors.red.withValues(alpha: 0.6)
-              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+              : (isDark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.05)),
           width: isCritical ? 2.0 : 1.0,
         ),
         boxShadow: [
@@ -178,24 +242,38 @@ class _ChartCard extends StatelessWidget {
                       color: config.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: isCritical 
-                        ? PulseAnimation(child: Icon(config.icon, color: config.color, size: 20))
+                    child: isCritical
+                        ? PulseAnimation(
+                            child: Icon(
+                              config.icon,
+                              color: config.color,
+                              size: 20,
+                            ),
+                          )
                         : Icon(config.icon, color: config.color, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     config.title,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
               if (currentValue != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: isCritical 
-                        ? Colors.red.withValues(alpha: 0.1) 
-                        : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                    color: isCritical
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.black.withValues(alpha: 0.05)),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -207,7 +285,9 @@ class _ChartCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: isCritical ? Colors.redAccent : (isDark ? Colors.white : Colors.black87),
+                          color: isCritical
+                              ? Colors.redAccent
+                              : (isDark ? Colors.white : Colors.black87),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -225,9 +305,7 @@ class _ChartCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          Expanded(
-            child: _buildChart(data, context, isDark),
-          ),
+          Expanded(child: _buildChart(data, context, isDark)),
         ],
       ),
     );
@@ -241,7 +319,11 @@ class _ChartCard extends StatelessWidget {
     );
   }
 
-  Widget _buildChart(List<Map<String, dynamic>> rawData, BuildContext context, bool isDark) {
+  Widget _buildChart(
+    List<Map<String, dynamic>> rawData,
+    BuildContext context,
+    bool isDark,
+  ) {
     if (rawData.isEmpty) {
       return Center(
         child: Text(
@@ -295,7 +377,7 @@ class _ChartCard extends StatelessWidget {
         sumXY += s.x * s.y;
         sumX2 += s.x * s.x;
       }
-      
+
       final denominator = (n * sumX2 - sumX * sumX);
       if (denominator != 0) {
         double slope = (n * sumXY - sumX * sumY) / denominator;
@@ -315,11 +397,14 @@ class _ChartCard extends StatelessWidget {
       }
     }
 
-    if (minY == double.infinity || maxY == double.negativeInfinity || minY.isNaN || maxY.isNaN) {
+    if (minY == double.infinity ||
+        maxY == double.negativeInfinity ||
+        minY.isNaN ||
+        maxY.isNaN) {
       minY = 0;
       maxY = 100;
     }
-    
+
     if (minY == maxY) {
       minY -= 10;
       maxY += 10;
@@ -342,7 +427,8 @@ class _ChartCard extends StatelessWidget {
           touchTooltipData: LineTouchTooltipData(
             tooltipPadding: const EdgeInsets.all(8),
             tooltipMargin: 16,
-            getTooltipColor: (touchedSpot) => isDark ? const Color(0xFF334155) : Colors.white,
+            getTooltipColor: (touchedSpot) =>
+                isDark ? const Color(0xFF334155) : Colors.white,
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((LineBarSpot touchedSpot) {
                 final textStyle = TextStyle(
@@ -404,16 +490,24 @@ class _ChartCard extends StatelessWidget {
                     radius: 2.5,
                     color: Colors.orangeAccent,
                     strokeWidth: 1.5,
-                    strokeColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    strokeColor: isDark
+                        ? const Color(0xFF1E293B)
+                        : Colors.white,
                   );
                 },
               ),
             ),
         ],
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          bottomTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          bottomTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -438,7 +532,9 @@ class _ChartCard extends StatelessWidget {
           horizontalInterval: ((maxY - minY) / 4).clamp(1.0, double.infinity),
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.black.withValues(alpha: 0.03),
               strokeWidth: 1,
               dashArray: [4, 4],
             );

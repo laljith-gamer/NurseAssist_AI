@@ -67,30 +67,52 @@ class LocalNlpService {
         throw const FormatException('Observation threshold is invalid');
       }
       final scores = _predictScores(_charWbNgrams(text), model);
-      final observations =
-          scores.entries
-              .where((entry) => entry.value >= threshold)
-              .map(
-                (entry) => ClinicalObservation(
-                  name: entry.key,
-                  confidence: entry.value,
-                ),
-              )
-              .toList();
+      final observations = scores.entries
+          .where((entry) => entry.value >= threshold)
+          .map(
+            (entry) =>
+                ClinicalObservation(name: entry.key, confidence: entry.value),
+          )
+          .toList();
 
       // Clinical Reasoning Rules
-      final activeLabels = observations.map((e) => e.name.toLowerCase()).toSet();
-      if (activeLabels.contains('hypertension') && activeLabels.contains('tachycardia')) {
-        observations.insert(0, const ClinicalObservation(name: 'Hemodynamic Instability', confidence: 1.0));
+      final activeLabels = observations
+          .map((e) => e.name.toLowerCase())
+          .toSet();
+      if (activeLabels.contains('hypertension') &&
+          activeLabels.contains('tachycardia')) {
+        observations.insert(
+          0,
+          const ClinicalObservation(
+            name: 'Hemodynamic Instability',
+            confidence: 1.0,
+          ),
+        );
       }
-      if (activeLabels.contains('hypoxia') && activeLabels.contains('respiratory distress')) {
-        observations.insert(0, const ClinicalObservation(name: 'Respiratory Compromise', confidence: 1.0));
+      if (activeLabels.contains('hypoxia') &&
+          activeLabels.contains('respiratory distress')) {
+        observations.insert(
+          0,
+          const ClinicalObservation(
+            name: 'Respiratory Compromise',
+            confidence: 1.0,
+          ),
+        );
       }
-      if (activeLabels.contains('severe pain') && activeLabels.contains('agitated')) {
-        observations.insert(0, const ClinicalObservation(name: 'Inadequate Pain Control', confidence: 1.0));
+      if (activeLabels.contains('severe pain') &&
+          activeLabels.contains('agitated')) {
+        observations.insert(
+          0,
+          const ClinicalObservation(
+            name: 'Inadequate Pain Control',
+            confidence: 1.0,
+          ),
+        );
       }
 
-      observations.sort((left, right) => right.confidence.compareTo(left.confidence));
+      observations.sort(
+        (left, right) => right.confidence.compareTo(left.confidence),
+      );
       return observations.take(maxResults).toList(growable: false);
     } catch (error) {
       debugPrint('Nursing observation inference error: $error');
@@ -126,14 +148,14 @@ class LocalNlpService {
     final rawIdf = model['idf'];
     final mlp = model['mlp'];
     final rawClasses = model['classes'];
-    
+
     if (rawVocabulary is! Map ||
         rawIdf is! List ||
         mlp is! Map ||
         rawClasses is! List) {
       throw const FormatException('Observation model structure is invalid');
     }
-    
+
     final inputDim = (mlp['arch']['input_dim'] as num).toInt();
 
     final vocabulary = <String, int>{
@@ -151,7 +173,7 @@ class LocalNlpService {
         counts[index] = (counts[index] ?? 0) + 1;
       }
     }
-    
+
     final vector = List<double>.filled(inputDim, 0.0);
     var squares = 0.0;
     for (final entry in counts.entries) {
@@ -184,7 +206,7 @@ class LocalNlpService {
     for (var i = 0; i < rawClasses.length && i < logits.length; i++) {
       results[rawClasses[i].toString()] = _sigmoid(logits[i]);
     }
-    
+
     return results;
   }
 
@@ -201,7 +223,11 @@ class LocalNlpService {
     return raw.map((v) => (v as num).toDouble()).toList();
   }
 
-  List<double> _dot(List<List<double>> matrix, List<double> vector, List<double> bias) {
+  List<double> _dot(
+    List<List<double>> matrix,
+    List<double> vector,
+    List<double> bias,
+  ) {
     final result = List<double>.filled(matrix.length, 0.0);
     for (var i = 0; i < matrix.length; i++) {
       var sum = bias[i];
@@ -220,7 +246,7 @@ class LocalNlpService {
     }
     return x;
   }
-  
+
   double _sigmoid(double score) {
     if (score >= 0) {
       return 1 / (1 + exp(-score));

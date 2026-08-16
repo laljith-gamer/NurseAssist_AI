@@ -66,7 +66,8 @@ class NurseAssistApp extends StatefulWidget {
   State<NurseAssistApp> createState() => _NurseAssistAppState();
 }
 
-class _NurseAssistAppState extends State<NurseAssistApp> with WidgetsBindingObserver {
+class _NurseAssistAppState extends State<NurseAssistApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -109,42 +110,77 @@ class _NurseAssistAppState extends State<NurseAssistApp> with WidgetsBindingObse
               onSurface: Color(0xFF0F172A),
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme).copyWith(
-              displayLarge: GoogleFonts.outfit(fontWeight: FontWeight.w800, letterSpacing: -1.0, color: const Color(0xFF0F172A)),
-              displayMedium: GoogleFonts.outfit(fontWeight: FontWeight.w800, letterSpacing: -0.5, color: const Color(0xFF0F172A)),
-              titleLarge: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: -0.2, color: const Color(0xFF0F172A)),
-              bodyLarge: GoogleFonts.outfit(letterSpacing: 0.2, color: const Color(0xFF334155)),
-              bodyMedium: GoogleFonts.outfit(letterSpacing: 0.1, color: const Color(0xFF334155)),
-            ),
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme)
+                .copyWith(
+                  displayLarge: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.0,
+                    color: const Color(0xFF0F172A),
+                  ),
+                  displayMedium: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFF0F172A),
+                  ),
+                  titleLarge: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: const Color(0xFF0F172A),
+                  ),
+                  bodyLarge: GoogleFonts.outfit(
+                    letterSpacing: 0.2,
+                    color: const Color(0xFF334155),
+                  ),
+                  bodyMedium: GoogleFonts.outfit(
+                    letterSpacing: 0.1,
+                    color: const Color(0xFF334155),
+                  ),
+                ),
             scaffoldBackgroundColor: const Color(0xFFF8FAFC),
             cardTheme: CardThemeData(
               elevation: 4,
               shadowColor: Colors.black.withValues(alpha: 0.05),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.black.withValues(alpha: 0.03), width: 1),
+                side: BorderSide(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  width: 1,
+                ),
               ),
               color: Colors.white.withValues(alpha: 0.8),
             ),
             dialogTheme: DialogThemeData(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                side: BorderSide(color: Colors.black.withValues(alpha: 0.05), width: 1),
+                side: BorderSide(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  width: 1,
+                ),
               ),
               elevation: 8,
               backgroundColor: Colors.white.withValues(alpha: 0.95),
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
             splashFactory: InkRipple.splashFactory, // Subtle ripple
@@ -158,42 +194,79 @@ class _NurseAssistAppState extends State<NurseAssistApp> with WidgetsBindingObse
               onSurface: Color(0xFFF1F5F9),
             ),
             useMaterial3: true,
-            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).copyWith(
-              displayLarge: GoogleFonts.outfit(fontWeight: FontWeight.w800, letterSpacing: -1.0, color: const Color(0xFFF8FAFC)),
-              displayMedium: GoogleFonts.outfit(fontWeight: FontWeight.w800, letterSpacing: -0.5, color: const Color(0xFFF8FAFC)),
-              titleLarge: GoogleFonts.outfit(fontWeight: FontWeight.w700, letterSpacing: -0.2, color: const Color(0xFFF8FAFC)),
-              bodyLarge: GoogleFonts.outfit(letterSpacing: 0.2, color: const Color(0xFFCBD5E1)),
-              bodyMedium: GoogleFonts.outfit(letterSpacing: 0.1, color: const Color(0xFFCBD5E1)),
-            ),
+            textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme)
+                .copyWith(
+                  displayLarge: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.0,
+                    color: const Color(0xFFF8FAFC),
+                  ),
+                  displayMedium: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: const Color(0xFFF8FAFC),
+                  ),
+                  titleLarge: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: const Color(0xFFF8FAFC),
+                  ),
+                  bodyLarge: GoogleFonts.outfit(
+                    letterSpacing: 0.2,
+                    color: const Color(0xFFCBD5E1),
+                  ),
+                  bodyMedium: GoogleFonts.outfit(
+                    letterSpacing: 0.1,
+                    color: const Color(0xFFCBD5E1),
+                  ),
+                ),
             scaffoldBackgroundColor: const Color(0xFF0B0F19),
             cardTheme: CardThemeData(
               elevation: 8,
               shadowColor: Colors.black.withValues(alpha: 0.3),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1),
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1,
+                ),
               ),
-              color: const Color(0xFF1E293B).withValues(alpha: 0.6), // Translucent dark glass
+              color: const Color(
+                0xFF1E293B,
+              ).withValues(alpha: 0.6), // Translucent dark glass
             ),
             dialogTheme: DialogThemeData(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1,
+                ),
               ),
               elevation: 12,
               backgroundColor: const Color(0xFF0F172A).withValues(alpha: 0.95),
             ),
             elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
             splashFactory: InkRipple.splashFactory,

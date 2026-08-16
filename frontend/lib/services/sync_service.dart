@@ -15,8 +15,10 @@ class SyncService with ChangeNotifier {
   Future<void> _initConnectivity() async {
     final result = await Connectivity().checkConnectivity();
     _updateConnectionStatus(result);
-    
-    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(_updateConnectionStatus);
+
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      _updateConnectionStatus,
+    );
   }
 
   void _updateConnectionStatus(List<ConnectivityResult> result) {

@@ -37,8 +37,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Settings',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
           content: SingleChildScrollView(
             child: Column(
@@ -48,7 +53,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Consumer<SettingsProvider>(
                   builder: (context, settingsRef, _) => SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Dark Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                    title: const Text(
+                      'Dark Mode',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     value: settingsRef.isDarkMode,
                     onChanged: (val) {
                       settingsRef.toggleTheme();
@@ -84,7 +92,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     }
                     return Text(
                       llmStatus,
-                      style: TextStyle(fontSize: 13, color: statusColor, fontWeight: FontWeight.w500),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: statusColor,
+                        fontWeight: FontWeight.w500,
+                      ),
                     );
                   },
                 ),
@@ -102,7 +114,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Share suggestion feedback', style: TextStyle(fontSize: 15)),
+                        title: const Text(
+                          'Share suggestion feedback',
+                          style: TextStyle(fontSize: 15),
+                        ),
                         subtitle: const Text(
                           'Help improve observation suggestions by sharing de-identified label feedback.',
                           style: TextStyle(fontSize: 13),
@@ -117,7 +132,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         children: [
                           Text(
                             'Queued events: ${settingsRef.queuedTelemetryCount}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           TextButton.icon(
                             onPressed: settingsRef.queuedTelemetryCount == 0
@@ -126,7 +144,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     settingsRef.updateQueuedTelemetryCount(0);
                                   },
                             icon: const Icon(Icons.delete_outline, size: 16),
-                            label: const Text('Clear queued', style: TextStyle(fontSize: 13)),
+                            label: const Text(
+                              'Clear queued',
+                              style: TextStyle(fontSize: 13),
+                            ),
                           ),
                         ],
                       ),
@@ -150,7 +171,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final success = await api.backupDatabase();
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(success ? 'Database backed up locally.' : 'Backup failed.')),
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Database backed up locally.'
+                                      : 'Backup failed.',
+                                ),
+                              ),
                             );
                           }
                         },
@@ -166,7 +193,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           final success = await api.restoreDatabase();
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(success ? 'Database restored. Please restart the app.' : 'Restore failed.')),
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Database restored. Please restart the app.'
+                                      : 'Restore failed.',
+                                ),
+                              ),
                             );
                           }
                         },
@@ -182,7 +215,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Close',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -229,13 +265,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const Color(0xFF0F172A), // Dark slate
                           const Color(0xFF1E293B), // Slightly lighter
                           const Color(0xFF0B1221), // Deep space
-                          const Color(0xFF06B6D4).withValues(alpha: 0.1), // Hint of cyan at bottom right
+                          const Color(0xFF06B6D4).withValues(
+                            alpha: 0.1,
+                          ), // Hint of cyan at bottom right
                         ]
                       : [
                           const Color(0xFFF8FAFC),
                           const Color(0xFFF1F5F9),
                           const Color(0xFFE2E8F0),
-                          const Color(0xFF3B82F6).withValues(alpha: 0.05), // Hint of blue
+                          const Color(
+                            0xFF3B82F6,
+                          ).withValues(alpha: 0.05), // Hint of blue
                         ],
                 ),
               ),
@@ -244,7 +284,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (isDesktop)
                     ClipRRect(
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30), // Increased blur for premium glass feel
+                        filter: ImageFilter.blur(
+                          sigmaX: 30,
+                          sigmaY: 30,
+                        ), // Increased blur for premium glass feel
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 32,
@@ -252,7 +295,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF0F172A).withValues(alpha: 0.5) // More transparent for more glass effect
+                                ? const Color(0xFF0F172A).withValues(
+                                    alpha: 0.5,
+                                  ) // More transparent for more glass effect
                                 : Colors.white.withValues(alpha: 0.6),
                             border: Border(
                               bottom: BorderSide(
@@ -272,7 +317,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   fontSize: 28,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.5,
-                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
                                 ),
                               ),
                               IconButton(
@@ -321,21 +368,39 @@ class _DashboardContent extends StatelessWidget {
             children: [
               Expanded(
                 flex: 2,
-                child: Column(
-                  children: const [
-                    ClinicalChangeBanner(),
-                    Expanded(child: ChatInterface()),
-                  ],
-                ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
+                child:
+                    Column(
+                          children: const [
+                            ClinicalChangeBanner(),
+                            Expanded(child: ChatInterface()),
+                          ],
+                        )
+                        .animate()
+                        .fadeIn(duration: 400.ms)
+                        .slideX(
+                          begin: -0.05,
+                          end: 0,
+                          duration: 400.ms,
+                          curve: Curves.easeOut,
+                        ),
               ),
               const SizedBox(width: 16),
               Expanded(
                 flex: 1,
-                child: Column(
-                  children: const [
-                    Expanded(child: VitalHistoryCharts()),
-                  ],
-                ).animate().fadeIn(duration: 400.ms, delay: 100.ms).slideX(begin: 0.05, end: 0, duration: 400.ms, curve: Curves.easeOut),
+                child:
+                    Column(
+                          children: const [
+                            Expanded(child: VitalHistoryCharts()),
+                          ],
+                        )
+                        .animate()
+                        .fadeIn(duration: 400.ms, delay: 100.ms)
+                        .slideX(
+                          begin: 0.05,
+                          end: 0,
+                          duration: 400.ms,
+                          curve: Curves.easeOut,
+                        ),
               ),
             ],
           );
@@ -366,12 +431,12 @@ class _DashboardContent extends StatelessWidget {
                         children: const [
                           ClinicalChangeBanner(),
                           SizedBox(height: 8),
-                          Expanded(
-                            child: VitalHistoryCharts(),
-                          ),
+                          Expanded(child: VitalHistoryCharts()),
                         ],
                       ).animate().fadeIn(duration: 300.ms),
-                      const PatientScoreTab().animate().fadeIn(duration: 300.ms),
+                      const PatientScoreTab().animate().fadeIn(
+                        duration: 300.ms,
+                      ),
                     ],
                   ),
                 ),
@@ -383,8 +448,6 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 }
-
-
 
 class ModelManagementWidget extends StatelessWidget {
   const ModelManagementWidget({super.key});

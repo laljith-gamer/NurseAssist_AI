@@ -13,7 +13,8 @@ class ChatHistoryDrawer extends StatefulWidget {
   State<ChatHistoryDrawer> createState() => _ChatHistoryDrawerState();
 }
 
-class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> with SingleTickerProviderStateMixin {
+class _ChatHistoryDrawerState extends State<ChatHistoryDrawer>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   Map<String, List<Map<String, dynamic>>>? _memoryCache;
 
@@ -53,77 +54,89 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> with SingleTicker
 
     return Align(
       alignment: Alignment.centerRight,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: MediaQuery.of(context).size.width > 600 ? 400 : MediaQuery.of(context).size.width * 0.85,
-          height: double.infinity,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.85) : Colors.white.withValues(alpha: 0.85),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 16,
-                offset: const Offset(-4, 0),
-              )
-            ],
-            border: Border(
-              left: BorderSide(
-                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          child: ClipRRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: Column(
-                children: [
-                  SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Management',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  TabBar(
-                    controller: _tabController,
-                    indicatorColor: Theme.of(context).colorScheme.primary,
-                    tabs: const [
-                      Tab(text: 'Chat History'),
-                      Tab(text: 'AI Memory'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildChatHistoryTab(provider),
-                        _buildMemoryTab(),
-                      ],
-                    ),
+      child:
+          Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width > 600
+                  ? 400
+                  : MediaQuery.of(context).size.width * 0.85,
+              height: double.infinity,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? const Color(0xFF1E293B).withValues(alpha: 0.85)
+                    : Colors.white.withValues(alpha: 0.85),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 16,
+                    offset: const Offset(-4, 0),
                   ),
                 ],
+                border: Border(
+                  left: BorderSide(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black.withValues(alpha: 0.05),
+                  ),
+                ),
+              ),
+              child: ClipRRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Column(
+                    children: [
+                      SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Management',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close),
+                                onPressed: () => Navigator.pop(context),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      TabBar(
+                        controller: _tabController,
+                        indicatorColor: Theme.of(context).colorScheme.primary,
+                        tabs: const [
+                          Tab(text: 'Chat History'),
+                          Tab(text: 'AI Memory'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _buildChatHistoryTab(provider),
+                            _buildMemoryTab(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
+          ).animate().slideX(
+            begin: 1.0,
+            end: 0,
+            curve: Curves.easeOutCubic,
+            duration: 300.ms,
           ),
-        ),
-      ).animate().slideX(begin: 1.0, end: 0, curve: Curves.easeOutCubic, duration: 300.ms),
     );
   }
 
@@ -163,7 +176,9 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> with SingleTicker
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               ),
             ),
-            subtitle: Text('${session.createdAt.day}/${session.createdAt.month}/${session.createdAt.year}'),
+            subtitle: Text(
+              '${session.createdAt.day}/${session.createdAt.month}/${session.createdAt.year}',
+            ),
             selected: isSelected,
             onTap: () async {
               await provider.selectChatSession(session);
@@ -185,13 +200,22 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> with SingleTicker
     final meds = _memoryCache!['medications'] ?? [];
 
     if (notes.isEmpty && vitals.isEmpty && meds.isEmpty) {
-      return const Center(child: Text('No context available for this patient.'));
+      return const Center(
+        child: Text('No context available for this patient.'),
+      );
     }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('The AI uses the following recent records as context:', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13, color: Colors.grey)),
+        const Text(
+          'The AI uses the following recent records as context:',
+          style: TextStyle(
+            fontStyle: FontStyle.italic,
+            fontSize: 13,
+            color: Colors.grey,
+          ),
+        ),
         const SizedBox(height: 16),
         _buildMemorySection('Recent Vitals', vitals),
         const SizedBox(height: 16),
@@ -207,18 +231,23 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer> with SingleTicker
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
         const SizedBox(height: 8),
-        ...items.map((item) => Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  item.entries.map((e) => '${e.key}: ${e.value}').join(' | '),
-                  style: const TextStyle(fontSize: 12),
-                ),
+        ...items.map(
+          (item) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Text(
+                item.entries.map((e) => '${e.key}: ${e.value}').join(' | '),
+                style: const TextStyle(fontSize: 12),
               ),
-            )),
+            ),
+          ),
+        ),
       ],
     );
   }

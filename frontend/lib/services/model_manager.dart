@@ -41,7 +41,7 @@ class ModelManager extends ChangeNotifier {
   String get downloadProgress => _downloadProgress;
 
   final Future<void> Function()? onModelUpdated;
-  
+
   Future<void> downloadUpdate() async {
     if (_pendingRelease != null) {
       await _downloadAndInstallLatest(_pendingRelease!);
@@ -324,7 +324,8 @@ class ModelManager extends ChangeNotifier {
   }
 
   @visibleForTesting
-  static Future<void> validateExportedModelForTest(File file) => _validateExportedModel(file);
+  static Future<void> validateExportedModelForTest(File file) =>
+      _validateExportedModel(file);
 
   static Future<void> _validateExportedModel(File file) async {
     final model = jsonDecode(await file.readAsString());
@@ -350,7 +351,9 @@ class ModelManager extends ChangeNotifier {
     final mlp = model['mlp'] as Map;
     final arch = mlp['arch'];
 
-    if (arch is! Map || arch['input_dim'] is! num || arch['output_dim'] is! num) {
+    if (arch is! Map ||
+        arch['input_dim'] is! num ||
+        arch['output_dim'] is! num) {
       throw const FormatException('Invalid exported classifier');
     }
 
@@ -363,7 +366,12 @@ class ModelManager extends ChangeNotifier {
     final outW = mlp['output_weight'];
     final outB = mlp['output_bias'];
 
-    if (l1W is! List || l1B is! List || l2W is! List || l2B is! List || outW is! List || outB is! List) {
+    if (l1W is! List ||
+        l1B is! List ||
+        l2W is! List ||
+        l2B is! List ||
+        outW is! List ||
+        outB is! List) {
       throw const FormatException('Invalid exported classifier');
     }
 
@@ -373,23 +381,31 @@ class ModelManager extends ChangeNotifier {
 
     int expectedIdfLength = inputDim;
     if (model['bert_projection'] is Map) {
-      expectedIdfLength -= (model['bert_projection']['reduced_dim'] as num).toInt();
+      expectedIdfLength -= (model['bert_projection']['reduced_dim'] as num)
+          .toInt();
     }
-    
+
     if (idf.length != expectedIdfLength) {
       throw const FormatException('Classifier dimensions do not match');
     }
 
     if (l1W.any((row) => row is! List || row.length != inputDim)) {
-      throw const FormatException('Classifier coefficient dimensions do not match');
+      throw const FormatException(
+        'Classifier coefficient dimensions do not match',
+      );
     }
 
-    if (l2W.any((row) => row is! List || row.length != l1W.length) || l2B.length != l2W.length) {
-      throw const FormatException('Classifier coefficient dimensions do not match');
+    if (l2W.any((row) => row is! List || row.length != l1W.length) ||
+        l2B.length != l2W.length) {
+      throw const FormatException(
+        'Classifier coefficient dimensions do not match',
+      );
     }
 
     if (outW.any((row) => row is! List || row.length != l2W.length)) {
-      throw const FormatException('Classifier coefficient dimensions do not match');
+      throw const FormatException(
+        'Classifier coefficient dimensions do not match',
+      );
     }
   }
 

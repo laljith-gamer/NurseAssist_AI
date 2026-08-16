@@ -14,12 +14,14 @@ class TerminologyService {
   Future<void> loadDictionary() async {
     if (_isLoaded) return;
     try {
-      // In a full production scenario, this would connect to a local SQLite DB 
+      // In a full production scenario, this would connect to a local SQLite DB
       // containing the full SNOMED CT / ICD-10 datasets (often >1GB).
       // For this prototype, we load a bundled JSON dictionary of common terms.
-      final String jsonString = await rootBundle.loadString('assets/dictionary/clinical_terms.json');
+      final String jsonString = await rootBundle.loadString(
+        'assets/dictionary/clinical_terms.json',
+      );
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-      
+
       jsonMap.forEach((key, value) {
         _dictionary[key.toLowerCase()] = value.toString();
       });
@@ -30,7 +32,7 @@ class TerminologyService {
     }
   }
 
-  /// Looks up a term in the offline dictionary. 
+  /// Looks up a term in the offline dictionary.
   /// Returns the standardized term or definition if found.
   String? lookupTerm(String query) {
     if (!_isLoaded) return null;

@@ -17,9 +17,8 @@ class SettingsProvider with ChangeNotifier {
 
   String get backendUrl => _backendUrl;
 
-  String get httpUrl => _backendUrl.startsWith('http')
-      ? _backendUrl
-      : 'http://$_backendUrl';
+  String get httpUrl =>
+      _backendUrl.startsWith('http') ? _backendUrl : 'http://$_backendUrl';
 
   String get wsUrl {
     if (_backendUrl.startsWith('https://')) {
@@ -41,10 +40,8 @@ class SettingsProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _backendUrl = prefs.getString(_keyBackendUrl) ?? _backendUrl;
     _isDarkMode = prefs.getBool(_keyDarkMode) ?? _isDarkMode;
-    _telemetrySharingEnabled =
-        prefs.getBool(_keyTelemetrySharing) ?? false;
-    _consentDialogShown =
-        prefs.getBool(_keyConsentDialogShown) ?? false;
+    _telemetrySharingEnabled = prefs.getBool(_keyTelemetrySharing) ?? false;
+    _consentDialogShown = prefs.getBool(_keyConsentDialogShown) ?? false;
     _lastTelemetrySyncTime = prefs.getInt(_keyLastTelemetrySync) ?? 0;
     notifyListeners();
   }

@@ -35,15 +35,24 @@ class ClinicalRecordProposal {
       return command.noteText ?? sourceText;
     }
     if (command.action == ClinicalAction.recordMedication) {
-      return command.medications.map((m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'.trim()).join(', ');
+      return command.medications
+          .map(
+            (m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'
+                .trim(),
+          )
+          .join(', ');
     }
     if (command.action == ClinicalAction.batchRecord) {
       final parts = <String>[];
       if (command.vitals.isNotEmpty) {
-        parts.add('Vitals: ' + command.vitals.map((v) => v.displayValue).join(', '));
+        parts.add(
+          'Vitals: ${command.vitals.map((v) => v.displayValue).join(', ')}',
+        );
       }
       if (command.medications.isNotEmpty) {
-        parts.add('Meds: ' + command.medications.map((m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'.trim()).join(', '));
+        parts.add(
+          'Meds: ${command.medications.map((m) => '${m.name} ${m.dose ?? ''} ${m.route ?? ''} (${m.status})'.trim()).join(', ')}',
+        );
       }
       if (command.noteText != null) {
         parts.add('Note: ${command.noteText}');
@@ -82,7 +91,8 @@ class PatientProvider with ChangeNotifier {
   ChatSession? get activeChatSession => _activeChatSession;
   bool get isLoading => _isLoading;
   bool get isResponding => _isResponding;
-  List<Map<String, dynamic>> get vitalHistory => List.unmodifiable(_vitalHistory);
+  List<Map<String, dynamic>> get vitalHistory =>
+      List.unmodifiable(_vitalHistory);
   ClinicalRecordProposal? get pendingProposal => _pendingProposal;
   ApiService get apiService => _apiService;
 
@@ -156,11 +166,19 @@ class PatientProvider with ChangeNotifier {
       _currentMetrics = DeltaMetrics.fromJson(
         Map<String, dynamic>.from(results[0] as Map),
       );
-      
+
       final history = (results[2] as List).cast<Map<String, dynamic>>();
       history.sort((a, b) {
-        final timeA = a['recorded_at'] is int ? a['recorded_at'] as int : DateTime.parse(a['recorded_at'].toString()).millisecondsSinceEpoch;
-        final timeB = b['recorded_at'] is int ? b['recorded_at'] as int : DateTime.parse(b['recorded_at'].toString()).millisecondsSinceEpoch;
+        final timeA = a['recorded_at'] is int
+            ? a['recorded_at'] as int
+            : DateTime.parse(
+                a['recorded_at'].toString(),
+              ).millisecondsSinceEpoch;
+        final timeB = b['recorded_at'] is int
+            ? b['recorded_at'] as int
+            : DateTime.parse(
+                b['recorded_at'].toString(),
+              ).millisecondsSinceEpoch;
         return timeA.compareTo(timeB);
       });
       _vitalHistory = history;
@@ -194,17 +212,14 @@ class PatientProvider with ChangeNotifier {
   Future<void> startNewChat() async {
     final patient = _selectedPatient;
     if (patient == null || _isResponding) return;
-    
+
     // Prevent creating multiple empty new chats
     if (_messages.isEmpty && _activeChatSession != null) {
       return;
     }
 
     final session = ChatSession.fromJson(
-      await _apiService.createChatSession(
-        patient.id,
-        title: 'New chat',
-      ),
+      await _apiService.createChatSession(patient.id, title: 'New chat'),
     );
     if (_selectedPatient?.id != patient.id) return;
     _pendingProposal = null;
@@ -358,8 +373,7 @@ class PatientProvider with ChangeNotifier {
         role: 'assistant',
         content: response,
         timestamp: DateTime.now(),
-        observationHints:
-            observationHints.map((hint) => hint.name).toList(),
+        observationHints: observationHints.map((hint) => hint.name).toList(),
       );
       if (_selectedPatient?.id == patient.id &&
           _activeChatSession?.id == chatSession.id) {
@@ -410,8 +424,9 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryVitals:
         if (command.replyText != null && command.replyText!.isNotEmpty) {
@@ -433,8 +448,9 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.recordNote:
         _stageProposal(
@@ -444,8 +460,9 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.batchRecord:
         _stageProposal(
@@ -455,8 +472,9 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
 
       case ClinicalAction.queryMedications:
         if (command.replyText != null && command.replyText!.isNotEmpty) {
@@ -471,19 +489,24 @@ class PatientProvider with ChangeNotifier {
         return _buildFallbackSummary(patient);
 
       case ClinicalAction.greeting:
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'Hello! I\'m NurseAssist, your clinical charting assistant. How can I help you today?';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'Hello! I\'m NurseAssist, your clinical charting assistant. How can I help you today?';
 
       case ClinicalAction.help:
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I can help you record vitals, medications, and nursing notes. You can also ask me to summarize a patient or query their history.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I can help you record vitals, medications, and nursing notes. You can also ask me to summarize a patient or query their history.';
 
       case ClinicalAction.cancel:
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! : 'No new record was created.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'No new record was created.';
 
       case ClinicalAction.conversation:
-        return (command.replyText?.isNotEmpty == true) ? command.replyText! :
-            'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
 
       case ClinicalAction.unknown:
         if (command.replyText?.isNotEmpty == true) return command.replyText!;
@@ -501,11 +524,21 @@ class PatientProvider with ChangeNotifier {
       _apiService.getVitals(patientId),
     ]);
     if (_selectedPatient?.id == patientId) {
-      _currentMetrics = DeltaMetrics.fromJson(Map<String, dynamic>.from(results[0] as Map));
+      _currentMetrics = DeltaMetrics.fromJson(
+        Map<String, dynamic>.from(results[0] as Map),
+      );
       final history = (results[1] as List).cast<Map<String, dynamic>>();
       history.sort((a, b) {
-        final timeA = a['recorded_at'] is int ? a['recorded_at'] as int : DateTime.parse(a['recorded_at'].toString()).millisecondsSinceEpoch;
-        final timeB = b['recorded_at'] is int ? b['recorded_at'] as int : DateTime.parse(b['recorded_at'].toString()).millisecondsSinceEpoch;
+        final timeA = a['recorded_at'] is int
+            ? a['recorded_at'] as int
+            : DateTime.parse(
+                a['recorded_at'].toString(),
+              ).millisecondsSinceEpoch;
+        final timeB = b['recorded_at'] is int
+            ? b['recorded_at'] as int
+            : DateTime.parse(
+                b['recorded_at'].toString(),
+              ).millisecondsSinceEpoch;
         return timeA.compareTo(timeB);
       });
       _vitalHistory = history;
@@ -657,7 +690,8 @@ class PatientProvider with ChangeNotifier {
               recordedAt: proposal.command.recordedAt,
             );
           }
-          if (proposal.command.noteText != null && proposal.command.noteText!.isNotEmpty) {
+          if (proposal.command.noteText != null &&
+              proposal.command.noteText!.isNotEmpty) {
             await _apiService.recordNursingNote(
               proposal.patientId,
               content: proposal.command.noteText!,
@@ -675,14 +709,17 @@ class PatientProvider with ChangeNotifier {
         default:
           throw StateError('Only charting proposals can be confirmed.');
       }
-      
+
       // Automatic ML reinforcement
       try {
-        await _apiService.submitIntentFeedback(proposal.sourceText, proposal.command.action.name);
+        await _apiService.submitIntentFeedback(
+          proposal.sourceText,
+          proposal.command.action.name,
+        );
       } catch (e) {
         debugPrint('Failed to submit positive reinforcement: $e');
       }
-      
+
       _pendingProposal = null;
     } catch (error) {
       debugPrint('Error confirming clinical proposal: $error');
@@ -700,7 +737,7 @@ class PatientProvider with ChangeNotifier {
   Future<void> discardPendingProposal() async {
     final proposal = _pendingProposal;
     if (proposal == null || _isResponding) return;
-    
+
     // Automatic ML reinforcement
     try {
       await _apiService.submitIntentFeedback(proposal.sourceText, 'rejected');
@@ -829,15 +866,21 @@ class PatientProvider with ChangeNotifier {
     lines.add('Summary for ${patient.name}:');
     final notes = memory['notes'] ?? const [];
     if (notes.isNotEmpty) {
-      lines.add('Recent observations: ${notes.take(3).map((n) => n['content']).join('; ')}');
+      lines.add(
+        'Recent observations: ${notes.take(3).map((n) => n['content']).join('; ')}',
+      );
     }
     final vitals = memory['vitals'] ?? const [];
     if (vitals.isNotEmpty) {
-      lines.add('Latest vitals: ${vitals.take(5).map((v) => '${v['vital_type']} ${v['value']} ${v['unit']}').join(', ')}');
+      lines.add(
+        'Latest vitals: ${vitals.take(5).map((v) => '${v['vital_type']} ${v['value']} ${v['unit']}').join(', ')}',
+      );
     }
     final meds = memory['medications'] ?? const [];
     if (meds.isNotEmpty) {
-      lines.add('Recent medications: ${meds.take(3).map((m) => '${m['name']} ${m['status']}').join(', ')}');
+      lines.add(
+        'Recent medications: ${meds.take(3).map((m) => '${m['name']} ${m['status']}').join(', ')}',
+      );
     }
     if (lines.length == 1) {
       lines.add('No clinical data recorded yet.');
