@@ -54,5 +54,5 @@
     "distilled_from_bert": true,
     "pca_components": 512
   },
-  "source_model_version": "nurse-nlp-v48"
+  "source_model_version": "nurse-nlp-v49"
 }
