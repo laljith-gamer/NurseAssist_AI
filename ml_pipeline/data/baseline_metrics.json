@@ -1,285 +1,58 @@
 {
-  "model_role": "advisory_clinical_observation_context",
-  "architecture": "Compact Clinical MLP (TF-IDF only)",
-  "dataset": {
-    "id": "microsoft/SYNUR",
-    "synthetic_count": 2342,
-    "telemetry_count": 0,
-    "split_sizes": {
-      "train": 122,
-      "dev": 101,
-      "test": 199
-    }
-  },
-  "selection": {
-    "candidate_min_train_support": 8,
-    "minimum_dev_support": 4,
-    "minimum_dev_label_f1": 0.4,
-    "threshold": 0.25,
-    "labels": [
-      "Alert and oriented",
-      "Ambulating",
-      "Anxious",
-      "Breath sounds",
-      "Breathing pattern",
-      "Chest pain",
-      "Cognitive status",
-      "Confusion",
-      "Dehydration",
-      "Dizziness",
-      "Dyspnea",
-      "Edema",
-      "Fall risk assessment",
-      "Fall risk identification",
-      "Fever",
-      "Headache",
-      "History of falls",
-      "Hypertension",
-      "Insomnia",
-      "Mobility",
-      "Nausea",
-      "Oxygen delivery device",
-      "Oxygen saturation",
-      "Patient safety",
-      "Respiratory Distress",
-      "Respiratory interventions",
-      "Sleeping",
-      "Suprapubic tenderness",
-      "Urinary symptoms",
-      "Urine appearance",
-      "Urine color",
-      "Urine odor",
-      "Use of accessory muscles",
-      "Vomiting",
-      "Weakness"
-    ],
-    "per_label_dev": {
-      "Alert and oriented": {
-        "support": 50,
-        "precision": 0.5205,
-        "recall": 0.76,
-        "f1": 0.6179
-      },
-      "Ambulating": {
-        "support": 27,
-        "precision": 0.8824,
-        "recall": 0.5556,
-        "f1": 0.6818
-      },
-      "Anxious": {
-        "support": 35,
-        "precision": 0.3571,
-        "recall": 0.5714,
-        "f1": 0.4396
-      },
-      "Breath sounds": {
-        "support": 14,
-        "precision": 0.4167,
-        "recall": 0.7143,
-        "f1": 0.5263
-      },
-      "Breathing pattern": {
-        "support": 23,
-        "precision": 0.6,
-        "recall": 0.3913,
-        "f1": 0.4737
-      },
-      "Chest pain": {
-        "support": 32,
-        "precision": 0.5238,
-        "recall": 0.6875,
-        "f1": 0.5946
-      },
-      "Cognitive status": {
-        "support": 53,
-        "precision": 0.5909,
-        "recall": 0.9811,
-        "f1": 0.7376
-      },
-      "Confusion": {
-        "support": 11,
-        "precision": 0.625,
-        "recall": 0.4545,
-        "f1": 0.5263
-      },
-      "Dehydration": {
-        "support": 12,
-        "precision": 0.6667,
-        "recall": 0.3333,
-        "f1": 0.4444
-      },
-      "Dizziness": {
-        "support": 16,
-        "precision": 0.6875,
-        "recall": 0.6875,
-        "f1": 0.6875
-      },
-      "Dyspnea": {
-        "support": 19,
-        "precision": 0.4444,
-        "recall": 0.4211,
-        "f1": 0.4324
-      },
-      "Edema": {
-        "support": 81,
-        "precision": 0.6023,
-        "recall": 0.6543,
-        "f1": 0.6272
-      },
-      "Fall risk assessment": {
-        "support": 15,
-        "precision": 0.3846,
-        "recall": 0.6667,
-        "f1": 0.4878
-      },
-      "Fall risk identification": {
-        "support": 17,
-        "precision": 0.4667,
-        "recall": 0.4118,
-        "f1": 0.4375
-      },
-      "Fever": {
-        "support": 27,
-        "precision": 0.6071,
-        "recall": 0.6296,
-        "f1": 0.6182
-      },
-      "Headache": {
-        "support": 19,
-        "precision": 0.6316,
-        "recall": 0.6316,
-        "f1": 0.6316
-      },
-      "History of falls": {
-        "support": 10,
-        "precision": 0.3043,
-        "recall": 0.7,
-        "f1": 0.4242
-      },
-      "Hypertension": {
-        "support": 119,
-        "precision": 0.6933,
-        "recall": 0.9496,
-        "f1": 0.8014
-      },
-      "Insomnia": {
-        "support": 9,
-        "precision": 0.5,
-        "recall": 0.3333,
-        "f1": 0.4
-      },
-      "Mobility": {
-        "support": 47,
-        "precision": 0.5294,
-        "recall": 0.5745,
-        "f1": 0.551
-      },
-      "Nausea": {
-        "support": 69,
-        "precision": 0.557,
-        "recall": 0.6377,
-        "f1": 0.5946
-      },
-      "Oxygen delivery device": {
-        "support": 27,
-        "precision": 0.359,
-        "recall": 0.5185,
-        "f1": 0.4242
-      },
-      "Oxygen saturation": {
-        "support": 23,
-        "precision": 0.4091,
-        "recall": 0.3913,
-        "f1": 0.4
-      },
-      "Patient safety": {
-        "support": 13,
-        "precision": 0.4091,
-        "recall": 0.6923,
-        "f1": 0.5143
-      },
-      "Respiratory Distress": {
-        "support": 50,
-        "precision": 0.7222,
-        "recall": 0.78,
-        "f1": 0.75
-      },
-      "Respiratory interventions": {
-        "support": 24,
-        "precision": 0.5,
-        "recall": 0.5833,
-        "f1": 0.5385
-      },
-      "Sleeping": {
-        "support": 13,
-        "precision": 0.5556,
-        "recall": 0.3846,
-        "f1": 0.4545
-      },
-      "Suprapubic tenderness": {
-        "support": 14,
-        "precision": 0.381,
-        "recall": 0.5714,
-        "f1": 0.4571
-      },
-      "Urinary symptoms": {
-        "support": 19,
-        "precision": 0.359,
-        "recall": 0.7368,
-        "f1": 0.4828
-      },
-      "Urine appearance": {
-        "support": 19,
-        "precision": 0.4231,
-        "recall": 0.5789,
-        "f1": 0.4889
-      },
-      "Urine color": {
-        "support": 13,
-        "precision": 0.625,
-        "recall": 0.3846,
-        "f1": 0.4762
-      },
-      "Urine odor": {
-        "support": 28,
-        "precision": 0.75,
-        "recall": 0.5357,
-        "f1": 0.625
-      },
-      "Use of accessory muscles": {
-        "support": 19,
-        "precision": 0.6154,
-        "recall": 0.4211,
-        "f1": 0.5
-      },
-      "Vomiting": {
-        "support": 56,
-        "precision": 0.6164,
-        "recall": 0.8036,
-        "f1": 0.6977
-      },
-      "Weakness": {
-        "support": 50,
-        "precision": 0.6066,
-        "recall": 0.74,
-        "f1": 0.6667
-      }
-    },
-    "dev_metrics": {
-      "micro_f1": 0.404,
-      "macro_f1": 0.261,
-      "samples_f1": 0.3655
-    }
-  },
   "held_out_test": {
-    "micro_f1": 0.6162,
-    "macro_f1": 0.5592,
-    "samples_f1": 0.6171
+    "micro_f1": 0.5831,
+    "macro_f1": 0.4543,
+    "samples_f1": 0.545
   },
+  "validation": {
+    "micro_f1": 0.3653,
+    "macro_f1": 0.1815,
+    "samples_f1": 0.3106
+  },
+  "selected_labels": [
+    "Activity level",
+    "Agitated",
+    "Alert and oriented",
+    "Ambulating",
+    "Anxious",
+    "Breath sounds",
+    "Chest pain",
+    "Cognitive status",
+    "Confusion",
+    "Dehydration",
+    "Dizziness",
+    "Edema",
+    "Fall risk assessment",
+    "Fall risk identification",
+    "Fever",
+    "Headache",
+    "Hypertension",
+    "Insomnia",
+    "Mean arterial pressure (MAP) unit",
+    "Mobility",
+    "Nausea",
+    "No pain",
+    "Oxygen delivery device",
+    "Oxygen flow rate",
+    "Oxygen flow rate unit",
+    "Pain",
+    "Pitting edema",
+    "Respiratory Distress",
+    "Sensory perception",
+    "Severe pain",
+    "Sleeping",
+    "Tachycardia",
+    "Urine appearance",
+    "Urine odor",
+    "Use of accessory muscles",
+    "Vomiting",
+    "Weakness"
+  ],
   "training_features": {
     "tfidf_dims": 512,
     "bioclinicalbert": false,
-    "distilled_from_bert": false,
+    "distilled_from_bert": true,
     "pca_components": 512
-  }
+  },
+  "source_model_version": "nurse-nlp-v47"
 }
