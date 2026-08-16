@@ -73,7 +73,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       llmStatus = 'Gemma 3 1B: ready';
                       statusColor = Colors.green;
                     } else if (llm.isInitializing) {
-                      llmStatus = 'Gemma 3 1B: loading...';
+                      llmStatus = 'Gemma 3 1B: ${llm.statusMessage}';
                       statusColor = Colors.orange;
                     } else if (llm.errorMessage != null) {
                       llmStatus = 'Gemma 3 1B: ${llm.errorMessage}';
