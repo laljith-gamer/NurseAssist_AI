@@ -79,14 +79,14 @@ class LocalNlpService {
               .toList();
 
       // Clinical Reasoning Rules
-      final activeLabels = observations.map((e) => e.name).toSet();
-      if (activeLabels.contains('Hypertension') && activeLabels.contains('Tachycardia')) {
+      final activeLabels = observations.map((e) => e.name.toLowerCase()).toSet();
+      if (activeLabels.contains('hypertension') && activeLabels.contains('tachycardia')) {
         observations.insert(0, const ClinicalObservation(name: 'Hemodynamic Instability', confidence: 1.0));
       }
-      if (activeLabels.contains('Hypoxia') && activeLabels.contains('Respiratory Distress')) {
+      if (activeLabels.contains('hypoxia') && activeLabels.contains('respiratory distress')) {
         observations.insert(0, const ClinicalObservation(name: 'Respiratory Compromise', confidence: 1.0));
       }
-      if (activeLabels.contains('Severe pain') && activeLabels.contains('Agitated')) {
+      if (activeLabels.contains('severe pain') && activeLabels.contains('agitated')) {
         observations.insert(0, const ClinicalObservation(name: 'Inadequate Pain Control', confidence: 1.0));
       }
 
@@ -181,7 +181,7 @@ class LocalNlpService {
     final logits = _dot(outW, h2, outB);
 
     final results = <String, double>{};
-    for (var i = 0; i < rawClasses.length; i++) {
+    for (var i = 0; i < rawClasses.length && i < logits.length; i++) {
       results[rawClasses[i].toString()] = _sigmoid(logits[i]);
     }
     

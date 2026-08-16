@@ -155,14 +155,20 @@ class ClinicalCommandParser {
               260,
             );
           } else if (type == 'temperature') {
+            var value = _number(vital['value']);
+            final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
+            if (value != null && unitStr.startsWith('f')) {
+              value = (value - 32) * 5 / 9;
+            }
             _addIfInRange(
               vitals,
               'temperature',
-              _number(vital['value']),
+              value,
               '°C',
               25,
               45,
             );
+
           } else if (type == 'spo2') {
             _addIfInRange(
               vitals,
@@ -182,10 +188,15 @@ class ClinicalCommandParser {
               80,
             );
           } else if (type == 'weight') {
+            var value = _number(vital['value']);
+            final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
+            if (value != null && (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
+              value *= 0.453592;
+            }
             _addIfInRange(
               vitals,
               'weight',
-              _number(vital['value']),
+              value,
               'kg',
               2,
               500,
@@ -201,7 +212,6 @@ class ClinicalCommandParser {
                 replyText: replyText,
               );
       case 'record_medication':
-        final rawMedication = data['medication'];
         final med = data['medication'];
         if (med is! Map) return null;
         return ClinicalCommand(
@@ -243,13 +253,23 @@ class ClinicalCommandParser {
             } else if (type == 'heart_rate') {
               _addIfInRange(vitals, 'heart_rate', _number(vital['value']), 'bpm', 20, 260);
             } else if (type == 'temperature') {
-              _addIfInRange(vitals, 'temperature', _number(vital['value']), '°C', 25, 45);
+              var value = _number(vital['value']);
+              final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
+              if (value != null && unitStr.startsWith('f')) {
+                value = (value - 32) * 5 / 9;
+              }
+              _addIfInRange(vitals, 'temperature', value, '°C', 25, 45);
             } else if (type == 'spo2') {
               _addIfInRange(vitals, 'spo2', _number(vital['value']), '%', 40, 100);
             } else if (type == 'respiratory_rate') {
               _addIfInRange(vitals, 'respiratory_rate', _number(vital['value']), '/min', 4, 80);
             } else if (type == 'weight') {
-              _addIfInRange(vitals, 'weight', _number(vital['value']), 'kg', 2, 500);
+              var value = _number(vital['value']);
+              final unitStr = vital['unit']?.toString().toLowerCase() ?? '';
+              if (value != null && (unitStr.startsWith('lb') || unitStr.startsWith('pound'))) {
+                value *= 0.453592;
+              }
+              _addIfInRange(vitals, 'weight', value, 'kg', 2, 500);
             }
           }
         }

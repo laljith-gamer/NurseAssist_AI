@@ -8,15 +8,19 @@ Negation detection prevents false labels from phrases like "denies chest pain".
 """
 
 import re
-from typing import List, Dict, Any, Tuple
+import sys
+from pathlib import Path
 from dataclasses import dataclass
 from datasets import load_dataset
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+from config import settings
 
 @dataclass(frozen=True)
 class SynurExample:
     identifier: str
     transcript: str
-    observations: tuple[Dict[str, Any], ...]
+    observations: tuple[dict[str, object], ...]
 
     @property
     def observation_names(self) -> set:
@@ -33,12 +37,11 @@ _NEGATION_CUES = re.compile(
     r'free\s+of|ruled\s+out|r/o)\b',
     re.IGNORECASE,
 )
-_NEGATION_WINDOW = 40  # characters to look back for negation
-
 
 def _is_negated(text: str, match_start: int) -> bool:
     """Check if a regex match is preceded by negation within a character window."""
-    window_start = max(0, match_start - _NEGATION_WINDOW)
+    window = settings.NEGATION_WINDOW
+    window_start = max(0, match_start - window)
     preceding = text[window_start:match_start]
     return bool(_NEGATION_CUES.search(preceding))
 
@@ -46,7 +49,7 @@ def _is_negated(text: str, match_start: int) -> bool:
 # Weak supervision rules mapping Regex patterns to Clinical Observations
 # Each rule is: (pattern, label, negation_aware)
 # When negation_aware is True, the label is skipped if negation is detected
-LABELING_RULES: List[Tuple[re.Pattern, str, bool]] = [
+LABELING_RULES: list[tuple[re.Pattern, str, bool]] = [
     # --- Cardiovascular ---
     (re.compile(r'\b(hypertension|bp\s*(is\s*)?(elevated|high)|blood\s*pressure\s*(is\s*)?(elevated|high)|\b1[4-9]\d/[89]\d|\b1[4-9]\d/1[0-4]\d)\b', re.IGNORECASE), "Hypertension", True),
     (re.compile(r'\b(tachycardia|hr\s*(is\s*)?(elevated|high|>100)|heart\s*rate\s*(is\s*)?(elevated|high))\b', re.IGNORECASE), "Tachycardia", True),
@@ -112,7 +115,7 @@ LABELING_RULES: List[Tuple[re.Pattern, str, bool]] = [
 ]
 
 
-def load_mtsamples_dataset(max_records: int = 5000) -> List[SynurExample]:
+def load_mtsamples_dataset(max_records: int = 5000) -> list[SynurExample]:
     """Loads and labels real clinical transcriptions from MTSamples."""
     print("Downloading real MTSamples dataset from Hugging Face...")
     try:

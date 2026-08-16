@@ -89,6 +89,42 @@ class Settings(BaseSettings):
     GITHUB_OWNER: str = "laljith-gamer"
     GITHUB_REPOSITORY: str = "NurseAssist_AI"
     GITHUB_WORKFLOW_ID: str = "train-models.yml"
+
+    # ── MLP Training Configuration ──────────────────────────────────────
+    MLP_HIDDEN_SIZES: tuple = (256, 128)
+    MLP_MAX_ITER: int = 80
+    MLP_LEARNING_RATE: float = 0.001
+    MLP_BATCH_SIZE: int = 32
+    MLP_ALPHA: float = 0.01
+    MLP_PARAM_BUDGET: int = 300_000
+    TFIDF_MAX_FEATURES: int = 512
+    PCA_COMPONENTS: int = 512
+    SEED: int = 42
+
+    # ── Knowledge Distillation ──────────────────────────────────────────
+    DISTILL_TEMPERATURE: float = 2.0
+    DISTILL_ALPHA: float = 0.5
+    DISTILL_THRESHOLD: float = 0.4
+
+    # ── Label Selection ─────────────────────────────────────────────────
+    MIN_TRAIN_SUPPORT: int = 8
+    MIN_DEV_SUPPORT: int = 4
+    MIN_DEV_LABEL_F1: float = 0.40
+
+    # ── Quality Gates ───────────────────────────────────────────────────
+    MIN_VALIDATION_MICRO_F1: float = 0.30
+    MIN_HELD_OUT_TEST_MICRO_F1: float = 0.40
+    MAX_HELD_OUT_REGRESSION: float = 0.02
+    MIN_SELECTED_LABELS: int = 3
+
+    # ── Negation Detection ──────────────────────────────────────────────
+    NEGATION_WINDOW: int = 40
+
+    # ── MTSamples Dataset ───────────────────────────────────────────────
+    MTSAMPLES_MAX_RECORDS: int = 3000
+
+    # ── Export ──────────────────────────────────────────────────────────
+    EXPORT_FLOAT_PRECISION: int = 6
     
 settings = Settings()
 

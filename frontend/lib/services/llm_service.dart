@@ -167,71 +167,6 @@ class LlmService extends ChangeNotifier {
     await _chat!.clearHistory();
   }
 
-  /// Generate a response from the LLM using streaming
-  Stream<String> generateResponseStream(String prompt) async* {
-    if (!_isReady) {
-      yield 'AI model is still loading. Please wait a moment.';
-      return;
-    }
-
-    if (_isGenerating) {
-      yield 'The AI is still responding to another request.';
-      return;
-    }
-    _isGenerating = true;
-    try {
-      if (_chat == null) {
-        yield 'Chat session not available.';
-        return;
-      }
-
-      await _prepareSingleTurn();
-      await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
-      await for (final token in _chat!.session.getResponseAsync()) {
-        final cleaned = _sanitizeResponse(token);
-        if (cleaned.isNotEmpty) {
-          yield cleaned;
-        }
-      }
-    } catch (e) {
-      debugPrint('LLM generation error: $e');
-      yield 'Sorry, I encountered an error generating a response.';
-    } finally {
-      _isGenerating = false;
-    }
-  }
-
-  /// Generate a complete response (non-streaming)
-  Future<String> generateResponse(String prompt) async {
-    if (!_isReady) {
-      return 'AI model is still loading.';
-    }
-
-    if (_isGenerating) {
-      return '';
-    }
-    _isGenerating = true;
-    try {
-      if (_chat == null) return 'Chat session not available.';
-
-      await _prepareSingleTurn();
-      await _chat!.addQueryChunk(Message(text: prompt, isUser: true));
-      final response = await _chat!.session.getResponse();
-      final cleaned = _sanitizeResponse(response);
-      // Return empty string so caller can fall back to template response
-      if (cleaned.isEmpty) {
-        debugPrint('LLM returned garbage output, falling back to template.');
-        return '';
-      }
-      return cleaned;
-    } catch (e) {
-      debugPrint('LLM generation error: $e');
-      return 'Sorry, I encountered an error.';
-    } finally {
-      _isGenerating = false;
-    }
-  }
-
   /// Interprets free-form nursing language into a structured JSON command.
   /// The JSON always includes a `reply` field — the model's natural-language
   /// response shown to the nurse. Clinical writes also include structured data
@@ -264,6 +199,7 @@ RULES:
 7. If the nurse describes patient symptoms, complaints, or observations conversationally, use action record_note to document them as a nursing observation.
 8. If the nurse asks you to prepare, write, compile, or generate documentation, notes, a summary, or a report, use action summarize.
 9. Always provide a warm, acknowledging reply. Never give a generic template response.
+- OBSERVATION HINTS: If observation hints are provided below, use them as additional clinical context when interpreting the nurse's message. They are advisory ML predictions — do NOT treat them as confirmed diagnoses or echo them back as facts. Use them to disambiguate intent.
 
 JSON Schema:
 Clinical writes: {"v":1,"action":"record_vitals|record_medication|record_note|batch_record","reply":"Your friendly response","timestamp":"$now",...data fields...}

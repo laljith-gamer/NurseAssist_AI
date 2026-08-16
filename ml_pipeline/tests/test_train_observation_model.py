@@ -36,7 +36,7 @@ def test_select_labels():
     assert "C" in chosen
     assert "D" not in chosen
     
-    with pytest.raises(RuntimeError, match="Validation did not yield three sufficiently reliable"):
+    with pytest.raises(RuntimeError, match="Validation did not yield"):
         _select_labels(["A", "B"], targets, probabilities, threshold)
 
 def test_verify_parameter_budget():
@@ -45,11 +45,11 @@ def test_verify_parameter_budget():
             self.coefs_ = [np.ones(size)]
             self.intercepts_ = [np.ones(1)]
             
-    under_budget = MockMLP(749999)
+    under_budget = MockMLP(299999)
     _verify_parameter_budget(under_budget)
     
-    over_budget = MockMLP(750000)
-    with pytest.raises(ValueError, match="Model exceeds 750K parameter budget"):
+    over_budget = MockMLP(300000)
+    with pytest.raises(ValueError, match="Model exceeds"):
         _verify_parameter_budget(over_budget)
 
 def test_best_threshold():

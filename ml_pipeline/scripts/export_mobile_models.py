@@ -1,7 +1,7 @@
-"""Export the real-data SYNUR advisory MLP model for Dart inference.
+"""Export the advisory clinical-observation MLP model for on-device Dart inference.
 
-Exports the sklearn MLPClassifier weights, biases, TF-IDF vocabulary, and BERT PCA
-projection into a single JSON artifact.
+Exports the sklearn MLPClassifier weights, biases, and TF-IDF vocabulary
+into a single compact JSON artifact for mobile deployment.
 """
 
 from __future__ import annotations
@@ -48,7 +48,9 @@ def evaluate_tfidf_parity(artifact: dict) -> dict:
     test_examples = list(splits["test"])
 
     if load_mtsamples_dataset:
-        synthetic_examples = load_mtsamples_dataset(max_records=3000)
+        synthetic_examples = load_mtsamples_dataset(
+            max_records=settings.MTSAMPLES_MAX_RECORDS
+        )
         synthetic_count = len(synthetic_examples)
         split_2 = int(synthetic_count * 0.9)
         test_examples.extend(synthetic_examples[split_2:])
@@ -61,8 +63,8 @@ def evaluate_tfidf_parity(artifact: dict) -> dict:
             telemetry_count = len(telemetry_data)
             split_2 = int(telemetry_count * 0.9)
             test_examples.extend(telemetry_data[split_2:])
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Warning: failed to load telemetry data: {e}")
 
     test_tfidf = vectorizer.transform([example.transcript for example in test_examples])
     parity_features = test_tfidf.toarray()  # Student model uses TF-IDF only
@@ -96,22 +98,28 @@ def export_observation_model(model_path: Path, output_path: Path) -> str:
     # coefs_[0] shape: (512, 512)  -- TF-IDF input to hidden1
     # coefs_[1] shape: (512, 256)  -- hidden1 to hidden2
     # coefs_[2] shape: (256, n_classes) -- hidden2 to output
-    
-    # Dart expects transposed weights for its matrix-vector multiply 
-    # (or we can just export as is and handle in Dart)
-    layer1_weight = mlp_model.coefs_[0].T.tolist()
-    layer1_bias = mlp_model.intercepts_[0].tolist()
-    layer2_weight = mlp_model.coefs_[1].T.tolist()
-    layer2_bias = mlp_model.intercepts_[1].tolist()
-    output_weight = mlp_model.coefs_[2].T.tolist()
-    output_bias = mlp_model.intercepts_[2].tolist()
+    # Truncate float precision to reduce JSON size
+    precision = settings.EXPORT_FLOAT_PRECISION
+
+    def _truncate_matrix(matrix_2d):
+        return [[round(v, precision) for v in row] for row in matrix_2d]
+
+    def _truncate_vector(vector_1d):
+        return [round(v, precision) for v in vector_1d]
+
+    layer1_weight = _truncate_matrix(mlp_model.coefs_[0].T.tolist())
+    layer1_bias = _truncate_vector(mlp_model.intercepts_[0].tolist())
+    layer2_weight = _truncate_matrix(mlp_model.coefs_[1].T.tolist())
+    layer2_bias = _truncate_vector(mlp_model.intercepts_[1].tolist())
+    output_weight = _truncate_matrix(mlp_model.coefs_[2].T.tolist())
+    output_bias = _truncate_vector(mlp_model.intercepts_[2].tolist())
 
     payload = {
         "type": "compact_clinical_mlp",
         "format_version": 2,
         "role": "advisory_clinical_observation_context",
         "vocabulary": {key: int(value) for key, value in vectorizer.vocabulary_.items()},
-        "idf": vectorizer.idf_.tolist(),
+        "idf": _truncate_vector(vectorizer.idf_.tolist()),
         "classes": labels,
         "threshold": float(threshold),
         "preprocessing": {
