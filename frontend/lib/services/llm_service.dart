@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -12,8 +13,6 @@ import 'local_nlp_service.dart';
 /// Wraps flutter_gemma for on-device LLM inference.
 /// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
-  static const String _modelUrl =
-      'https://hf-mirror.com/MiCkSoftware/Gemma3-1B-IT-LiteRT/resolve/main/gemma3-1b-it-int4.task?download=true';
   static const String _modelFileName = 'gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
@@ -49,71 +48,29 @@ class LlmService extends ChangeNotifier {
       } catch (_) {}
     }
 
-    int retryCount = 0;
-    const maxRetries = 3;
+    try {
+      final byteData = await rootBundle.load('assets/models/$_modelFileName');
+      
+      _statusMessage = 'Copying AI model to internal storage...';
+      notifyListeners();
+      
+      await tempFile.writeAsBytes(
+          byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+          flush: true);
 
-    while (retryCount < maxRetries) {
-      try {
-        final request = await HttpClient().getUrl(Uri.parse(_modelUrl));
-        final response = await request.close();
-        if (response.statusCode != 200 && response.statusCode != 302) {
-          throw Exception('Failed to download model: ${response.statusCode}');
-        }
+      _statusMessage = 'Installing AI model...';
+      notifyListeners();
 
-        int totalBytes = response.contentLength;
-        int receivedBytes = 0;
-        int lastReportedPercent = -1;
-        int lastReportedTime = DateTime.now().millisecondsSinceEpoch;
-
-        final Stream<List<int>> progressStream = response.map((chunk) {
-          receivedBytes += chunk.length;
-
-          final now = DateTime.now().millisecondsSinceEpoch;
-          final isTimeUpdate = now - lastReportedTime > 200;
-
-          if (totalBytes > 0) {
-            final percent = (receivedBytes / totalBytes * 100).toInt();
-            if (percent != lastReportedPercent || isTimeUpdate) {
-              lastReportedPercent = percent;
-              lastReportedTime = now;
-              _statusMessage = 'Downloading AI model... $percent%';
-              Future.microtask(() => notifyListeners());
-            }
-          } else if (isTimeUpdate) {
-            lastReportedTime = now;
-            final mb = (receivedBytes / 1024 / 1024).toStringAsFixed(1);
-            _statusMessage = 'Downloading AI model... ${mb}MB';
-            Future.microtask(() => notifyListeners());
-          }
-          return chunk;
-        });
-
-        await progressStream.pipe(tempFile.openWrite());
-
-        _statusMessage = 'Installing AI model...';
-        notifyListeners();
-
-        await FlutterGemma.installModel(
-          modelType: ModelType.gemmaIt,
-          fileType: ModelFileType.task,
-        ).fromFile(tempFile.path).install();
-
-        break; // Success, break the retry loop
-      } catch (e) {
-        if (await tempFile.exists()) {
-          try {
-            await tempFile.delete();
-          } catch (_) {}
-        }
-        retryCount++;
-        if (retryCount >= maxRetries) {
-          rethrow;
-        }
-        _statusMessage =
-            'Connection lost. Retrying ($retryCount/$maxRetries)...';
-        notifyListeners();
-        await Future.delayed(const Duration(seconds: 2));
-      }
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.task,
+      ).fromFile(tempFile.path).install();
+      
+    } catch (e) {
+      debugPrint('Failed to load model from assets: $e');
+      _errorMessage = 'Asset model missing: $e';
+      notifyListeners();
+      rethrow;
     }
   }
 

@@ -86,6 +86,7 @@ flutter:
 
   assets:
     - assets/dictionary/clinical_terms.json
+    - assets/models/
     # Exported NLP models are installed atomically from GitHub Releases. The
   # clinical command parser works without them, so the app remains usable on a
   # first offline launch instead of declaring missing build-time assets.
