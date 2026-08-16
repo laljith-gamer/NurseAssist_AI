@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -52,11 +51,13 @@ class LlmService extends ChangeNotifier {
     }
 
     try {
-      final byteData = await rootBundle.load('assets/models/$_modelFileName');
-      await tempFile.writeAsBytes(
-        byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-        flush: true,
-      );
+      final request = await HttpClient().getUrl(Uri.parse(_modelUrl));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download model: ${response.statusCode}');
+      }
+      
+      await response.pipe(tempFile.openWrite());
 
       _statusMessage = 'Installing AI model...';
       notifyListeners();
