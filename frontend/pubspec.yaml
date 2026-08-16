@@ -86,6 +86,7 @@ flutter:
 
   assets:
     - assets/models/gemma3-1b-it-int4.task
+    - assets/dictionary/clinical_terms.json
     # Exported NLP models are installed atomically from GitHub Releases. The
   # clinical command parser works without them, so the app remains usable on a
   # first offline launch instead of declaring missing build-time assets.

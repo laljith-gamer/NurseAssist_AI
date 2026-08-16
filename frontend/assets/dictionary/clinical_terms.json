@@ -1,0 +1,16 @@
+{
+  "type 2 diabetes": "Type 2 Diabetes Mellitus (ICD-10 E11)",
+  "hypertension": "Essential Hypertension (ICD-10 I10)",
+  "copd": "Chronic Obstructive Pulmonary Disease (ICD-10 J44.9)",
+  "gerd": "Gastro-esophageal reflux disease (ICD-10 K21)",
+  "hyperlipidemia": "Hyperlipidemia, unspecified (ICD-10 E78.5)",
+  "afib": "Atrial fibrillation (ICD-10 I48.91)",
+  "ckd": "Chronic kidney disease (ICD-10 N18.9)",
+  "osteoarthritis": "Osteoarthritis (ICD-10 M19.90)",
+  "depression": "Major depressive disorder (ICD-10 F32.9)",
+  "anxiety": "Generalized anxiety disorder (ICD-10 F41.1)",
+  "covid-19": "COVID-19 (ICD-10 U07.1)",
+  "pneumonia": "Pneumonia, unspecified organism (ICD-10 J18.9)",
+  "tachycardia": "Tachycardia, unspecified (ICD-10 R00.0)",
+  "bradycardia": "Bradycardia, unspecified (ICD-10 R00.1)"
+}

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/clinical_command_parser.dart';
 import '../services/llm_service.dart';
 import '../services/local_nlp_service.dart';
+import '../services/terminology_service.dart';
 
 /// A validated charting proposal that requires a nurse's explicit approval.
 class ClinicalRecordProposal {
@@ -59,6 +60,7 @@ class ClinicalRecordProposal {
 class PatientProvider with ChangeNotifier {
   final ApiService _apiService = ApiService();
   final LocalNlpService _nlpService;
+  final TerminologyService _terminologyService = TerminologyService();
   LlmService? _llmService;
 
   final List<Patient> _patients = [];
@@ -85,6 +87,7 @@ class PatientProvider with ChangeNotifier {
   ApiService get apiService => _apiService;
 
   PatientProvider(this._nlpService) {
+    _terminologyService.loadDictionary();
     loadPatients();
   }
 
@@ -524,11 +527,34 @@ class PatientProvider with ChangeNotifier {
         _activeChatSession?.id != chatSessionId) {
       return;
     }
+
+    var finalCommand = command;
+    if (command.action == ClinicalAction.recordNote &&
+        command.noteText != null) {
+      String modifiedNote = command.noteText!;
+      final terms = _terminologyService.searchTerms(modifiedNote);
+      for (final term in terms) {
+        final standardized = _terminologyService.lookupTerm(term);
+        if (standardized != null && !modifiedNote.contains(standardized)) {
+          modifiedNote += ' [$standardized]';
+        }
+      }
+      finalCommand = ClinicalCommand(
+        action: command.action,
+        noteCategory: command.noteCategory,
+        noteText: modifiedNote,
+        vitals: command.vitals,
+        medications: command.medications,
+        recordedAt: command.recordedAt,
+        replyText: command.replyText,
+      );
+    }
+
     _pendingProposal = ClinicalRecordProposal(
       patientId: patient.id,
       patientName: patient.name,
       chatSessionId: chatSessionId,
-      command: command,
+      command: finalCommand,
       sourceText: sourceText,
       interpreter: interpreter,
       createdAt: DateTime.now(),
@@ -649,6 +675,14 @@ class PatientProvider with ChangeNotifier {
         default:
           throw StateError('Only charting proposals can be confirmed.');
       }
+      
+      // Automatic ML reinforcement
+      try {
+        await _apiService.submitIntentFeedback(proposal.sourceText, proposal.command.action.name);
+      } catch (e) {
+        debugPrint('Failed to submit positive reinforcement: $e');
+      }
+      
       _pendingProposal = null;
     } catch (error) {
       debugPrint('Error confirming clinical proposal: $error');
@@ -666,6 +700,14 @@ class PatientProvider with ChangeNotifier {
   Future<void> discardPendingProposal() async {
     final proposal = _pendingProposal;
     if (proposal == null || _isResponding) return;
+    
+    // Automatic ML reinforcement
+    try {
+      await _apiService.submitIntentFeedback(proposal.sourceText, 'rejected');
+    } catch (e) {
+      debugPrint('Failed to submit negative reinforcement: $e');
+    }
+
     _pendingProposal = null;
     await _appendAssistantMessage(
       proposal.patientId,

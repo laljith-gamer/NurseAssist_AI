@@ -121,7 +121,16 @@ class ClinicalCommandParser {
     
     if (data == null || data['v'] != 1) {
       debugPrint('ClinicalCommandParser: Failed to parse valid JSON from AI payload. Attempting regex fallback extraction...');
-      return _fallbackExtractVitals(raw);
+      final fallbackCommand = _fallbackExtractVitals(raw);
+      if (fallbackCommand != null) return fallbackCommand;
+      
+      if (raw.isNotEmpty) {
+        return ClinicalCommand(
+          action: ClinicalAction.conversation,
+          replyText: raw,
+        );
+      }
+      return null;
     }
 
     final recordedAt = data['timestamp'] != null 
