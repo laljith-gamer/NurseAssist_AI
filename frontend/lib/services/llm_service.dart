@@ -155,7 +155,14 @@ class LlmService extends ChangeNotifier {
       await _initializationFuture;
     }
 
-    if (!_isReady || _chat == null || _isGenerating) return null;
+    if (!_isReady || _chat == null) return null;
+
+    // Wait if the engine is currently generating, so we NEVER drop a prompt
+    // and always pass it to the AI.
+    while (_isGenerating) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
     _isGenerating = true;
     try {
       await _prepareSingleTurn();

@@ -130,7 +130,8 @@ class ClinicalCommandParser {
       final fallbackCommand = _fallbackExtractVitals(raw);
       if (fallbackCommand != null) return fallbackCommand;
 
-      if (raw.isNotEmpty) {
+      // Only treat it as conversation if it wasn't obviously a JSON payload
+      if (data == null && raw.isNotEmpty && !raw.startsWith('{') && !raw.startsWith('[')) {
         return ClinicalCommand(
           action: ClinicalAction.conversation,
           replyText: raw,
@@ -231,7 +232,7 @@ class ClinicalCommandParser {
       case 'record_note':
         return ClinicalCommand(
           action: ClinicalAction.recordNote,
-          noteCategory: data['category']?.toString(),
+          noteCategory: data['category']?.toString() ?? 'nursing_observation',
           noteText: data['note']?.toString(),
           recordedAt: recordedAt,
           replyText: replyText,
