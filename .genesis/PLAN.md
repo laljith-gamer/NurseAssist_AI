@@ -26,6 +26,7 @@ Each patient has isolated chat sessions, history, nursing observations, and a bo
 
 ## Recent Activity Log
 
+- 2026-08-16: Fixed on-device LLM session management by replacing `session.getResponse()` with `clearHistory()` and `generateChatResponse()` to prevent context limit errors and ensure deterministic data extraction from AI prompts.
 - 2026-08-16: Enhanced on-device AI integration by stopping rigid regex parser overrides, teaching the local LLM to understand and chart diagnoses naturally, implementing automatic ML reinforcement signals (implicit feedback), and adding a new offline dictionary service (TerminologyService) for standardizing clinical inputs locally without internet access.
 - 2026-08-15: Comprehensive project summary documented in docs/PROJECT_SUMMARY.md, covering all three components (frontend Flutter app, ML pipeline, relay), data flow, and current development status.
 - 2026-08-15: Overhauled the AI layer to allow the on-device Gemma 3 1B model to exhibit natural conversational intelligence instead of acting strictly as a rigid JSON extractor. Consolidated to a single-inference architecture combining structured JSON with friendly, contextual replies.

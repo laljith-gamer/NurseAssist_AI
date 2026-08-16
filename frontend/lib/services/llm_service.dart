@@ -263,9 +263,15 @@ Nurse: "Can you prepare a nursing documentation note based on what I've told you
 
       final fullPrompt =
           '$schema\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n<message>\n$message\n</message>';
+          
+      // Clear history to avoid unbounded session growth and ensure fresh context per command
+      await _chat!.clearHistory();
       await _chat!.addQueryChunk(Message(text: fullPrompt, isUser: true));
-      final raw = await _chat!.session.getResponse();
-      return ClinicalCommandParser.fromAiJson(_sanitizeResponse(raw));
+      
+      final response = await _chat!.generateChatResponse();
+      final rawText = response is TextResponse ? response.token : response.toString();
+      
+      return ClinicalCommandParser.fromAiJson(_sanitizeResponse(rawText));
     } catch (error) {
       debugPrint('AI clinical interpretation error: $error');
       return null;
