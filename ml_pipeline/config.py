@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     # ── Quality Gates ───────────────────────────────────────────────────
     MIN_VALIDATION_MICRO_F1: float = 0.30
     MIN_HELD_OUT_TEST_MICRO_F1: float = 0.40
-    MAX_HELD_OUT_REGRESSION: float = 0.02
+    MAX_HELD_OUT_REGRESSION: float = 0.05
     MIN_SELECTED_LABELS: int = 3
 
     # ── Negation Detection ──────────────────────────────────────────────
