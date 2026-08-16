@@ -45,10 +45,10 @@ def test_verify_parameter_budget():
             self.coefs_ = [np.ones(size)]
             self.intercepts_ = [np.ones(1)]
             
-    under_budget = MockMLP(299999)
+    under_budget = MockMLP(349999)
     _verify_parameter_budget(under_budget)
     
-    over_budget = MockMLP(300000)
+    over_budget = MockMLP(350000)
     with pytest.raises(ValueError, match="Model exceeds"):
         _verify_parameter_budget(over_budget)
 
