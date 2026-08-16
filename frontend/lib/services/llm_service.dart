@@ -49,56 +49,71 @@ class LlmService extends ChangeNotifier {
       } catch (_) {}
     }
 
-    try {
-      final request = await HttpClient().getUrl(Uri.parse(_modelUrl));
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        throw Exception('Failed to download model: ${response.statusCode}');
-      }
-      int totalBytes = response.contentLength;
-      int receivedBytes = 0;
-      int lastReportedPercent = -1;
-      int lastReportedTime = DateTime.now().millisecondsSinceEpoch;
-      final sink = tempFile.openWrite();
+    int retryCount = 0;
+    const maxRetries = 3;
 
-      await for (var chunk in response) {
-        receivedBytes += chunk.length;
-        sink.add(chunk);
-
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final isTimeUpdate = now - lastReportedTime > 200;
-
-        if (totalBytes > 0) {
-          final percent = (receivedBytes / totalBytes * 100).toInt();
-          if (percent != lastReportedPercent || isTimeUpdate) {
-            lastReportedPercent = percent;
-            lastReportedTime = now;
-            _statusMessage = 'Downloading AI model... $percent%';
-            notifyListeners();
-          }
-        } else if (isTimeUpdate) {
-          lastReportedTime = now;
-          final mb = (receivedBytes / 1024 / 1024).toStringAsFixed(1);
-          _statusMessage = 'Downloading AI model... ${mb}MB';
-          notifyListeners();
+    while (retryCount < maxRetries) {
+      try {
+        final request = await HttpClient().getUrl(Uri.parse(_modelUrl));
+        final response = await request.close();
+        if (response.statusCode != 200 && response.statusCode != 302) {
+          throw Exception('Failed to download model: ${response.statusCode}');
         }
-      }
-      await sink.close();
 
-      _statusMessage = 'Installing AI model...';
-      notifyListeners();
+        int totalBytes = response.contentLength;
+        int receivedBytes = 0;
+        int lastReportedPercent = -1;
+        int lastReportedTime = DateTime.now().millisecondsSinceEpoch;
 
-      await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.task,
-      ).fromFile(tempFile.path).install();
-    } catch (e) {
-      if (await tempFile.exists()) {
-        try {
-          await tempFile.delete();
-        } catch (_) {}
+        final Stream<List<int>> progressStream = response.map((chunk) {
+          receivedBytes += chunk.length;
+
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final isTimeUpdate = now - lastReportedTime > 200;
+
+          if (totalBytes > 0) {
+            final percent = (receivedBytes / totalBytes * 100).toInt();
+            if (percent != lastReportedPercent || isTimeUpdate) {
+              lastReportedPercent = percent;
+              lastReportedTime = now;
+              _statusMessage = 'Downloading AI model... $percent%';
+              Future.microtask(() => notifyListeners());
+            }
+          } else if (isTimeUpdate) {
+            lastReportedTime = now;
+            final mb = (receivedBytes / 1024 / 1024).toStringAsFixed(1);
+            _statusMessage = 'Downloading AI model... ${mb}MB';
+            Future.microtask(() => notifyListeners());
+          }
+          return chunk;
+        });
+
+        await progressStream.pipe(tempFile.openWrite());
+
+        _statusMessage = 'Installing AI model...';
+        notifyListeners();
+
+        await FlutterGemma.installModel(
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.task,
+        ).fromFile(tempFile.path).install();
+
+        break; // Success, break the retry loop
+      } catch (e) {
+        if (await tempFile.exists()) {
+          try {
+            await tempFile.delete();
+          } catch (_) {}
+        }
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          rethrow;
+        }
+        _statusMessage =
+            'Connection lost. Retrying ($retryCount/$maxRetries)...';
+        notifyListeners();
+        await Future.delayed(const Duration(seconds: 2));
       }
-      rethrow;
     }
   }
 
