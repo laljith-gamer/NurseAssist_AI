@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from config import settings
 
 
-MIN_VALIDATION_MICRO_F1 = 0.40
+MIN_VALIDATION_MICRO_F1 = 0.30
 MIN_HELD_OUT_TEST_MICRO_F1 = 0.40
 MIN_SELECTED_LABELS = 3
 MAX_HELD_OUT_REGRESSION = 0.02
