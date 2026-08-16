@@ -1,11 +1,6 @@
 import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 
 import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
@@ -39,33 +34,14 @@ class LlmService extends ChangeNotifier {
     _statusMessage = 'Unpacking AI model from app bundle...';
     notifyListeners();
 
-    final appDir = await getApplicationDocumentsDirectory();
-    final tempFile = File(path.join(appDir.path, _modelFileName));
-
-    if (await tempFile.exists()) {
-      try {
-        await tempFile.delete();
-      } catch (_) {}
-    }
-
     try {
-      final byteData = await rootBundle.load('assets/models/$_modelFileName');
-      
-      _statusMessage = 'Copying AI model to internal storage...';
-      notifyListeners();
-      
-      await tempFile.writeAsBytes(
-          byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-          flush: true);
-
-      _statusMessage = 'Installing AI model...';
-      notifyListeners();
-
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
-      ).fromFile(tempFile.path).install();
+      ).fromAsset('assets/models/$_modelFileName').install();
       
+      _statusMessage = 'Model installed from bundle';
+      notifyListeners();
     } catch (e) {
       debugPrint('Failed to load model from assets: $e');
       _errorMessage = 'Asset model missing: $e';
