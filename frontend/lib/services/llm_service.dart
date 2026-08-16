@@ -74,9 +74,9 @@ class LlmService extends ChangeNotifier {
     try {
       await _ensureModelInstalled();
 
-      // CPU is slower but gives a reliable on-device initialization path,
-      // especially on Android emulators where GPU/OpenCL can crash.
-      final preferCpu = !kIsWeb;
+      // CPU is slower but gives a reliable on-device initialization path on Android,
+      // especially on emulators where GPU/OpenCL can crash. iOS Metal (GPU) is highly stable.
+      final preferCpu = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
       _model = await FlutterGemma.getActiveModel(
         preferredBackend: preferCpu
@@ -149,6 +149,12 @@ class LlmService extends ChangeNotifier {
     List<ClinicalObservation> observationHints = const [],
     String patientMemory = '',
   }) async {
+    // If the engine is still initializing, wait for it to finish so the prompt
+    // isn't dropped and sent to the offline fallback immediately.
+    if (_isInitializing && _initializationFuture != null) {
+      await _initializationFuture;
+    }
+
     if (!_isReady || _chat == null || _isGenerating) return null;
     _isGenerating = true;
     try {
