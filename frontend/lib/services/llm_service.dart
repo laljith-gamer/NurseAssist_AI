@@ -33,12 +33,6 @@ class LlmService extends ChangeNotifier {
   Future<void> _ensureModelInstalled() async {
     if (kIsWeb) return;
 
-    final isInstalled = await FlutterGemma.isModelInstalled(_modelId);
-    if (isInstalled) {
-      debugPrint('Model $_modelId is already installed.');
-      return;
-    }
-
     _statusMessage = 'Preparing AI model download...';
     notifyListeners();
 
@@ -147,18 +141,25 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _ensureModelInstalled();
-
       // CPU gives a reliable on-device initialization path on Android and avoids Metal/OpenCL GPU crashes
       // on newer Android chip architectures until MediaPipe patches them. iOS ONLY supports Metal/GPU.
       final preferCpu = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android);
 
-      _model = await FlutterGemma.getActiveModel(
-        preferredBackend: preferCpu
-            ? PreferredBackend.cpu
-            : PreferredBackend.gpu,
-        maxTokens: 1024,
-      );
+      try {
+        // Attempt to load the active model first. This bypasses the buggy isModelInstalled check
+        // and avoids calling installModel() repeatedly, which causes a silent native crash on iOS.
+        _model = await FlutterGemma.getActiveModel(
+          preferredBackend: preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
+          maxTokens: 1024,
+        );
+      } catch (e) {
+        // Not active yet. Let's ensure it's installed and try again.
+        await _ensureModelInstalled();
+        _model = await FlutterGemma.getActiveModel(
+          preferredBackend: preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
+          maxTokens: 1024,
+        );
+      }
 
       _chat = await _model!.createChat(
         // Relaxed settings allow natural personality while keeping
