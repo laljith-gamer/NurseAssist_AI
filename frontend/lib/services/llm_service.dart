@@ -6,9 +6,10 @@ import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
-/// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
+/// Downloads the Gemma 3 1B IT model from Hugging Face on first launch.
 class LlmService extends ChangeNotifier {
   static const String _modelFileName = 'gemma3-1b-it-int4.task';
+  static const String _modelUrl = 'https://huggingface.co/MiCkSoftware/Gemma3-1B-IT-LiteRT/resolve/main/gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
@@ -24,27 +25,30 @@ class LlmService extends ChangeNotifier {
   String get statusMessage => _statusMessage;
   String? get errorMessage => _errorMessage;
 
-  /// Ensure the model file is installed from bundled app assets.
+  /// Ensure the model file is installed, downloading it if necessary.
   Future<void> _ensureModelInstalled() async {
     if (kIsWeb) return;
 
     final isInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
     if (isInstalled) return;
 
-    _statusMessage = 'Unpacking AI model from app bundle...';
+    _statusMessage = 'Preparing AI model download...';
     notifyListeners();
 
     try {
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
-      ).fromAsset('assets/models/$_modelFileName').install();
+      ).fromNetwork(_modelUrl).withProgress((progress) {
+        _statusMessage = 'Downloading AI model... $progress%';
+        notifyListeners();
+      }).install();
       
-      _statusMessage = 'Model installed from bundle';
+      _statusMessage = 'Model downloaded successfully';
       notifyListeners();
     } catch (e) {
-      debugPrint('Failed to load model from assets: $e');
-      _errorMessage = 'Asset model missing: $e';
+      debugPrint('Failed to download model from network: $e');
+      _errorMessage = 'Model download failed: $e';
       notifyListeners();
       rethrow;
     }
