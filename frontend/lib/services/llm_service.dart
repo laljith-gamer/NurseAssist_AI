@@ -9,11 +9,12 @@ import 'local_nlp_service.dart';
 /// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
   static const String _modelFileName = 'gemma3-1b-it-int4.task';
-  static const String _modelUrl = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true';
+  static const String _modelId = 'gemma3-1b-it-int4';
+  static const String _modelUrl = 'https://ghproxy.net/https://github.com/laljith-gamer/NurseAssist_AI/releases/download/model-v1.0.0/gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
-  String _statusMessage = 'Checking...';
+  String _statusMessage = 'Initializing...';
   String? _errorMessage;
   InferenceModel? _model;
   InferenceChat? _chat;
@@ -29,8 +30,11 @@ class LlmService extends ChangeNotifier {
   Future<void> _ensureModelInstalled() async {
     if (kIsWeb) return;
 
-    final isInstalled = await FlutterGemma.isModelInstalled(_modelFileName);
-    if (isInstalled) return;
+    final isInstalled = await FlutterGemma.isModelInstalled(_modelId);
+    if (isInstalled) {
+      debugPrint('Model $_modelId is already installed.');
+      return;
+    }
 
     _statusMessage = 'Preparing AI model download...';
     notifyListeners();
@@ -44,11 +48,11 @@ class LlmService extends ChangeNotifier {
         notifyListeners();
       }).install();
       
-      _statusMessage = 'Model downloaded successfully';
+      _statusMessage = 'Model downloaded successfully. Verifying...';
       notifyListeners();
-    } catch (e) {
-      debugPrint('Failed to download model from network: $e');
-      _errorMessage = 'Model download failed: $e';
+    } catch (e, stack) {
+      debugPrint('Failed to download model from network: $e\n$stack');
+      _errorMessage = 'Model download failed (Proxy/Network): $e';
       notifyListeners();
       rethrow;
     }
@@ -101,11 +105,20 @@ class LlmService extends ChangeNotifier {
       _isReady = true;
       _statusMessage = 'AI Ready';
       debugPrint('LLM engine initialized successfully (Gemma 3 1B IT).');
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('LLM engine init error: $e\n$stack');
       _errorMessage = 'Engine init failed: ${e.toString()}';
       _isReady = false;
       _statusMessage = 'AI engine could not start';
-      debugPrint('LLM engine init error: $e');
+      
+      // If initialization fails, the model file might be corrupt or an HTML redirect page.
+      // Uninstall it so the next attempt will re-download a fresh copy.
+      try {
+        debugPrint('Uninstalling potentially corrupt model $_modelId...');
+        await FlutterGemma.uninstallModel(_modelId);
+      } catch (uninstallError) {
+        debugPrint('Failed to uninstall corrupt model: $uninstallError');
+      }
     } finally {
       _isInitializing = false;
       _initializationFuture = null;
