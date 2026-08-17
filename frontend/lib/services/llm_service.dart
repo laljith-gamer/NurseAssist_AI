@@ -47,15 +47,21 @@ class LlmService extends ChangeNotifier {
       final finalFile = File('${docDir.path}/$_modelFileName');
 
       if (await finalFile.exists()) {
-        debugPrint('Model file already exists on disk. Re-registering...');
-        _statusMessage = 'Linking existing AI model...';
-        notifyListeners();
-        
-        await FlutterGemma.installModel(
-          modelType: ModelType.gemmaIt,
-          fileType: ModelFileType.task,
-        ).fromFile(finalFile.path).install();
-        return;
+        final fileSize = await finalFile.length();
+        if (fileSize < 500 * 1024 * 1024) {
+          debugPrint('Corrupted LLM file detected (size: $fileSize). Deleting...');
+          await finalFile.delete();
+        } else {
+          debugPrint('Model file already exists on disk. Re-registering...');
+          _statusMessage = 'Linking existing AI model...';
+          notifyListeners();
+          
+          await FlutterGemma.installModel(
+            modelType: ModelType.gemmaIt,
+            fileType: ModelFileType.task,
+          ).fromFile(finalFile.path).install();
+          return;
+        }
       }
 
       // Manual retry logic bypassing iOS background task (flutter_downloader) which fails on proxies
@@ -152,7 +158,7 @@ class LlmService extends ChangeNotifier {
         temperature: 0.2,
         topK: 40,
         topP: 0.8,
-        tokenBuffer: 512,
+        tokenBuffer: 1024,
       );
 
       _isReady = true;
