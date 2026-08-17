@@ -893,19 +893,19 @@ class PatientProvider with ChangeNotifier {
     final notes = memory['notes'] ?? const [];
     if (notes.isNotEmpty) {
       lines.add(
-        'Recent nursing observations: ${notes.map((note) => note['content']).join(' | ')}',
+        'Recent nursing observations: ${notes.take(3).map((note) => note['content']).join(' | ')}',
       );
     }
     final vitals = memory['vitals'] ?? const [];
     if (vitals.isNotEmpty) {
       lines.add(
-        'Recent vitals: ${vitals.map((vital) => '${vital['vital_type']} ${_formatNumber(vital['value'])} ${vital['unit']}').join(', ')}',
+        'Recent vitals: ${vitals.take(3).map((vital) => '${vital['vital_type']} ${_formatNumber(vital['value'])} ${vital['unit']}').join(', ')}',
       );
     }
     final medications = memory['medications'] ?? const [];
     if (medications.isNotEmpty) {
       lines.add(
-        'Recent medications: ${medications.map((medication) => '${medication['name']} ${medication['status']}').join(', ')}',
+        'Recent medications: ${medications.take(3).map((med) => '${med['name']} (${med['dose']})').join(', ')}',
       );
     }
     final messages = memory['recent_nurse_messages'] ?? const [];
