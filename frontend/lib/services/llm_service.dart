@@ -46,16 +46,23 @@ class LlmService extends ChangeNotifier {
       final docDir = await getApplicationDocumentsDirectory();
       final finalFile = File('${docDir.path}/$_modelFileName');
 
+      if (await finalFile.exists()) {
+        debugPrint('Model file already exists on disk. Re-registering...');
+        _statusMessage = 'Linking existing AI model...';
+        notifyListeners();
+        
+        await FlutterGemma.installModel(
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.task,
+        ).fromFile(finalFile.path).install();
+        return;
+      }
+
       // Manual retry logic bypassing iOS background task (flutter_downloader) which fails on proxies
       int retries = 3;
       bool downloaded = false;
       while (retries > 0 && !downloaded) {
         try {
-          // If we are retrying or starting fresh, clean up any partial file
-          if (await finalFile.exists()) {
-            await finalFile.delete();
-          }
-
           final request = http.Request('GET', Uri.parse(_modelUrl));
           final response = await http.Client().send(request);
           if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -128,9 +135,9 @@ class LlmService extends ChangeNotifier {
     try {
       await _ensureModelInstalled();
 
-      // CPU gives a reliable on-device initialization path and avoids Metal/OpenCL GPU crashes
-      // on newer chip architectures until MediaPipe patches them.
-      final preferCpu = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+      // CPU gives a reliable on-device initialization path on Android and avoids Metal/OpenCL GPU crashes
+      // on newer Android chip architectures until MediaPipe patches them. iOS ONLY supports Metal/GPU.
+      final preferCpu = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android);
 
       _model = await FlutterGemma.getActiveModel(
         preferredBackend: preferCpu
