@@ -152,7 +152,7 @@ class LlmService extends ChangeNotifier {
         temperature: 0.2,
         topK: 40,
         topP: 0.8,
-        tokenBuffer: 1024,
+        tokenBuffer: 512,
       );
 
       _isReady = true;
