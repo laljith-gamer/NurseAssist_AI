@@ -47,13 +47,21 @@ class LlmService extends ChangeNotifier {
       final finalFile = File('${docDir.path}/$_modelFileName');
 
       if (await finalFile.exists()) {
+        _statusMessage = 'Validating AI model file...';
+        notifyListeners();
+        
         final fileSize = await finalFile.length();
+        final sizeMb = (fileSize / (1024 * 1024)).toStringAsFixed(1);
+        
         if (fileSize < 500 * 1024 * 1024) {
           debugPrint('Corrupted LLM file detected (size: $fileSize). Deleting...');
+          _statusMessage = 'Corrupted file detected ($sizeMb MB). Deleting...';
+          notifyListeners();
+          await Future.delayed(const Duration(seconds: 2)); // Give user time to read
           await finalFile.delete();
         } else {
           debugPrint('Model file already exists on disk. Re-registering...');
-          _statusMessage = 'Linking existing AI model...';
+          _statusMessage = 'Model valid ($sizeMb MB). Linking AI...';
           notifyListeners();
           
           await FlutterGemma.installModel(
