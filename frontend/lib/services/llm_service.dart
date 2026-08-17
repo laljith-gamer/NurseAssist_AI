@@ -140,12 +140,12 @@ class LlmService extends ChangeNotifier {
       );
 
       _chat = await _model!.createChat(
-        // Slightly relaxed settings allow natural personality while keeping
-        // clinical output reliable. topK=3 is still very conservative.
+        // Relaxed settings allow natural personality while keeping
+        // clinical output reliable.
         temperature: 0.2,
-        topK: 3,
+        topK: 40,
         topP: 0.8,
-        tokenBuffer: 128,
+        tokenBuffer: 1024,
       );
 
       _isReady = true;
