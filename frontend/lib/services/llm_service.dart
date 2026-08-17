@@ -6,10 +6,10 @@ import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
 
 /// Wraps flutter_gemma for on-device LLM inference.
-/// Downloads the Gemma 3 1B IT model from Hugging Face on first launch.
+/// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
   static const String _modelFileName = 'gemma3-1b-it-int4.task';
-  static const String _modelUrl = 'https://huggingface.co/MiCkSoftware/Gemma3-1B-IT-LiteRT/resolve/main/gemma3-1b-it-int4.task';
+  static const String _modelUrl = 'https://github.com/laljith-gamer/NurseAssist_AI/releases/download/model-v1.0.0/gemma3-1b-it-int4.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
