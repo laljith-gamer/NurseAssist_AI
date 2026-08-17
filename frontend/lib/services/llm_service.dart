@@ -212,18 +212,31 @@ User: "He complains of a headache that started yesterday evening, rates it 6 out
 Assistant: {"v":1,"action":"record_note","reply":"I've noted the headache — 6/10 severity. I'll document this observation.","note":"Patient c/o headache since yesterday evening, 6/10 severity","category":"nursing_observation"}''';
 
       final fullPrompt =
-          '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nUser: "$message"\nAssistant: ';
-          
-      // Clear history to avoid unbounded session growth and ensure fresh context per command
-      await _chat!.clearHistory();
-      await _chat!.addQueryChunk(Message(text: fullPrompt, isUser: true));
+          '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nPlease process this nursing input:\n"$message"';
+      String currentPrompt = fullPrompt;
+      int maxRetries = 3;
       
-      final response = await _chat!.generateChatResponse();
-      final rawText = response is TextResponse ? response.token : response.toString();
+      for (int attempt = 0; attempt < maxRetries; attempt++) {
+        // Clear history to avoid unbounded session growth and ensure fresh context per command
+        await _chat!.clearHistory();
+        await _chat!.addQueryChunk(Message(text: currentPrompt, isUser: true));
+        
+        final response = await _chat!.generateChatResponse();
+        final rawText = response is TextResponse ? response.token : response.toString();
+        
+        final parsedCommand = ClinicalCommandParser.fromAiJson(_sanitizeResponse(rawText));
+        if (parsedCommand != null) {
+          return parsedCommand;
+        }
+        
+        // If we failed to parse valid JSON, try again with a stronger warning
+        debugPrint('LLM retry attempt ${attempt + 1}: Failed to parse valid JSON. Retrying...');
+        currentPrompt = '$fullPrompt\n\nCRITICAL ERROR: Your previous response was not a valid JSON object. You MUST reply ONLY with a valid JSON object matching the schema. Do not include any other text.';
+      }
       
-      return ClinicalCommandParser.fromAiJson(_sanitizeResponse(rawText));
-    } catch (error) {
-      debugPrint('AI clinical interpretation error: $error');
+      return null;
+    } catch (error, stackTrace) {
+      debugPrint('AI clinical interpretation error: $error\nStackTrace: $stackTrace');
       return null;
     } finally {
       _isGenerating = false;

@@ -412,6 +412,28 @@ class _ChatInterfaceState extends State<ChatInterface> {
                   _buildChatSessionBar(provider),
 
                   Expanded(child: _buildMessagesList(provider)),
+                  if (provider.isResponding)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 16, 
+                            height: 16, 
+                            child: CircularProgressIndicator(strokeWidth: 2)
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "AI is thinking...", 
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary, 
+                              fontStyle: FontStyle.italic,
+                            )
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(duration: 200.ms),
                   if (provider.pendingProposal != null)
                     _buildProposalCard(provider),
                 ],

@@ -425,7 +425,7 @@ class ClinicalCommandParser {
       r'^(?:what|when|which|how|show|list|was|were|has|have|did|is|are)\b',
     ).hasMatch(normalized);
     final asksForTrend = RegExp(
-      r'\b(?:trend|trending|change|changed|compare|yesterday|history)\b',
+      r'\b(?:trend|trending|change|changed|compare|history)\b',
     ).hasMatch(normalized);
     final mentionsMedication = RegExp(
       r'\b(?:meds?|medication|drug|dose|due)\b',

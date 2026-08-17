@@ -120,8 +120,8 @@ class PatientProvider with ChangeNotifier {
       if (_selectedPatient == null && _patients.isNotEmpty) {
         await selectPatient(_patients.first);
       }
-    } catch (error) {
-      debugPrint('Error loading local patients: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error loading patient details: $error\n$stackTrace');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -137,8 +137,8 @@ class PatientProvider with ChangeNotifier {
       notifyListeners();
       await selectPatient(newPatient);
       return true;
-    } catch (error) {
-      debugPrint('Error adding local patient: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error refreshing metrics: $error\n$stackTrace');
       return false;
     }
   }
@@ -203,8 +203,8 @@ class PatientProvider with ChangeNotifier {
       );
       if (_selectedPatient?.id != patientId) return;
       _messages.addAll(chatRows.map(_messageFromRow));
-    } catch (error) {
-      debugPrint('Error loading local patient history: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error loading local patient history: $error\n$stackTrace');
     }
     notifyListeners();
   }
@@ -247,8 +247,8 @@ class PatientProvider with ChangeNotifier {
           _activeChatSession?.id == session.id) {
         _messages.addAll(rows.map(_messageFromRow));
       }
-    } catch (error) {
-      debugPrint('Error loading selected chat history: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error fetching specific chat session: $error\n$stackTrace');
     }
     notifyListeners();
   }
@@ -387,8 +387,8 @@ class PatientProvider with ChangeNotifier {
         content: assistantMessage.content,
         createdAt: assistantMessage.timestamp,
       );
-    } catch (error) {
-      debugPrint('Error handling clinical command: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error processing command: $error\n$stackTrace');
       final errorMessage = ChatMessage(
         id: 'assistant_${DateTime.now().microsecondsSinceEpoch}',
         sessionId: chatSession.id,
@@ -721,8 +721,8 @@ class PatientProvider with ChangeNotifier {
       }
 
       _pendingProposal = null;
-    } catch (error) {
-      debugPrint('Error confirming clinical proposal: $error');
+    } catch (error, stackTrace) {
+      debugPrint('Error confirming clinical proposal: $error\n$stackTrace');
       await _appendAssistantMessage(
         proposal.patientId,
         'I could not save that record. Please review it and try again.',

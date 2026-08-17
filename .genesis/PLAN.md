@@ -26,6 +26,7 @@ Each patient has isolated chat sessions, history, nursing observations, and a bo
 
 ## Recent Activity Log
 
+- 2026-08-17: Fixed a critical bug in the fallback regex parser where the word "yesterday" incorrectly triggered a trend query instead of capturing the nursing note. Updated the Gemma prompt structure to prevent confusion for the underlying chat model when formatted as completion text.
 - 2026-08-16: Fixed on-device LLM session management by replacing `session.getResponse()` with `clearHistory()` and `generateChatResponse()` to prevent context limit errors and ensure deterministic data extraction from AI prompts.
 - 2026-08-16: Enhanced on-device AI integration by stopping rigid regex parser overrides, teaching the local LLM to understand and chart diagnoses naturally, implementing automatic ML reinforcement signals (implicit feedback), and adding a new offline dictionary service (TerminologyService) for standardizing clinical inputs locally without internet access.
 - 2026-08-15: Comprehensive project summary documented in docs/PROJECT_SUMMARY.md, covering all three components (frontend Flutter app, ML pipeline, relay), data flow, and current development status.
