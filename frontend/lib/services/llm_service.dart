@@ -74,15 +74,15 @@ class LlmService extends ChangeNotifier {
     try {
       await _ensureModelInstalled();
 
-      // CPU is slower but gives a reliable on-device initialization path on Android,
-      // especially on emulators where GPU/OpenCL can crash. iOS Metal (GPU) is highly stable.
-      final preferCpu = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      // CPU gives a reliable on-device initialization path and avoids Metal/OpenCL GPU crashes
+      // on newer chip architectures until MediaPipe patches them.
+      final preferCpu = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
       _model = await FlutterGemma.getActiveModel(
         preferredBackend: preferCpu
             ? PreferredBackend.cpu
             : PreferredBackend.gpu,
-        maxTokens: 1280,
+        maxTokens: 800,
       );
 
       _chat = await _model!.createChat(
