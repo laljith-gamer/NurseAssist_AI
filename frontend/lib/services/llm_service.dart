@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import 'clinical_command_parser.dart';
 import 'local_nlp_service.dart';
@@ -40,14 +43,52 @@ class LlmService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final tempFile = File('${docDir.path}/$_modelFileName.tmp');
+
+      // Manual retry logic bypassing iOS background task (flutter_downloader) which fails on proxies
+      int retries = 3;
+      bool downloaded = false;
+      while (retries > 0 && !downloaded) {
+        try {
+          final request = http.Request('GET', Uri.parse(_modelUrl));
+          final response = await http.Client().send(request);
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            final contentLength = response.contentLength ?? 1;
+            int bytesReceived = 0;
+            final sink = tempFile.openWrite();
+            await response.stream.map((chunk) {
+              bytesReceived += chunk.length;
+              final progress = ((bytesReceived / contentLength) * 100).toInt();
+              _statusMessage = 'Downloading AI model... $progress%';
+              notifyListeners();
+              return chunk;
+            }).pipe(sink);
+            await sink.close();
+            downloaded = true;
+          } else {
+            throw Exception('HTTP ${response.statusCode}');
+          }
+        } catch (e) {
+          retries--;
+          debugPrint('Manual download attempt failed: $e, retries left: $retries');
+          if (retries == 0) rethrow;
+          _statusMessage = 'Network error, retrying... ($retries left)';
+          notifyListeners();
+          await Future.delayed(const Duration(seconds: 3));
+        }
+      }
+
+      _statusMessage = 'Installing model locally...';
+      notifyListeners();
+
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
-      ).fromNetwork(_modelUrl).withProgress((progress) {
-        _statusMessage = 'Downloading AI model... $progress%';
-        notifyListeners();
-      }).install();
+      ).fromFile(tempFile.path).install();
       
+      if (await tempFile.exists()) await tempFile.delete();
+
       _statusMessage = 'Model downloaded successfully. Verifying...';
       notifyListeners();
     } catch (e, stack) {
