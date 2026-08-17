@@ -285,6 +285,7 @@ Assistant: {"v":1,"action":"record_note","reply":"I've noted the headache — 6/
           '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nPlease process this nursing input:\n"$message"';
       String currentPrompt = fullPrompt;
       int maxRetries = 3;
+      String lastRawText = '';
       
       for (int attempt = 0; attempt < maxRetries; attempt++) {
         // Clear history to avoid unbounded session growth and ensure fresh context per command
@@ -293,6 +294,7 @@ Assistant: {"v":1,"action":"record_note","reply":"I've noted the headache — 6/
         
         final response = await _chat!.generateChatResponse();
         final rawText = response is TextResponse ? response.token : response.toString();
+        lastRawText = rawText;
         
         final parsedCommand = ClinicalCommandParser.fromAiJson(_sanitizeResponse(rawText));
         if (parsedCommand != null) {
@@ -304,10 +306,16 @@ Assistant: {"v":1,"action":"record_note","reply":"I've noted the headache — 6/
         currentPrompt = '$fullPrompt\n\nCRITICAL ERROR: Your previous response was not a valid JSON object. You MUST reply ONLY with a valid JSON object matching the schema. Do not include any other text.';
       }
       
-      return null;
+      return ClinicalCommand(
+        action: ClinicalAction.conversation,
+        replyText: '[DEVELOPER AI RAW LOG - JSON FAILED]:\n$lastRawText',
+      );
     } catch (error, stackTrace) {
       debugPrint('AI clinical interpretation error: $error\nStackTrace: $stackTrace');
-      return null;
+      return ClinicalCommand(
+        action: ClinicalAction.conversation,
+        replyText: '[DEVELOPER AI RAW LOG - EXCEPTION]:\n$error',
+      );
     } finally {
       _isGenerating = false;
     }
