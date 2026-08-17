@@ -9,7 +9,7 @@ import 'local_nlp_service.dart';
 /// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
   static const String _modelFileName = 'gemma3-1b-it-int4.task';
-  static const String _modelUrl = 'https://ghproxy.net/https://github.com/laljith-gamer/NurseAssist_AI/releases/download/model-v1.0.0/gemma3-1b-it-int4.task';
+  static const String _modelUrl = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task?download=true';
 
   bool _isInitializing = false;
   bool _isReady = false;
