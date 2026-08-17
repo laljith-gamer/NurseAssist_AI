@@ -143,7 +143,7 @@ class LlmService extends ChangeNotifier {
         preferredBackend: preferCpu
             ? PreferredBackend.cpu
             : PreferredBackend.gpu,
-        maxTokens: 800,
+        maxTokens: 3000,
       );
 
       _chat = await _model!.createChat(
@@ -152,7 +152,7 @@ class LlmService extends ChangeNotifier {
         temperature: 0.2,
         topK: 40,
         topP: 0.8,
-        tokenBuffer: 1024,
+        tokenBuffer: 2048,
       );
 
       _isReady = true;
