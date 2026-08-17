@@ -44,19 +44,24 @@ class LlmService extends ChangeNotifier {
 
     try {
       final docDir = await getApplicationDocumentsDirectory();
-      final tempFile = File('${docDir.path}/$_modelFileName.tmp');
+      final finalFile = File('${docDir.path}/$_modelFileName');
 
       // Manual retry logic bypassing iOS background task (flutter_downloader) which fails on proxies
       int retries = 3;
       bool downloaded = false;
       while (retries > 0 && !downloaded) {
         try {
+          // If we are retrying or starting fresh, clean up any partial file
+          if (await finalFile.exists()) {
+            await finalFile.delete();
+          }
+
           final request = http.Request('GET', Uri.parse(_modelUrl));
           final response = await http.Client().send(request);
           if (response.statusCode >= 200 && response.statusCode < 300) {
             final contentLength = response.contentLength ?? 1;
             int bytesReceived = 0;
-            final sink = tempFile.openWrite();
+            final sink = finalFile.openWrite();
             await response.stream.map((chunk) {
               bytesReceived += chunk.length;
               final progress = ((bytesReceived / contentLength) * 100).toInt();
@@ -82,12 +87,12 @@ class LlmService extends ChangeNotifier {
       _statusMessage = 'Installing model locally...';
       notifyListeners();
 
+      // fromFile does NOT copy the file, it permanently links to the external file.
+      // So we must pass the finalFile path and must NEVER delete it.
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.task,
-      ).fromFile(tempFile.path).install();
-      
-      if (await tempFile.exists()) await tempFile.delete();
+      ).fromFile(finalFile.path).install();
 
       _statusMessage = 'Model downloaded successfully. Verifying...';
       notifyListeners();
