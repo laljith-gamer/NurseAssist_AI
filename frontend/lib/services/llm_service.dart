@@ -151,14 +151,14 @@ class LlmService extends ChangeNotifier {
         // and avoids calling installModel() repeatedly, which causes a silent native crash on iOS.
         _model = await FlutterGemma.getActiveModel(
           preferredBackend: preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
-          maxTokens: 256, // Prevents KV cache overflow (task model ekv is 1280)
+          maxTokens: 1024,
         );
       } catch (e) {
         // Not active yet. Let's ensure it's installed and try again.
         await _ensureModelInstalled();
         _model = await FlutterGemma.getActiveModel(
           preferredBackend: preferCpu ? PreferredBackend.cpu : PreferredBackend.gpu,
-          maxTokens: 256, // Prevents KV cache overflow
+          maxTokens: 1024,
         );
       }
 
@@ -168,7 +168,7 @@ class LlmService extends ChangeNotifier {
         temperature: 0.2,
         topK: 40,
         topP: 0.8,
-        tokenBuffer: 256,
+        tokenBuffer: 512,
       );
 
       _isReady = true;
@@ -218,6 +218,14 @@ class LlmService extends ChangeNotifier {
     return cleaned;
   }
 
+  Future<void> _prepareSingleTurn() async {
+    if (_chat == null) throw StateError('Chat session not available.');
+    // The prior implementation kept every unrelated patient interaction in a
+    // single model context. Small on-device models then echoed or repeated old
+    // turns. Resetting is cheap because the loaded model weights stay in RAM.
+    await _chat!.clearHistory();
+  }
+
   /// Interprets free-form nursing language into a structured JSON command.
   /// The JSON always includes a `reply` field — the model's natural-language
   /// response shown to the nurse. Clinical writes also include structured data
@@ -243,6 +251,7 @@ class LlmService extends ChangeNotifier {
 
     _isGenerating = true;
     try {
+      await _prepareSingleTurn();
       final now = DateTime.now().toIso8601String();
       final hints = observationHints.isEmpty
           ? 'none'
