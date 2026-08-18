@@ -142,8 +142,9 @@ class LlmService extends ChangeNotifier {
 
     try {
       // CPU gives a reliable on-device initialization path on Android and avoids Metal/OpenCL GPU crashes
-      // on newer Android chip architectures until MediaPipe patches them. iOS ONLY supports Metal/GPU.
-      final preferCpu = !kIsWeb && (defaultTargetPlatform == TargetPlatform.android);
+      // We also use it on iOS now because the GPU backend duplicates the 550MB model in RAM (Metal buffers),
+      // instantly causing a 1.4GB Jetsam OOM kill on free Apple Developer profiles. CPU avoids this entirely.
+      final preferCpu = true;
 
       try {
         // Attempt to load the active model first. This bypasses the buggy isModelInstalled check
