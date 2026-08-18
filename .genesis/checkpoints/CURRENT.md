@@ -13,6 +13,7 @@
 - notes: The app is now capable of properly sending every prompt to the AI and extracting data deterministically instead of falling back to the regex parser due to session crashes.
 Bug Fixed: LlmService missing asset crash
 Bug Fixed: Added custom Dart regex parser to extract JSON objects (from first `{` to last `}`) to handle conversational padding from the AI.
+Bug Fixed: Removed legacy `v: 1` version check from parser that was rejecting valid JSON from the new 2B LLM.
 Bug Fixed: HF 401 Unauthorized download error by switching to public mirror (ungated HF bucket)
 Bug Fixed: LLM context limit crash fixed by clearing history before queries
 Bug Fixed: Fallback parser erroneously interpreting nursing notes with 'yesterday' as trend queries.

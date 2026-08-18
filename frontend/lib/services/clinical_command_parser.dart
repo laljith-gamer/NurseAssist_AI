@@ -127,7 +127,7 @@ class ClinicalCommandParser {
       }
     }
 
-    if (data == null || data['v'] != 1) {
+    if (data == null || !data.containsKey('action')) {
       debugPrint(
         'ClinicalCommandParser: Failed to parse valid JSON from AI payload. Attempting regex fallback extraction...',
       );
