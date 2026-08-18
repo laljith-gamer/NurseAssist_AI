@@ -19,6 +19,7 @@ enum ClinicalAction {
   cancel,
   conversation,
   unknown,
+  custom,
 }
 
 class ParsedVital {
@@ -74,6 +75,7 @@ class ClinicalCommand {
     this.noteText,
     this.recordedAt,
     this.replyText,
+    this.customActionName,
   });
 
   final ClinicalAction action;
@@ -85,6 +87,9 @@ class ClinicalCommand {
 
   /// The AI model's natural language response for the nurse to read.
   final String? replyText;
+
+  /// Stores the dynamic string if the AI generated an unknown action type.
+  final String? customActionName;
 }
 
 class ClinicalCommandParser {
@@ -387,7 +392,11 @@ class ClinicalCommandParser {
           replyText: replyText,
         );
       default:
-        return null;
+        return ClinicalCommand(
+          action: ClinicalAction.custom,
+          customActionName: data['action'].toString(),
+          replyText: replyText,
+        );
     }
   }
 

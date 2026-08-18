@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../providers/patient_provider.dart';
+import '../models/types.dart';
 
 class ChatHistoryDrawer extends StatefulWidget {
   final VoidCallback onChatSelected;
@@ -184,6 +185,9 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer>
               await provider.selectChatSession(session);
               widget.onChatSelected();
             },
+            onLongPress: () {
+              _renameChatSession(context, session);
+            },
           ),
         );
       },
@@ -217,17 +221,19 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer>
           ),
         ),
         const SizedBox(height: 16),
-        _buildMemorySection('Recent Vitals', vitals),
         const SizedBox(height: 16),
-        _buildMemorySection('Recent Notes', notes),
+        _buildMemorySection('Recent Vitals', vitals, 'vitals'),
         const SizedBox(height: 16),
-        _buildMemorySection('Medications', meds),
+        _buildMemorySection('Recent Notes', notes, 'notes'),
+        const SizedBox(height: 16),
+        _buildMemorySection('Medications', meds, 'medications'),
       ],
     ).animate().fade(duration: 400.ms);
   }
 
-  Widget _buildMemorySection(String title, List<Map<String, dynamic>> items) {
+  Widget _buildMemorySection(String title, List<Map<String, dynamic>> items, String type) {
     if (items.isEmpty) return const SizedBox.shrink();
+    final provider = context.read<PatientProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,18 +243,67 @@ class _ChatHistoryDrawerState extends State<ChatHistoryDrawer>
         ),
         const SizedBox(height: 8),
         ...items.map(
-          (item) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                item.entries.map((e) => '${e.key}: ${e.value}').join(' | '),
-                style: const TextStyle(fontSize: 12),
+          (item) => GestureDetector(
+            onLongPress: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Delete Record?'),
+                  content: const Text('Are you sure you want to delete this record from the patient\'s memory?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        if (type == 'vitals') await provider.deleteVital(item['id'].toString());
+                        else if (type == 'medications') await provider.deleteMedication(item['id'].toString());
+                        else if (type == 'notes') await provider.deleteNursingNote(item['id'].toString());
+                        _loadMemory();
+                      },
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  item.entries.where((e) => e.key != 'id' && e.key != 'patient_id').map((e) => '${e.key}: ${e.value}').join(' | '),
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  void _renameChatSession(BuildContext context, ChatSession session) {
+    final controller = TextEditingController(text: session.title);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Chat'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Chat Title'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              context.read<PatientProvider>().renameChatSession(session, controller.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 }

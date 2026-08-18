@@ -200,6 +200,7 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
+        onLongPress: () => _showPatientOptionsDialog(context),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
@@ -263,6 +264,96 @@ class _AnimatedPatientListItemState extends State<_AnimatedPatientListItem> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showPatientOptionsDialog(BuildContext context) {
+    final provider = context.read<PatientProvider>();
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Edit Patient Name'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _editPatientDialog(context, provider);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Discharge / Delete Patient', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmDeletePatient(context, provider);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _editPatientDialog(BuildContext context, PatientProvider provider) {
+    final nameController = TextEditingController(text: widget.patient.name);
+    final diagnosisController = TextEditingController(text: widget.patient.primaryDiagnosis);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Patient Info'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Patient Name'),
+              ),
+              TextField(
+                controller: diagnosisController,
+                decoration: const InputDecoration(labelText: 'Primary Diagnosis / Notes'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                provider.updatePatient(nameController.text, diagnosisController.text);
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeletePatient(BuildContext context, PatientProvider provider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Patient?'),
+        content: const Text('Are you sure you want to completely remove this patient and all of their chat history, vitals, and notes? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              provider.deletePatient();
+              Navigator.pop(context);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }

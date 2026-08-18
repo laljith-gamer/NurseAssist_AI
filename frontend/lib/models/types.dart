@@ -78,6 +78,55 @@ class Patient {
       updatedAt: json['updated_at']?.toString() ?? '',
     );
   }
+
+  Patient copyWith({
+    String? id,
+    String? mrn,
+    String? firstName,
+    String? lastName,
+    String? name,
+    String? dateOfBirth,
+    int? age,
+    String? gender,
+    String? room,
+    String? bed,
+    String? admissionDate,
+    String? dischargeDate,
+    String? primaryDiagnosis,
+    String? allergies,
+    String? codeStatus,
+    String? insurance,
+    String? emergencyContactName,
+    String? emergencyContactPhone,
+    bool? isActive,
+    String? createdAt,
+    String? updatedAt,
+    String? details,
+  }) {
+    return Patient(
+      id: id ?? this.id,
+      mrn: mrn ?? this.mrn,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      name: name ?? this.name,
+      dateOfBirth: dateOfBirth ?? this.dateOfBirth,
+      age: age ?? this.age,
+      gender: gender ?? this.gender,
+      room: room ?? this.room,
+      bed: bed ?? this.bed,
+      admissionDate: admissionDate ?? this.admissionDate,
+      dischargeDate: dischargeDate ?? this.dischargeDate,
+      primaryDiagnosis: primaryDiagnosis ?? this.primaryDiagnosis,
+      allergies: allergies ?? this.allergies,
+      codeStatus: codeStatus ?? this.codeStatus,
+      insurance: insurance ?? this.insurance,
+      emergencyContactName: emergencyContactName ?? this.emergencyContactName,
+      emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
 
 class VitalDelta {

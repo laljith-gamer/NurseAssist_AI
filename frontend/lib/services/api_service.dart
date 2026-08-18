@@ -310,6 +310,29 @@ class ApiService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> getMedicationRecords(String patientId) =>
+      _db.getMedicationRecords(patientId);
+
+  Future<void> deletePatient(String patientId) async {
+    await _db.deletePatient(patientId);
+  }
+
+  Future<void> updatePatient(String patientId, String name, String details) async {
+    await _db.updatePatient(patientId, name, details);
+  }
+
+  Future<void> deleteVital(String id) async {
+    await _db.deleteVital(id);
+  }
+
+  Future<void> deleteMedication(String id) async {
+    await _db.deleteMedication(id);
+  }
+
+  Future<void> deleteNursingNote(String id) async {
+    await _db.deleteNursingNote(id);
+  }
+
   Future<List<Map<String, dynamic>>> getChatSessions(String patientId) =>
       _db.getChatSessions(patientId);
 

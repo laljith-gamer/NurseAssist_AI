@@ -288,6 +288,61 @@ class PatientProvider with ChangeNotifier {
     }
   }
 
+  Future<void> renameChatSession(ChatSession session, String newTitle) async {
+    await _apiService.updateChatSessionTitle(session.id, newTitle);
+    final index = _chatSessions.indexWhere((s) => s.id == session.id);
+    if (index != -1) {
+      _chatSessions[index] = _chatSessions[index].copyWith(title: newTitle);
+      if (_activeChatSession?.id == session.id) {
+        _activeChatSession = _chatSessions[index];
+      }
+      notifyListeners();
+    }
+  }
+
+  Future<void> updatePatient(String name, String details) async {
+    final patient = _selectedPatient;
+    if (patient == null) return;
+    await _apiService.updatePatient(patient.id, name, details);
+    final index = _patients.indexWhere((p) => p.id == patient.id);
+    if (index != -1) {
+      _patients[index] = _patients[index].copyWith(name: name, details: details);
+      _selectedPatient = _patients[index];
+      notifyListeners();
+    }
+  }
+
+  Future<void> deletePatient() async {
+    final patient = _selectedPatient;
+    if (patient == null) return;
+    await _apiService.deletePatient(patient.id);
+    _patients.removeWhere((p) => p.id == patient.id);
+    if (_patients.isNotEmpty) {
+      await selectPatient(_patients.first);
+    } else {
+      _selectedPatient = null;
+      _chatSessions.clear();
+      _activeChatSession = null;
+      _messages.clear();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteVital(String id) async {
+    await _apiService.deleteVital(id);
+    await _refreshMetrics(_selectedPatient!.id);
+  }
+
+  Future<void> deleteMedication(String id) async {
+    await _apiService.deleteMedication(id);
+    await _refreshMetrics(_selectedPatient!.id);
+  }
+
+  Future<void> deleteNursingNote(String id) async {
+    await _apiService.deleteNursingNote(id);
+    await _refreshMetrics(_selectedPatient!.id);
+  }
+
   Future<Map<String, List<Map<String, dynamic>>>> getPatientMemoryRaw() async {
     final patient = _selectedPatient;
     if (patient == null) return {};
@@ -527,6 +582,27 @@ class PatientProvider with ChangeNotifier {
             ? command.replyText!
             : 'I\'m not sure how to help with that. Try asking me to record vitals, medications, or notes.';
 
+      case ClinicalAction.custom:
+        final customCommand = ClinicalCommand(
+          action: ClinicalAction.recordNote, // Map custom intents to notes locally
+          customActionName: command.customActionName,
+          noteCategory: 'custom_intent_log',
+          noteText: 'Custom Action Extracted: ${command.customActionName}\nOriginal text: $message',
+          recordedAt: command.recordedAt,
+          replyText: command.replyText,
+        );
+        _stageProposal(
+          patient: patient,
+          command: customCommand,
+          sourceText: message,
+          interpreter: interpreter,
+          chatSessionId: chatSessionId,
+        );
+        await confirmPendingProposal(autoCommit: true);
+        return (command.replyText?.isNotEmpty == true)
+            ? command.replyText!
+            : 'Recorded custom interaction for ${patient.name}.';
+
       case ClinicalAction.unknown:
         if (command.replyText?.isNotEmpty == true) return command.replyText!;
         final hintNames = observationHints.map((h) => h.name).join(', ');
@@ -741,7 +817,7 @@ class PatientProvider with ChangeNotifier {
       try {
         await _apiService.submitIntentFeedback(
           proposal.sourceText,
-          proposal.command.action.name,
+          proposal.command.customActionName ?? proposal.command.action.name,
         );
       } catch (e) {
         debugPrint('Failed to submit positive reinforcement: $e');

@@ -424,6 +424,53 @@ class LocalDbService {
     return rows.map((row) => Map<String, dynamic>.from(row)).toList();
   }
 
+  // Deletion Operations ----------------------------------------------------
+
+  Future<void> deletePatient(String patientId) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('patients_cache', where: 'id = ?', whereArgs: [patientId]);
+      await txn.delete('chat_sessions', where: 'patient_id = ?', whereArgs: [patientId]);
+      await txn.delete('chat_messages', where: 'patient_id = ?', whereArgs: [patientId]);
+      await txn.delete('vital_readings', where: 'patient_id = ?', whereArgs: [patientId]);
+      await txn.delete('medication_records', where: 'patient_id = ?', whereArgs: [patientId]);
+      await txn.delete('nursing_notes', where: 'patient_id = ?', whereArgs: [patientId]);
+    });
+  }
+
+  Future<void> updatePatient(String patientId, String name, String details) async {
+    final db = await database;
+    final rows = await db.query('patients_cache', where: 'id = ?', whereArgs: [patientId]);
+    if (rows.isNotEmpty) {
+      final dataStr = rows.first['data'] as String;
+      final Map<String, dynamic> data = jsonDecode(dataStr);
+      data['name'] = name;
+      data['primary_diagnosis'] = details; // use primary_diagnosis as details
+      
+      await db.update(
+        'patients_cache',
+        {'data': jsonEncode(data), 'updated_at': DateTime.now().millisecondsSinceEpoch},
+        where: 'id = ?',
+        whereArgs: [patientId],
+      );
+    }
+  }
+
+  Future<void> deleteVital(String id) async {
+    final db = await database;
+    await db.delete('vital_readings', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteMedication(String id) async {
+    final db = await database;
+    await db.delete('medication_records', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteNursingNote(String id) async {
+    final db = await database;
+    await db.delete('nursing_notes', where: 'id = ?', whereArgs: [id]);
+  }
+
   // Chat history -----------------------------------------------------------
 
   Future<Map<String, dynamic>> createChatSession({
