@@ -209,14 +209,20 @@ class ClinicalCommandParser {
             _addIfInRange(vitals, 'weight', value, 'kg', 2, 500);
           }
         }
-        return vitals.isEmpty
-            ? _fallbackExtractVitals(raw)
-            : ClinicalCommand(
-                action: ClinicalAction.recordVitals,
-                vitals: vitals,
-                recordedAt: recordedAt,
-                replyText: replyText,
-              );
+        if (vitals.isEmpty) {
+          final fallback = _fallbackExtractVitals(raw);
+          if (fallback != null) return fallback;
+          return ClinicalCommand(
+            action: ClinicalAction.conversation,
+            replyText: 'I could not record that because the vital signs provided (e.g. SpO2 120%) are out of valid physiological ranges.',
+          );
+        }
+        return ClinicalCommand(
+          action: ClinicalAction.recordVitals,
+          vitals: vitals,
+          recordedAt: recordedAt,
+          replyText: replyText,
+        );
       case 'record_medication':
         final med = data['medication'];
         if (med is! Map) return null;
