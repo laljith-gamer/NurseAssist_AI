@@ -426,31 +426,24 @@ class PatientProvider with ChangeNotifier {
         await _apiService.getPatientMemory(patient.id),
       );
 
-      // Deterministic Intent Classification + Data Extraction
-      var command = ClinicalCommandParser.parse(message);
-
-      if (_cancelRequested) return;
-
-      // LLM Conversational Generation
-      final conversationalReply = await _llmService?.generateConversationalReply(
+      // 1. Ask LLM to classify intent, extract data, and generate reply
+      final aiJsonResponse = await _llmService?.generateClinicalCommand(
         message,
-        command,
         observationHints: observationHints,
         patientMemory: patientMemory,
       );
 
       if (_cancelRequested) return;
 
-      // Attach the LLM response to the command
-      if (conversationalReply != null && conversationalReply.isNotEmpty) {
-        command = ClinicalCommand(
-          action: command.action,
-          replyText: conversationalReply,
-          vitals: command.vitals,
-          medications: command.medications,
-          noteCategory: command.noteCategory,
-          noteText: command.noteText,
-        );
+      // 2. Parse LLM JSON
+      var command = aiJsonResponse != null && aiJsonResponse.isNotEmpty
+          ? ClinicalCommandParser.fromAiJson(aiJsonResponse)
+          : null;
+
+      // 3. Regex Fallback if LLM fails
+      if (command == null) {
+        debugPrint('LLM failed to output valid JSON. Falling back to deterministic parser.');
+        command = ClinicalCommandParser.parse(message);
       }
 
       final response = await _respondToCommand(
@@ -458,7 +451,7 @@ class PatientProvider with ChangeNotifier {
         message: message,
         command: command,
         observationHints: observationHints,
-        interpreter: conversationalReply != null ? 'on-device AI conversational' : 'offline fallback',
+        interpreter: aiJsonResponse != null ? 'on-device AI conversational' : 'offline fallback',
         chatSessionId: chatSession.id,
         patientMemory: patientMemory,
       );

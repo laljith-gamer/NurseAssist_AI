@@ -226,11 +226,10 @@ class LlmService extends ChangeNotifier {
     await _chat!.clearHistory();
   }
 
-  /// Generates a natural-language conversational response to the user's input,
-  /// based on the deterministic action already parsed by the NLP layer.
-  Future<String?> generateConversationalReply(
-    String message,
-    ClinicalCommand parsedCommand, {
+  /// Generates a structured JSON response identifying the intent, extracting data,
+  /// and providing a conversational reply based on the user's input.
+  Future<String?> generateClinicalCommand(
+    String message, {
     List<ClinicalObservation> observationHints = const [],
     String patientMemory = '',
   }) async {
@@ -254,25 +253,35 @@ class LlmService extends ChangeNotifier {
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
           
-      final actionName = parsedCommand.action.toString().split('.').last;
       final schema =
-          '''You are NurseAssist AI, a helpful and professional clinical charting assistant.
-The system has deterministically classified the user's intent as: '$actionName'.
+          '''You are NurseAssist AI, a clinical charting assistant.
+Classify the user's intent, extract clinical data, and generate a conversational reply.
+OUTPUT STRICTLY IN JSON FORMAT ONLY. No markdown, no explanations outside the JSON object.
 
-Your ONLY job is to write a short, friendly, and dynamic confirmation message back to the nurse.
-- Acknowledge what was done based on the intent.
-- Do NOT output JSON.
-- Do NOT hallucinate new vitals or medications.
-- If the action is "summarize", write a comprehensive nursing note organizing their input chronologically.
+Valid actions: record_vitals, query_vitals, query_trends, record_medication, record_note, batch_record, query_medications, summarize, greeting, help, cancel, conversation, unknown.
+
+Format:
+{
+  "action": "...",
+  "reply": "Short, friendly confirmation message. If action is 'summarize', write the comprehensive chronological summary note here.",
+  "vitals": [
+    {"type": "blood_pressure", "systolic": 120, "diastolic": 80, "unit": "mmHg"},
+    {"type": "heart_rate", "value": 75, "unit": "bpm"}
+  ],
+  "medications": [
+    {"name": "Tylenol", "dose": "500 mg", "route": "PO", "status": "administered"}
+  ],
+  "note": "Text of the nursing observation if action is record_note",
+  "category": "nursing_observation"
+}
 
 Patient context (do not repeat as new facts):
 $patientMemory
 Observation hints: $hints
 
 User Input: "$message"
-Action Taken: "$actionName"
 
-Write your response below:''';
+Write your JSON response below:''';
 
       await _chat!.clearHistory();
       await _chat!.addQueryChunk(Message(text: schema, isUser: true));

@@ -36,6 +36,7 @@ Any AI agent working on this repository MUST abide by these architectural constr
 
 ## Recent Activity Log
 
+- 2026-08-18: Restored the on-device LLM as the primary intent classifier and data extractor. The app now asks the LLM to output structured JSON with the identified intent, parsed vitals/meds, and conversational reply. The deterministic regex parser is retained strictly as an offline fallback.
 - 2026-08-18: Upgraded to Gemma 2 2B INT8 via ungated HF bucket to fix HTTP 401 errors, forced CPU backend on iOS to prevent Jetsam OOM limits, updated LLM prompts with few-shot examples, and downgraded permission_handler to 11.3.1.
 - 2026-08-18: Fixed a silent crash on iOS during 'Linking AI' phase by refactoring `_initializeEngine` to bypass a bug in `flutter_gemma`'s `isModelInstalled` method.
 - 2026-08-17: Fixed a critical bug in the fallback regex parser where the word "yesterday" incorrectly triggered a trend query instead of capturing the nursing note. Updated the Gemma prompt structure to prevent confusion for the underlying chat model when formatted as completion text.
