@@ -415,6 +415,7 @@ class PatientProvider with ChangeNotifier {
     required String chatSessionId,
     required String patientMemory,
   }) async {
+    switch (command.action) {
       case ClinicalAction.recordVitals:
         _stageProposal(
           patient: patient,
