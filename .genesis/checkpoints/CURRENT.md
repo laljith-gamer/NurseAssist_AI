@@ -14,6 +14,9 @@
 Bug Fixed: LlmService missing asset crash
 Bug Fixed: Added custom Dart regex parser to extract JSON objects (from first `{` to last `}`) to handle conversational padding from the AI.
 Bug Fixed: Removed legacy `v: 1` version check from parser that was rejecting valid JSON from the new 2B LLM.
+Feature: Added summarize and query intents to LLM schema to prevent hallucinated vital recordings.
+Feature: Fully autonomous charting. Bypassed the "Review before charting" confirmation card so valid commands immediately commit to the DB.
+Feature: Upgraded ML pipeline capacity (1M parameters, 1024 TF-IDF dimensions) for richer reinforcement learning.
 Bug Fixed: HF 401 Unauthorized download error by switching to public mirror (ungated HF bucket)
 Bug Fixed: LLM context limit crash fixed by clearing history before queries
 Bug Fixed: Fallback parser erroneously interpreting nursing notes with 'yesterday' as trend queries.

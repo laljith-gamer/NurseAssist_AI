@@ -91,14 +91,14 @@ class Settings(BaseSettings):
     GITHUB_WORKFLOW_ID: str = "train-models.yml"
 
     # ── MLP Training Configuration ──────────────────────────────────────
-    MLP_HIDDEN_SIZES: tuple = (256, 128)
+    MLP_HIDDEN_SIZES: tuple = (512, 256, 128)
     MLP_MAX_ITER: int = 80
     MLP_LEARNING_RATE: float = 0.001
     MLP_BATCH_SIZE: int = 32
     MLP_ALPHA: float = 0.01
-    MLP_PARAM_BUDGET: int = 350_000
-    TFIDF_MAX_FEATURES: int = 512
-    PCA_COMPONENTS: int = 512
+    MLP_PARAM_BUDGET: int = 1_000_000
+    TFIDF_MAX_FEATURES: int = 1024
+    PCA_COMPONENTS: int = 1024
     SEED: int = 42
 
     # ── Knowledge Distillation ──────────────────────────────────────────

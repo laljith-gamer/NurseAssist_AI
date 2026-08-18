@@ -257,23 +257,25 @@ class LlmService extends ChangeNotifier {
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
       final schema =
-          '''You are NurseAssist AI, a helpful on-device nursing assistant.
-CRITICAL: Respond ONLY with a valid JSON object. Do not add conversational text outside the JSON.
-Your JSON must contain "action", "reply", and relevant data arrays.
+          '''Return only valid JSON. No extra text.
 
-Actions: "record_vitals", "record_medication", "record_note", "conversation"
+Format:
+{"action":"ACTION","reply":"A friendly, dynamic, and conversational response using the provided Patient context. Never use generic or hardcoded text."}
 
-Example 1:
-User: "BP 140/90 and HR 85"
-{"action":"record_vitals","reply":"I have recorded a BP of 140/90 and heart rate of 85.","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
+Actions: record_vitals, record_medication, record_note, summarize, query_vitals, query_medications, query_trends, conversation
 
-Example 2:
-User: "Patient complains of severe headache since 7pm"
-{"action":"record_note","reply":"I've noted the severe headache.","note":"Patient complains of severe headache since 7pm.","category":"nursing_observation"}
+Examples:
+Input: "BP 140/90 HR 85"
+{"action":"record_vitals","reply":"I've successfully recorded the blood pressure of 140/90 and a heart rate of 85 bpm for the patient.","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
 
-Example 3:
-User: "Hi, how are you?"
-{"action":"conversation","reply":"Hello! I'm here to help you chart today."}''';
+Input: "Summarize his vitals"
+{"action":"summarize","reply":"Looking at the recent records, the patient's blood pressure is 120/80 with a stable heart rate of 72 bpm. Everything seems to be within normal limits."}
+
+Input: "Patient has headache"
+{"action":"record_note","reply":"Got it, I've documented that the patient is currently experiencing a headache.","note":"Patient has headache.","category":"nursing_observation"}
+
+Input: "Hello"
+{"action":"conversation","reply":"Hi there! I'm ready to help you document or review the patient's clinical chart. What do you need?"}''';
 
       final fullPrompt =
           '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nPlease process this nursing input:\n"$message"';

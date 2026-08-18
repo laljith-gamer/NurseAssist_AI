@@ -415,7 +415,6 @@ class PatientProvider with ChangeNotifier {
     required String chatSessionId,
     required String patientMemory,
   }) async {
-    switch (command.action) {
       case ClinicalAction.recordVitals:
         _stageProposal(
           patient: patient,
@@ -424,9 +423,10 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
+        await confirmPendingProposal(autoCommit: true);
         return (command.replyText?.isNotEmpty == true)
             ? command.replyText!
-            : 'I prepared a vital-sign entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+            : 'Recorded vitals for ${patient.name}.';
 
       case ClinicalAction.queryVitals:
         if (command.replyText != null && command.replyText!.isNotEmpty) {
@@ -448,9 +448,10 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
+        await confirmPendingProposal(autoCommit: true);
         return (command.replyText?.isNotEmpty == true)
             ? command.replyText!
-            : 'I prepared a medication documentation entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+            : 'Recorded medication for ${patient.name}.';
 
       case ClinicalAction.recordNote:
         _stageProposal(
@@ -460,9 +461,10 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
+        await confirmPendingProposal(autoCommit: true);
         return (command.replyText?.isNotEmpty == true)
             ? command.replyText!
-            : 'I prepared this nursing observation for ${patient.name}. Review it below, then tap Confirm & Save.';
+            : 'Recorded nursing observation for ${patient.name}.';
 
       case ClinicalAction.batchRecord:
         _stageProposal(
@@ -472,9 +474,10 @@ class PatientProvider with ChangeNotifier {
           interpreter: interpreter,
           chatSessionId: chatSessionId,
         );
+        await confirmPendingProposal(autoCommit: true);
         return (command.replyText?.isNotEmpty == true)
             ? command.replyText!
-            : 'I prepared a batch charting entry for ${patient.name}. Review it below, then tap Confirm & Save.';
+            : 'Recorded batch entry for ${patient.name}.';
 
       case ClinicalAction.queryMedications:
         if (command.replyText != null && command.replyText!.isNotEmpty) {
@@ -594,9 +597,9 @@ class PatientProvider with ChangeNotifier {
     );
   }
 
-  Future<void> confirmPendingProposal() async {
+  Future<void> confirmPendingProposal({bool autoCommit = false}) async {
     final proposal = _pendingProposal;
-    if (proposal == null || _isResponding) return;
+    if (proposal == null || (_isResponding && !autoCommit)) return;
     if (_selectedPatient?.id != proposal.patientId) {
       _pendingProposal = null;
       notifyListeners();
@@ -623,11 +626,13 @@ class PatientProvider with ChangeNotifier {
             recordedAt: proposal.command.recordedAt,
           );
           await _refreshMetrics(proposal.patientId);
-          await _appendAssistantMessage(
-            proposal.patientId,
-            'Saved for ${proposal.patientName}: ${proposal.summary}.',
-            sessionId: proposal.chatSessionId,
-          );
+          if (!autoCommit) {
+            await _appendAssistantMessage(
+              proposal.patientId,
+              'Saved for ${proposal.patientName}: ${proposal.summary}.',
+              sessionId: proposal.chatSessionId,
+            );
+          }
           break;
         case ClinicalAction.recordMedication:
           for (final med in proposal.command.medications) {
@@ -641,11 +646,13 @@ class PatientProvider with ChangeNotifier {
               recordedAt: proposal.command.recordedAt,
             );
           }
-          await _appendAssistantMessage(
-            proposal.patientId,
-            'Saved medication documentation for ${proposal.patientName}: ${proposal.summary}.',
-            sessionId: proposal.chatSessionId,
-          );
+          if (!autoCommit) {
+            await _appendAssistantMessage(
+              proposal.patientId,
+              'Saved medication documentation for ${proposal.patientName}: ${proposal.summary}.',
+              sessionId: proposal.chatSessionId,
+            );
+          }
           break;
         case ClinicalAction.recordNote:
           await _apiService.recordNursingNote(
@@ -655,11 +662,13 @@ class PatientProvider with ChangeNotifier {
             category: proposal.command.noteCategory ?? 'nursing_observation',
             recordedAt: proposal.command.recordedAt,
           );
-          await _appendAssistantMessage(
-            proposal.patientId,
-            'Saved nursing observation for ${proposal.patientName}.',
-            sessionId: proposal.chatSessionId,
-          );
+          if (!autoCommit) {
+            await _appendAssistantMessage(
+              proposal.patientId,
+              'Saved nursing observation for ${proposal.patientName}.',
+              sessionId: proposal.chatSessionId,
+            );
+          }
           break;
         case ClinicalAction.batchRecord:
           if (proposal.command.vitals.isNotEmpty) {
@@ -700,11 +709,13 @@ class PatientProvider with ChangeNotifier {
               recordedAt: proposal.command.recordedAt,
             );
           }
-          await _appendAssistantMessage(
-            proposal.patientId,
-            'Saved batch records for ${proposal.patientName}: ${proposal.summary}.',
-            sessionId: proposal.chatSessionId,
-          );
+          if (!autoCommit) {
+            await _appendAssistantMessage(
+              proposal.patientId,
+              'Saved batch records for ${proposal.patientName}: ${proposal.summary}.',
+              sessionId: proposal.chatSessionId,
+            );
+          }
           break;
         default:
           throw StateError('Only charting proposals can be confirmed.');
