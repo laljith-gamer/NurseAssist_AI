@@ -13,7 +13,7 @@ import 'local_nlp_service.dart';
 class LlmService extends ChangeNotifier {
   static const String _modelFileName = 'Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task';
   static const String _modelId = 'gemma2-2b-it-q8';
-  static const String _modelUrl = 'https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task';
+  static const String _modelUrl = 'https://huggingface.co/buckets/lalvictory/Gemma2-2B-IT-bucket/resolve/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task?download=true';
 
   bool _isInitializing = false;
   bool _isReady = false;
