@@ -112,6 +112,30 @@ class TelemetryService {
     } catch (e) {
       debugPrint('TelemetryService: failed to sync to relay: $e');
     }
+
+    // Also sync the action_queue (reinforcement learning feedback)
+    final actions = await _db.getActionQueue();
+    if (actions.isNotEmpty) {
+      try {
+        final response = await http.post(
+          Uri.parse(_relayUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_appSecret',
+          },
+          body: jsonEncode({'actions': actions, 'app_version': '1.0.0'}),
+        );
+        if (response.statusCode == 200 || response.statusCode == 202) {
+          for (final action in actions) {
+            await _db.removeActionFromQueue(action['id'] as int);
+          }
+        } else {
+          debugPrint('TelemetryService: action relay returned ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('TelemetryService: failed to sync actions to relay: $e');
+      }
+    }
   }
 
   /// Queue a telemetry event if sharing is enabled. The transcript is redacted
