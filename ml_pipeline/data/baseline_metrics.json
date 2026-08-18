@@ -1,16 +1,15 @@
 {
   "held_out_test": {
-    "micro_f1": 0.5831,
-    "macro_f1": 0.4543,
-    "samples_f1": 0.545
+    "micro_f1": 0.6539,
+    "macro_f1": 0.6143,
+    "samples_f1": 0.6764
   },
   "validation": {
-    "micro_f1": 0.3653,
-    "macro_f1": 0.1815,
-    "samples_f1": 0.3106
+    "micro_f1": 0.1953,
+    "macro_f1": 0.0478,
+    "samples_f1": 0.1794
   },
   "selected_labels": [
-    "Activity level",
     "Agitated",
     "Alert and oriented",
     "Ambulating",
@@ -22,37 +21,43 @@
     "Dehydration",
     "Dizziness",
     "Edema",
+    "Emesis color",
     "Fall risk assessment",
-    "Fall risk identification",
     "Fever",
     "Headache",
     "Hypertension",
     "Insomnia",
     "Mean arterial pressure (MAP) unit",
     "Mobility",
+    "Motor strength",
     "Nausea",
     "No pain",
     "Oxygen delivery device",
     "Oxygen flow rate",
     "Oxygen flow rate unit",
+    "Oxygen saturation",
     "Pain",
+    "Pain severity",
+    "Patient safety",
     "Pitting edema",
     "Respiratory Distress",
+    "Respiratory interventions",
     "Sensory perception",
     "Severe pain",
     "Sleeping",
+    "Suprapubic tenderness",
     "Tachycardia",
+    "Urinary symptoms",
     "Urine appearance",
     "Urine odor",
-    "Use of accessory muscles",
     "Vomiting",
     "Weakness"
   ],
   "training_features": {
-    "tfidf_dims": 512,
+    "tfidf_dims": 1024,
     "bioclinicalbert": false,
     "distilled_from_bert": true,
-    "pca_components": 512
+    "pca_components": 1024
   },
-  "source_model_version": "nurse-nlp-v49"
+  "source_model_version": "nurse-nlp-v56"
 }
