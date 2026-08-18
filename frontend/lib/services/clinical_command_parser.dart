@@ -107,10 +107,14 @@ class ClinicalCommandParser {
     }
     trimmed = trimmed.trim();
 
+    // Custom Regex parser to extract the JSON object (first { to last })
+    // This saves responses where the model added a friendly conversational prefix/suffix.
+    final jsonObjectRegex = RegExp(r'\{[\s\S]*\}');
+    final jsonMatch = jsonObjectRegex.firstMatch(trimmed);
+
     for (final candidate in [
       trimmed,
-      if (trimmed.contains('{') && trimmed.contains('}'))
-        trimmed.substring(trimmed.indexOf('{'), trimmed.lastIndexOf('}') + 1),
+      if (jsonMatch != null) jsonMatch.group(0)!,
     ]) {
       try {
         final decoded = jsonDecode(candidate);

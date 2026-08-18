@@ -3,8 +3,8 @@
 - target: Fix rigid regex constraints, improve on-device Gemma comprehension, add offline terminology
 - iteration: 12
 - last_gate: User feedback requesting natural conversation, offline dictionary, and ML reinforcement
-- last_action: "Fixed silent native crash on iOS by bypassing a bug in flutter_gemma's isModelInstalled check which caused repetitive installations."
-- next_action: "Wait for further user feedback or proceed to release APK (M7)."
+- last_action: "Upgraded to Gemma 2 2B INT8, forced CPU on iOS to fix OOM, fixed HF 401 via ungated bucket, and improved LLM prompts."
+- next_action: "Wait for further user feedback, test the new model stability, or proceed to release APK (M7)."
 - model: `compact_clinical_mlp` (Sklearn MLP, compact (256,128) TF-IDF student distilled from BERT teacher)
 - sidecar_data: Microsoft SYNUR + MTSamples with negation-aware weak supervision
 - tokens_used: not tracked
@@ -12,10 +12,12 @@
 
 - notes: The app is now capable of properly sending every prompt to the AI and extracting data deterministically instead of falling back to the regex parser due to session crashes.
 Bug Fixed: LlmService missing asset crash
-Bug Fixed: HF 401 Unauthorized download error by switching to public mirror
+Bug Fixed: Added custom Dart regex parser to extract JSON objects (from first `{` to last `}`) to handle conversational padding from the AI.
+Bug Fixed: HF 401 Unauthorized download error by switching to public mirror (ungated HF bucket)
 Bug Fixed: LLM context limit crash fixed by clearing history before queries
 Bug Fixed: Fallback parser erroneously interpreting nursing notes with 'yesterday' as trend queries.
 Bug Fixed: Silent native crash on iOS due to `isModelInstalled` bug causing repeated `installModel()` calls. Fixed by attempting to load the active model directly.
+Bug Fixed: iOS Jetsam OOM crashes fixed by forcing CPU backend instead of Metal GPU.
 
 ## Bug Fixes
  - Added a retry loop to the on-device AI generation to prevent it from immediately falling back to regex when it produces invalid JSON.

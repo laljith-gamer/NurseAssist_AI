@@ -7,7 +7,7 @@
 | M1 | Replace synthetic NLP templates with reproducible nursing data and integrate BioClinicalBERT. | Train, hold out test split, export parity test, and quality gate pass (TF-IDF + BERT). | Completed pipeline validation, tests, and TF-IDF parity metrics |
 | M2 | Make on-device Gemma replies single-turn, concise, and safe. | Test several unrelated prompts in one session; no prompt/history echo or repetition. | Needs device verification |
 | M3 | Require nurse review before every AI-proposed chart write. | Stage a vital and medication proposal; confirm and discard each on device. | Implemented; needs device verification |
-| M4 | Fetch Gemma 3 1B IT directly from Hugging Face. | Clean install launches and initializes the model directly from Hugging Face CDN. | Implemented |
+| M4 | Fetch Gemma 2 2B INT8 directly from Hugging Face. | Clean install launches and initializes the model directly from Hugging Face CDN. | Implemented |
 | M5 | Keep chats, nursing observations, and AI context strictly patient-scoped. | Switch between two patients; verify New chat, History, notes, and model context never cross patients. | Implemented; needs device verification |
 | M6 | Improve UI aesthetics to a professional standard and upgrade all Flutter dependencies to recent versions. | Visual review of glassmorphism/typography and `flutter pub outdated` shows no major stragglers. | Completed |
 | M7 | Build and install a release APK. | `flutter build apk --release` from `frontend`. | Pending |
@@ -25,6 +25,7 @@ Each patient has isolated chat sessions, history, nursing observations, and a bo
 
 ## Recent Activity Log
 
+- 2026-08-18: Upgraded to Gemma 2 2B INT8 via ungated HF bucket to fix HTTP 401 errors, forced CPU backend on iOS to prevent Jetsam OOM limits, updated LLM prompts with few-shot examples, and downgraded permission_handler to 11.3.1.
 - 2026-08-18: Fixed a silent crash on iOS during 'Linking AI' phase by refactoring `_initializeEngine` to bypass a bug in `flutter_gemma`'s `isModelInstalled` method.
 - 2026-08-17: Fixed a critical bug in the fallback regex parser where the word "yesterday" incorrectly triggered a trend query instead of capturing the nursing note. Updated the Gemma prompt structure to prevent confusion for the underlying chat model when formatted as completion text.
 - 2026-08-16: Fixed on-device LLM session management by replacing `session.getResponse()` with `clearHistory()` and `generateChatResponse()` to prevent context limit errors and ensure deterministic data extraction from AI prompts.
