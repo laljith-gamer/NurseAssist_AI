@@ -91,7 +91,7 @@ class Settings(BaseSettings):
     GITHUB_WORKFLOW_ID: str = "train-models.yml"
 
     # ── MLP Training Configuration ──────────────────────────────────────
-    MLP_HIDDEN_SIZES: tuple = (512, 256, 128)
+    MLP_HIDDEN_SIZES: tuple = (512, 256)
     MLP_MAX_ITER: int = 80
     MLP_LEARNING_RATE: float = 0.001
     MLP_BATCH_SIZE: int = 32
