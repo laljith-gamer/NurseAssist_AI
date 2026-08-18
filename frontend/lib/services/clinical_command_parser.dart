@@ -214,7 +214,7 @@ class ClinicalCommandParser {
           if (fallback != null) return fallback;
           return ClinicalCommand(
             action: ClinicalAction.conversation,
-            replyText: 'I could not record that because the vital signs provided (e.g. SpO2 120%) are out of valid physiological ranges.',
+            replyText: 'I could not record that because the provided vital signs are out of valid physiological ranges.',
           );
         }
         return ClinicalCommand(
