@@ -190,6 +190,7 @@ class _ChatInterfaceState extends State<ChatInterface> {
                             ),
                           ),
                         ),
+                        ),
                         if (!isUser && msg.observationHints.isNotEmpty)
                           _buildObservationChips(msg),
                         if (!isUser) // Add 'Correct AI' button for assistant messages
