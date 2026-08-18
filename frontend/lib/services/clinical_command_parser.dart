@@ -224,18 +224,31 @@ class ClinicalCommandParser {
           replyText: replyText,
         );
       case 'record_medication':
-        final med = data['medication'];
-        if (med is! Map) return null;
-        return ClinicalCommand(
-          action: ClinicalAction.recordMedication,
-          medications: [
-            ParsedMedication(
+        final medsRaw = data['medication'] ?? data['medications'];
+        final medications = <ParsedMedication>[];
+        if (medsRaw is Map) {
+          medications.add(ParsedMedication(
+            name: medsRaw['name']?.toString() ?? 'unknown',
+            dose: medsRaw['dose']?.toString(),
+            route: medsRaw['route']?.toString(),
+            status: medsRaw['status']?.toString() ?? 'administered',
+          ));
+        } else if (medsRaw is List) {
+          for (final item in medsRaw) {
+            if (item is! Map) continue;
+            final med = Map<String, dynamic>.from(item);
+            medications.add(ParsedMedication(
               name: med['name']?.toString() ?? 'unknown',
               dose: med['dose']?.toString(),
               route: med['route']?.toString(),
               status: med['status']?.toString() ?? 'administered',
-            ),
-          ],
+            ));
+          }
+        }
+        if (medications.isEmpty) return null;
+        return ClinicalCommand(
+          action: ClinicalAction.recordMedication,
+          medications: medications,
           recordedAt: recordedAt,
           replyText: replyText,
         );

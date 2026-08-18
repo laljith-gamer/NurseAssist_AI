@@ -11,6 +11,7 @@ import '../services/model_manager.dart';
 import '../services/telemetry_service.dart';
 import '../models/types.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 class ChatInterface extends StatefulWidget {
   const ChatInterface({super.key});
@@ -158,17 +159,30 @@ class _ChatInterfaceState extends State<ChatInterface> {
                                         width: 1,
                                       ),
                               ),
-                              child: Text(
-                                msg.content,
-                                style: TextStyle(
-                                  color: isUser
-                                      ? Colors.white
-                                      : Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge?.color,
-                                  height: 1.5,
-                                  fontSize: 15,
-                                  letterSpacing: 0.2,
+                              child: MarkdownBody(
+                                data: msg.content,
+                                styleSheet: MarkdownStyleSheet(
+                                  p: TextStyle(
+                                    color: isUser
+                                        ? Colors.white
+                                        : Theme.of(
+                                            context,
+                                          ).textTheme.bodyLarge?.color,
+                                    height: 1.5,
+                                    fontSize: 15,
+                                    letterSpacing: 0.2,
+                                  ),
+                                  strong: TextStyle(
+                                    color: isUser
+                                        ? Colors.white
+                                        : Theme.of(context).textTheme.bodyLarge?.color,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  listBullet: TextStyle(
+                                    color: isUser
+                                        ? Colors.white
+                                        : Theme.of(context).textTheme.bodyLarge?.color,
+                                  ),
                                 ),
                               ),
                             ),
