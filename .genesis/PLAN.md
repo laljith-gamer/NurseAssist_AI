@@ -23,6 +23,17 @@ Each patient has isolated chat sessions, history, nursing observations, and a bo
 
 **Continuous Adaptation**: The ML pipeline is driven by implicit reinforcement learning. A weekly GitHub Actions workflow checks a telemetry drop folder for implicit usage signals (AI proposals that nurses actually confirmed). If new usage data exists, it ingests it into the training dataset and retrains the model.
 
+## System Constraints & Agent Memory (CRITICAL FOR FUTURE AGENTS)
+
+Any AI agent working on this repository MUST abide by these architectural constraints learned from previous debugging sessions:
+
+1. **ML Pipeline vs. Dart Engine Contract**: The `train_observation_model.py` offline MLP model MUST have exactly **2 hidden layers** (e.g., `(512, 256)`). The Dart mobile inference engine (`local_nlp_service.dart`) manually parses exactly `layer1_weight` and `layer2_weight` to perform matrix multiplication. Adding a 3rd hidden layer will pass Python tests but fail `verify_mobile_export.py` and crash the Flutter client. To increase model capacity, increase the *width* (e.g., 512) and `MLP_PARAM_BUDGET` (1.5M), not the depth.
+2. **On-Device LLM (Gemma) Backend**: You MUST force `PreferredBackend.cpu` for iOS in `llm_service.dart`. Using the Metal/GPU backend duplicates the 550MB model in memory, which instantly triggers a 1.4GB Jetsam OOM kill on free Apple Developer profiles.
+3. **Avoid `isModelInstalled`**: Do not use `FlutterGemma.isModelInstalled` on iOS. It contains a native bug that silently crashes the app. Attempt to load the active model directly inside `_initializeEngine` instead.
+4. **LLM Output Extraction**: Always extract the JSON output using a custom regex (from the first `{` to the last `}`) because the Gemma 2 2B model often wraps its JSON in conversational markdown or pleasantries.
+5. **Dynamic Prompts & Physiological Ranges**: The parser strictly drops vitals outside human physiological ranges (e.g., SpO2 > 100%). When writing fallback messages, NEVER hardcode examples (like "e.g. SpO2 120%"). The LLM's `replyText` field is instructed to be dynamic, friendly, and context-aware—do not feed it literal hardcoded strings in few-shot examples.
+6. **Autonomous Charting Mode**: The frontend operates in fully autonomous mode. `_stageProposal()` has been bypassed via `confirmPendingProposal(autoCommit: true)` in `patient_provider.dart`. Do not re-introduce the manual "Confirm & Save" review card.
+
 ## Recent Activity Log
 
 - 2026-08-18: Upgraded to Gemma 2 2B INT8 via ungated HF bucket to fix HTTP 401 errors, forced CPU backend on iOS to prevent Jetsam OOM limits, updated LLM prompts with few-shot examples, and downgraded permission_handler to 11.3.1.

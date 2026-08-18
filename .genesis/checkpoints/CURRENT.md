@@ -16,12 +16,15 @@ Bug Fixed: Added custom Dart regex parser to extract JSON objects (from first `{
 Bug Fixed: Removed legacy `v: 1` version check from parser that was rejecting valid JSON from the new 2B LLM.
 Feature: Added summarize and query intents to LLM schema to prevent hallucinated vital recordings.
 Feature: Fully autonomous charting. Bypassed the "Review before charting" confirmation card so valid commands immediately commit to the DB.
-Feature: Upgraded ML pipeline capacity (1M parameters, 1024 TF-IDF dimensions) for richer reinforcement learning.
+Feature: Upgraded ML pipeline capacity (1.5M parameters, 1024 TF-IDF dimensions) for richer reinforcement learning.
+Bug Fixed: Fixed verify_mobile_export.py assertion error by maintaining the strict 2-hidden-layer contract `(512, 256)` required by the Dart ML inference engine.
+Bug Fixed: Fixed LLM retry loop caused by valid JSON being fully rejected when vitals were out of bounds (e.g. SpO2 120%). Added a dynamic conversational warning fallback instead of `null`.
 Bug Fixed: HF 401 Unauthorized download error by switching to public mirror (ungated HF bucket)
 Bug Fixed: LLM context limit crash fixed by clearing history before queries
 Bug Fixed: Fallback parser erroneously interpreting nursing notes with 'yesterday' as trend queries.
 Bug Fixed: Silent native crash on iOS due to `isModelInstalled` bug causing repeated `installModel()` calls. Fixed by attempting to load the active model directly.
 Bug Fixed: iOS Jetsam OOM crashes fixed by forcing CPU backend instead of Metal GPU.
+Doc Updated: Added a persistent "System Constraints & Agent Memory" section to `PLAN.md` to prevent future agents from violating architectural boundaries.
 
 ## Bug Fixes
  - Added a retry loop to the on-device AI generation to prevent it from immediately falling back to regex when it produces invalid JSON.
