@@ -96,7 +96,7 @@ class Settings(BaseSettings):
     MLP_LEARNING_RATE: float = 0.001
     MLP_BATCH_SIZE: int = 32
     MLP_ALPHA: float = 0.01
-    MLP_PARAM_BUDGET: int = 1_000_000
+    MLP_PARAM_BUDGET: int = 1_500_000
     TFIDF_MAX_FEATURES: int = 1024
     PCA_COMPONENTS: int = 1024
     SEED: int = 42
