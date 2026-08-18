@@ -273,6 +273,21 @@ class PatientProvider with ChangeNotifier {
     }
   }
 
+  Future<void> deleteMessage(ChatMessage msg) async {
+    await _apiService.deleteChatMessage(msg.id);
+    _messages.removeWhere((m) => m.id == msg.id);
+    notifyListeners();
+  }
+
+  Future<void> updateMessageText(ChatMessage msg, String newText) async {
+    await _apiService.updateChatMessageText(msg.id, newText);
+    final index = _messages.indexWhere((m) => m.id == msg.id);
+    if (index != -1) {
+      _messages[index] = _messages[index].copyWith(content: newText);
+      notifyListeners();
+    }
+  }
+
   Future<Map<String, List<Map<String, dynamic>>>> getPatientMemoryRaw() async {
     final patient = _selectedPatient;
     if (patient == null) return {};

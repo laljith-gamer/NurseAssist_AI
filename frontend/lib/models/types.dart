@@ -179,6 +179,28 @@ class ChatMessage {
     this.type,
     this.observationHints = const [],
   });
+
+  ChatMessage copyWith({
+    String? id,
+    String? sessionId,
+    String? role,
+    String? content,
+    DateTime? timestamp,
+    Map<String, dynamic>? data,
+    String? type,
+    List<String>? observationHints,
+  }) {
+    return ChatMessage(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      role: role ?? this.role,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      data: data ?? this.data,
+      type: type ?? this.type,
+      observationHints: observationHints ?? this.observationHints,
+    );
+  }
 }
 
 class ChatSession {

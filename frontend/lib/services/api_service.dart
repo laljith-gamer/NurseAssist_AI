@@ -313,11 +313,21 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getChatSessions(String patientId) =>
       _db.getChatSessions(patientId);
 
-  Future<void> updateChatSessionTitle(String id, String title) =>
-      _db.updateChatSessionTitle(id, title);
+  Future<void> updateChatSessionTitle(String sessionId, String title) async {
+    await _db.updateChatSessionTitle(sessionId, title);
+  }
 
-  Future<void> deleteChatSession(String sessionId) =>
-      _db.deleteChatSession(sessionId);
+  Future<void> deleteChatSession(String sessionId) async {
+    await _db.deleteChatSession(sessionId);
+  }
+
+  Future<void> deleteChatMessage(String messageId) async {
+    await _db.deleteChatMessage(messageId);
+  }
+
+  Future<void> updateChatMessageText(String messageId, String newContent) async {
+    await _db.updateChatMessageText(messageId, newContent);
+  }
 
   Future<List<Map<String, dynamic>>> getChatHistory(
     String patientId, {

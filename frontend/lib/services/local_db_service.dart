@@ -485,6 +485,25 @@ class LocalDbService {
     });
   }
 
+  Future<void> deleteChatMessage(String messageId) async {
+    final db = await database;
+    await db.delete(
+      'chat_messages',
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  Future<void> updateChatMessageText(String messageId, String newContent) async {
+    final db = await database;
+    await db.update(
+      'chat_messages',
+      {'content': newContent},
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
+  }
+
   Future<void> saveChatMessage({
     required String id,
     required String patientId,

@@ -103,7 +103,9 @@ class _ChatInterfaceState extends State<ChatInterface> {
                           ? CrossAxisAlignment.end
                           : CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
+                        GestureDetector(
+                          onLongPress: () => _showMessageOptions(context, msg),
+                          child: ClipRRect(
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(24),
                             topRight: const Radius.circular(24),
@@ -830,6 +832,78 @@ class _ChatInterfaceState extends State<ChatInterface> {
                 }
               },
               child: const Text('Save Local Feedback'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showMessageOptions(BuildContext context, ChatMessage msg) {
+    final isUser = msg.role == 'user';
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isUser)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Edit message text'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _editMessageText(context, msg);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Delete message', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.read<PatientProvider>().deleteMessage(msg);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _editMessageText(BuildContext context, ChatMessage msg) {
+    final editController = TextEditingController(text: msg.content);
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Message'),
+          content: TextField(
+            controller: editController,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Edit your message...',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final newText = editController.text.trim();
+                if (newText.isNotEmpty) {
+                  context.read<PatientProvider>().updateMessageText(msg, newText);
+                }
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
             ),
           ],
         );
