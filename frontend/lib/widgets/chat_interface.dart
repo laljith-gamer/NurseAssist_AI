@@ -313,10 +313,27 @@ class _ChatInterfaceState extends State<ChatInterface> {
 
   Widget _buildChatSessionBar(PatientProvider provider) {
     final session = provider.activeChatSession;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : Colors.black.withValues(alpha: 0.05),
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           const Icon(Icons.forum_outlined, size: 18),
@@ -532,18 +549,22 @@ class _ChatInterfaceState extends State<ChatInterface> {
                           padding: const EdgeInsets.only(right: 4.0),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.blueAccent,
+                              color: context.watch<PatientProvider>().isResponding
+                                  ? Colors.red.withValues(alpha: 0.8)
+                                  : Theme.of(context).colorScheme.primary,
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
-                              icon: const Icon(
-                                Icons.arrow_upward,
+                              icon: Icon(
+                                context.watch<PatientProvider>().isResponding
+                                    ? Icons.stop_rounded
+                                    : Icons.arrow_upward,
                                 color: Colors.white,
                                 size: 20,
                               ),
                               onPressed:
                                   context.watch<PatientProvider>().isResponding
-                                  ? null
+                                  ? context.read<PatientProvider>().cancelResponding
                                   : _sendMessage,
                             ),
                           ),

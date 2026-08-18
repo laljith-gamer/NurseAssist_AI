@@ -365,6 +365,14 @@ class PatientProvider with ChangeNotifier {
     );
   }
 
+  bool _cancelRequested = false;
+
+  void cancelResponding() {
+    _cancelRequested = true;
+    _isResponding = false;
+    notifyListeners();
+  }
+
   Future<void> sendMessage(String message) async {
     final patient = _selectedPatient;
     final chatSession = _activeChatSession;
@@ -374,6 +382,7 @@ class PatientProvider with ChangeNotifier {
     // an unsigned proposal instead of leaving a stale chart action available.
     _pendingProposal = null;
     _isResponding = true;
+    _cancelRequested = false;
     final userMessage = ChatMessage(
       id: 'user_${DateTime.now().microsecondsSinceEpoch}',
       sessionId: chatSession.id,
@@ -412,27 +421,49 @@ class PatientProvider with ChangeNotifier {
         }
       }
 
-      // Gemma is the primary interpreter. The smaller model contributes only
-      // data-driven nursing context; it cannot create a command or a value.
       final observationHints = _nlpService.predictClinicalObservations(message);
       final patientMemory = _formatPatientMemory(
         await _apiService.getPatientMemory(patient.id),
       );
-      final aiCommand = await _llmService?.interpretClinicalCommand(
+
+      // Deterministic Intent Classification + Data Extraction
+      var command = ClinicalCommandParser.parse(message);
+
+      if (_cancelRequested) return;
+
+      // LLM Conversational Generation
+      final conversationalReply = await _llmService?.generateConversationalReply(
         message,
+        command,
         observationHints: observationHints,
         patientMemory: patientMemory,
       );
-      final command = aiCommand ?? ClinicalCommandParser.parse(message);
+
+      if (_cancelRequested) return;
+
+      // Attach the LLM response to the command
+      if (conversationalReply != null && conversationalReply.isNotEmpty) {
+        command = ClinicalCommand(
+          action: command.action,
+          replyText: conversationalReply,
+          vitals: command.vitals,
+          medications: command.medications,
+          noteCategory: command.noteCategory,
+          noteText: command.noteText,
+        );
+      }
+
       final response = await _respondToCommand(
         patient: patient,
         message: message,
         command: command,
         observationHints: observationHints,
-        interpreter: aiCommand == null ? 'offline fallback' : 'on-device AI',
+        interpreter: conversationalReply != null ? 'on-device AI conversational' : 'offline fallback',
         chatSessionId: chatSession.id,
         patientMemory: patientMemory,
       );
+
+      if (_cancelRequested) return;
 
       // Do not write a response against a patient that was switched during a
       // slow optional LLM call. The action itself is already tied to the
@@ -458,6 +489,7 @@ class PatientProvider with ChangeNotifier {
         createdAt: assistantMessage.timestamp,
       );
     } catch (error, stackTrace) {
+      if (_cancelRequested) return;
       debugPrint('Error processing command: $error\n$stackTrace');
       final errorMessage = ChatMessage(
         id: 'assistant_${DateTime.now().microsecondsSinceEpoch}',
@@ -472,6 +504,7 @@ class PatientProvider with ChangeNotifier {
       }
     } finally {
       _isResponding = false;
+      _cancelRequested = false;
       notifyListeners();
     }
   }

@@ -226,12 +226,11 @@ class LlmService extends ChangeNotifier {
     await _chat!.clearHistory();
   }
 
-  /// Interprets free-form nursing language into a structured JSON command.
-  /// The JSON always includes a `reply` field — the model's natural-language
-  /// response shown to the nurse. Clinical writes also include structured data
-  /// for validation. This is a SINGLE inference call.
-  Future<ClinicalCommand?> interpretClinicalCommand(
-    String message, {
+  /// Generates a natural-language conversational response to the user's input,
+  /// based on the deterministic action already parsed by the NLP layer.
+  Future<String?> generateConversationalReply(
+    String message,
+    ClinicalCommand parsedCommand, {
     List<ClinicalObservation> observationHints = const [],
     String patientMemory = '',
   }) async {
@@ -243,8 +242,7 @@ class LlmService extends ChangeNotifier {
 
     if (!_isReady || _chat == null) return null;
 
-    // Wait if the engine is currently generating, so we NEVER drop a prompt
-    // and always pass it to the AI.
+    // Wait if the engine is currently generating
     while (_isGenerating) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -252,66 +250,40 @@ class LlmService extends ChangeNotifier {
     _isGenerating = true;
     try {
       await _prepareSingleTurn();
-      final now = DateTime.now().toIso8601String();
       final hints = observationHints.isEmpty
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
+          
+      final actionName = parsedCommand.action.toString().split('.').last;
       final schema =
-          '''Return only valid JSON. No extra text.
+          '''You are NurseAssist AI, a helpful and professional clinical charting assistant.
+The system has deterministically classified the user's intent as: '$actionName'.
 
-Format:
-{"action":"ACTION","reply":"A friendly, dynamic, and conversational response using the provided Patient context. Never use generic or hardcoded text."}
+Your ONLY job is to write a short, friendly, and dynamic confirmation message back to the nurse.
+- Acknowledge what was done based on the intent.
+- Do NOT output JSON.
+- Do NOT hallucinate new vitals or medications.
+- If the action is "summarize", write a comprehensive nursing note organizing their input chronologically.
 
-Actions: record_vitals, record_medication, record_note, summarize, query_vitals, query_medications, query_trends, conversation
+Patient context (do not repeat as new facts):
+$patientMemory
+Observation hints: $hints
 
-Examples:
-Input: "BP 140/90 HR 85"
-{"action":"record_vitals","reply":"I've successfully recorded the blood pressure of 140/90 and a heart rate of 85 bpm for the patient.","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
+User Input: "$message"
+Action Taken: "$actionName"
 
-Input: "Summarize his vitals"
-{"action":"summarize","reply":"Looking at the recent records, the patient's blood pressure is 120/80 with a stable heart rate of 72 bpm. Everything seems to be within normal limits."}
+Write your response below:''';
 
-Input: "Patient has headache"
-{"action":"record_note","reply":"Got it, I've documented that the patient is currently experiencing a headache.","note":"Patient has headache.","category":"nursing_observation"}
-
-Input: "Hello"
-{"action":"conversation","reply":"Hi there! I'm ready to help you document or review the patient's clinical chart. What do you need?"}''';
-
-      final fullPrompt =
-          '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nPlease process this nursing input:\n"$message"';
-      String currentPrompt = fullPrompt;
-      int maxRetries = 3;
-      String lastRawText = '';
+      await _chat!.clearHistory();
+      await _chat!.addQueryChunk(Message(text: schema, isUser: true));
       
-      for (int attempt = 0; attempt < maxRetries; attempt++) {
-        // Clear history to avoid unbounded session growth and ensure fresh context per command
-        await _chat!.clearHistory();
-        await _chat!.addQueryChunk(Message(text: currentPrompt, isUser: true));
-        
-        final response = await _chat!.generateChatResponse();
-        final rawText = response is TextResponse ? response.token : response.toString();
-        lastRawText = rawText;
-        
-        final parsedCommand = ClinicalCommandParser.fromAiJson(_sanitizeResponse(rawText));
-        if (parsedCommand != null) {
-          return parsedCommand;
-        }
-        
-        // If we failed to parse valid JSON, try again with a stronger warning
-        debugPrint('LLM retry attempt ${attempt + 1}: Failed to parse valid JSON. Retrying...');
-        currentPrompt = '$fullPrompt\n\nCRITICAL ERROR: Your previous response was not a valid JSON object. You MUST reply ONLY with a valid JSON object matching the schema. Do not include any other text.';
-      }
+      final response = await _chat!.generateChatResponse();
+      final rawText = response is TextResponse ? response.token : response.toString();
       
-      return ClinicalCommand(
-        action: ClinicalAction.conversation,
-        replyText: '[DEVELOPER AI RAW LOG - JSON FAILED]:\n$lastRawText',
-      );
+      return _sanitizeResponse(rawText);
     } catch (error, stackTrace) {
-      debugPrint('AI clinical interpretation error: $error\nStackTrace: $stackTrace');
-      return ClinicalCommand(
-        action: ClinicalAction.conversation,
-        replyText: '[DEVELOPER AI RAW LOG - EXCEPTION]:\n$error',
-      );
+      debugPrint('AI conversational generation error: $error\nStackTrace: $stackTrace');
+      return '[DEVELOPER AI RAW LOG - EXCEPTION]:\n$error';
     } finally {
       _isGenerating = false;
     }
