@@ -11,9 +11,9 @@ import 'local_nlp_service.dart';
 /// Wraps flutter_gemma for on-device LLM inference.
 /// Downloads the Gemma 3 1B IT model from GitHub Releases on first launch.
 class LlmService extends ChangeNotifier {
-  static const String _modelFileName = 'gemma3-1b-it-int4.task';
-  static const String _modelId = 'gemma3-1b-it-int4';
-  static const String _modelUrl = 'https://ghproxy.net/https://github.com/laljith-gamer/NurseAssist_AI/releases/download/model-v1.0.0/gemma3-1b-it-int4.task';
+  static const String _modelFileName = 'Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task';
+  static const String _modelId = 'gemma2-2b-it-q8';
+  static const String _modelUrl = 'https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task';
 
   bool _isInitializing = false;
   bool _isReady = false;
@@ -47,7 +47,7 @@ class LlmService extends ChangeNotifier {
         final fileSize = await finalFile.length();
         final sizeMb = (fileSize / (1024 * 1024)).toStringAsFixed(1);
         
-        if (fileSize < 500 * 1024 * 1024) {
+        if (fileSize < 2500 * 1024 * 1024) {
           debugPrint('Corrupted LLM file detected (size: $fileSize). Deleting...');
           _statusMessage = 'Corrupted file detected ($sizeMb MB). Deleting...';
           notifyListeners();
@@ -173,7 +173,7 @@ class LlmService extends ChangeNotifier {
 
       _isReady = true;
       _statusMessage = 'AI Ready';
-      debugPrint('LLM engine initialized successfully (Gemma 3 1B IT).');
+      debugPrint('LLM engine initialized successfully (Gemma 2 2B IT).');
     } catch (e, stack) {
       debugPrint('LLM engine init error: $e\n$stack');
       _errorMessage = 'Engine init failed: ${e.toString()}';

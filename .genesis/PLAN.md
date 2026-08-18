@@ -15,8 +15,7 @@
 
 ## Current decision
 
-The Gemma 3 1B IT model (~550 MB) is downloaded on-demand directly from Hugging Face's global CDN on the first launch for vastly improved speed compared to GitHub Releases.
-This keeps the core APK extremely lightweight (< 50MB) while providing the full offline AI capability once initialized.
+The Gemma 2 2B IT model (2.71 GB) is downloaded on-demand directly from Hugging Face's global CDN on the first launch. The larger 2B model provides significantly better instruction-following and natural language generation compared to 1B models, eliminating JSON parsing failures and providing a user-friendly conversational experience. This keeps the core APK extremely lightweight (< 50MB) while providing the full offline AI capability once initialized.
 
 The separate small nursing-observation model uses knowledge distillation: a BERT+TF-IDF teacher trains in CI, then a TF-IDF-only student is distilled for mobile export. This ensures perfect train/serve parity while retaining BERT's clinical intelligence. The student model uses a fixed-size MLP with a < 750K parameter budget. It is advisory context only; the nurse must confirm all chart proposals before they are stored.
 

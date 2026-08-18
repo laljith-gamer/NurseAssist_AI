@@ -11,12 +11,12 @@
 | Location | Required value |
 |---|---|
 | App model filename | `Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` |
-| App model URL | Public Hugging Face bucket direct-file URL |
+| App model URL | `https://huggingface.co/litert-community/Gemma2-2B-IT/resolve/main/Gemma2-2B-IT_multi-prefill-seq_q8_ekv1280.task` |
 | Model type | MediaPipe/LiteRT `.task`, Gemma 2 INT8, 2.71 GB |
 
-The app downloads directly from the bucket because the model exceeds GitHub's
-2 GiB per-release-asset limit. A `Not Found` response means the bucket file
-name or direct-file URL is wrong.
+The app downloads directly from Hugging Face because the model exceeds GitHub's
+2 GB per-release-asset limit. Hugging Face provides free CDN hosting with no size
+limits. A `Not Found` response means the file name or direct-file URL is wrong.
 
 ## Known quality guardrails
 
