@@ -257,13 +257,23 @@ class LlmService extends ChangeNotifier {
           ? 'none'
           : observationHints.map((hint) => hint.name).join(', ');
       final schema =
-          '''You are NurseAssist AI running on-device. Help nurses chart data and answer questions.
-CRITICAL: RESPONSE MUST BE A SINGLE JSON OBJECT STARTING WITH { AND ENDING WITH }. NO OTHER TEXT.
-Schema: {"v":1,"action":"record_vitals|record_medication|record_note|conversation|query_vitals","reply":"friendly response","timestamp":"$now",...}
-Vitals: "vitals":[{"type":"blood_pressure","systolic":N,"diastolic":N},{"type":"heart_rate|temperature|spo2|respiratory_rate","value":N,"unit":"..."}]
-Meds: "medication":{"name":"...","dose":"...","route":"...","status":"..."}
-Note: "note":"...","category":"..."
-Example: {"v":1,"action":"record_vitals","reply":"Got it.","timestamp":"$now","vitals":[{"type":"heart_rate","value":85,"unit":"bpm"}]}''';
+          '''You are NurseAssist AI, a helpful on-device nursing assistant.
+CRITICAL: Respond ONLY with a valid JSON object. Do not add conversational text outside the JSON.
+Your JSON must contain "action", "reply", and relevant data arrays.
+
+Actions: "record_vitals", "record_medication", "record_note", "conversation"
+
+Example 1:
+User: "BP 140/90 and HR 85"
+{"action":"record_vitals","reply":"I have recorded a BP of 140/90 and heart rate of 85.","vitals":[{"type":"blood_pressure","systolic":140,"diastolic":90},{"type":"heart_rate","value":85,"unit":"bpm"}]}
+
+Example 2:
+User: "Patient complains of severe headache since 7pm"
+{"action":"record_note","reply":"I've noted the severe headache.","note":"Patient complains of severe headache since 7pm.","category":"nursing_observation"}
+
+Example 3:
+User: "Hi, how are you?"
+{"action":"conversation","reply":"Hello! I'm here to help you chart today."}''';
 
       final fullPrompt =
           '$schema\n\nPatient context (do not repeat as new facts):\n$patientMemory\nObservation hints: $hints\n\nPlease process this nursing input:\n"$message"';
