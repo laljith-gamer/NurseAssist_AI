@@ -47,5 +47,6 @@ jobs:
             git commit -m "Archive telemetry older than 90 days"
           fi
           
-          # Push the merge commit and any archiving commits
+          git diff --cached --quiet || git commit -m "chore: archive telemetry intake for batch processing"
+          git pull --rebase origin main
           git push origin main
