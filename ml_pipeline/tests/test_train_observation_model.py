@@ -40,15 +40,16 @@ def test_select_labels():
         _select_labels(["A", "B"], targets, probabilities, threshold)
 
 def test_verify_parameter_budget():
+    from config import settings
     class MockMLP:
         def __init__(self, size):
             self.coefs_ = [np.ones(size)]
             self.intercepts_ = [np.ones(1)]
             
-    under_budget = MockMLP(349999)
+    under_budget = MockMLP(settings.MLP_PARAM_BUDGET - 1)
     _verify_parameter_budget(under_budget)
     
-    over_budget = MockMLP(350000)
+    over_budget = MockMLP(settings.MLP_PARAM_BUDGET)
     with pytest.raises(ValueError, match="Model exceeds"):
         _verify_parameter_budget(over_budget)
 
